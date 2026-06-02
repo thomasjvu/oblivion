@@ -1,0 +1,24 @@
+{
+  "deploymentVersion": "0.1.0-local",
+  "sourceCommit": "local-development",
+  "expectedComposeHash": "replace-with-phala-compose-hash",
+  "attestationReportUrl": null,
+  "phalaVerifierEndpoint": "https://cloud-api.phala.com/api/v1/attestations/verify",
+  "maxAttestationAgeSeconds": 600,
+  "imageDigests": [
+    "ghcr.io/thomasjvu/oblivion@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  ],
+  "attestationReport": {
+    "status": "not-configured",
+    "provider": "phala",
+    "reportFetchedAt": null,
+    "report": null
+  },
+  "verificationInstructions": [
+    "Fetch the live Phala attestation report for this CVM.",
+    "Verify the Intel TDX quote with Phala's attestation verifier.",
+    "Confirm the reported compose hash equals expectedComposeHash.",
+    "Confirm every container image is pinned by sha256 digest.",
+    "Confirm image provenance matches the public source repository."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "oblivion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Trust-minimized supervised online identity cleanup agent.",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "test": "tsx --test test/*.test.ts",
+    "verify": "npm test",
+    "design:lint": "npx @google/design.md lint DESIGN.md"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "tsx": "^4.22.4"
+  }
+}

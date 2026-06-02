@@ -1,0 +1,18 @@
+services:
+  oblivion:
+    # Replace with a public, digest-pinned production image.
+    # Example: ghcr.io/thomasjvu/oblivion@sha256:<64 hex chars>
+    image: ghcr.io/thomasjvu/oblivion@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - TRUST_CENTER_PATH=/app/config/trust-center.json
+      - PHALA_ATTESTATION_URL=${PHALA_ATTESTATION_URL}
+      - PHALA_VERIFIER_ENDPOINT=https://cloud-api.phala.com/api/v1/attestations/verify
+      - ATTESTATION_MAX_AGE_SECONDS=600
+      - OBLIVION_EXECUTOR_MODE=record-only
+      - OBLIVION_DISABLE_PLAINTEXT_LOGS=true
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
