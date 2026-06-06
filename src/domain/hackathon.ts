@@ -59,11 +59,29 @@ export function demoSmartAccountAddress(walletAddress: string): string {
   return `0x${createHash("sha256").update(walletAddress.toLowerCase()).digest("hex").slice(0, 40)}`;
 }
 
-export function createEip7702Authorization(caseId: string, walletAddress: string): PermissionGrant {
+export function resolveSmartAccountAddress(input: {
+  walletAddress: string;
+  mode?: "demo" | "live";
+  smartAccountAddress?: string;
+}): string {
+  if (input.mode === "live") {
+    if (input.smartAccountAddress?.startsWith("0x") && input.smartAccountAddress.length === 42) {
+      return input.smartAccountAddress;
+    }
+    return input.walletAddress;
+  }
+  return demoSmartAccountAddress(input.walletAddress);
+}
+
+export function createEip7702Authorization(
+  caseId: string,
+  walletAddress: string,
+  smartAccountAddress?: string
+): PermissionGrant {
   return createPermissionGrant({
     caseId,
     permissionType: "eip7702-authorization",
-    delegate: demoSmartAccountAddress(walletAddress),
+    delegate: smartAccountAddress ?? demoSmartAccountAddress(walletAddress),
     scope: ["upgrade-wallet-to-smart-account", "display-smart-account-session"],
     expiresAt: followUpDate(30),
     redelegatable: false,

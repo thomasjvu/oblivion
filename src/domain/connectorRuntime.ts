@@ -1,5 +1,6 @@
 import type { TrustCenterConfig } from "./attestation.js";
 import { buildAttestationProof } from "./attestation.js";
+import { isBrokerEmailConfigured, sendBrokerOptOutEmail } from "./brokerMailer.js";
 import { brokerCatalogEntryById } from "./brokerCatalog.js";
 import { connectorById } from "./connectors.js";
 import { createGoogleRemovalPlan, pwnedPasswordRangeUrl } from "./cleanup.js";
@@ -199,12 +200,41 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
   const reachability = probe.reachable
     ? `Official opt-out path reachable (${probe.status ?? "ok"}).`
     : "Official opt-out path could not be verified — open the catalog URL manually.";
+
+  if (broker.submissionMethod === "email" && broker.privacyEmail && isBrokerEmailConfigured() && emailLabel) {
+    const mailed = await sendBrokerOptOutEmail({
+      brokerLabel: broker.brokerLabel,
+      to: broker.privacyEmail,
+      replyTo: emailLabel,
+      profileUrl,
+      purpose: input.approval.purpose
+    });
+    const result = buildConnectorResult(input.action.caseId, connectorId, {
+      status: mailed.ok ? "recorded" : "failed",
+      sourceUrl: broker.privacyEmail,
+      officialRemovalPath: broker.officialOptOutUrl,
+      summary: mailed.ok
+        ? `Live ${broker.brokerLabel} opt-out email sent via ${mailed.provider}. ${reachability}`
+        : `Live ${broker.brokerLabel} email opt-out failed (${mailed.error ?? "unknown"}). Open the official path manually.`,
+      requiresUserHandoff: !mailed.ok
+    });
+    return {
+      result,
+      executionRecord: `live connector ${connectorId}: ${broker.brokerId} email opt-out ${result.status}.`,
+      transmitted: ["legal-name", "email", "profile-url"],
+      neverTransmit: ["ssn", "password", "government-id"]
+    };
+  }
+
   const result = buildConnectorResult(input.action.caseId, connectorId, {
     status: probe.reachable ? "recorded" : "ready",
     sourceUrl: destination,
     officialRemovalPath: broker.officialOptOutUrl,
     summary: `Live ${broker.brokerLabel} opt-out via ${broker.submissionMethod}. ${reachability}`,
-    requiresUserHandoff: broker.submissionMethod === "portal" || !probe.reachable
+    requiresUserHandoff:
+      broker.submissionMethod === "portal" ||
+      broker.submissionMethod === "email" ||
+      !probe.reachable
   });
   return {
     result,

@@ -21,6 +21,7 @@ import {
   createRelayerEvents,
   createTimelineEvent,
   demoSmartAccountAddress,
+  resolveSmartAccountAddress,
   pendingHackathonTracks,
   X402_PRODUCTS
 } from "../domain/hackathon.js";
@@ -40,6 +41,7 @@ import {
   discoverExposureCandidates,
   discoveryReadinessMessage
 } from "../domain/exposureDiscovery.js";
+import { isBrokerEmailConfigured } from "../domain/brokerMailer.js";
 import {
   isBraveSearchConfigured,
   isHibpConfigured,
@@ -151,6 +153,7 @@ interface SmartAccountBody {
   caseId: string;
   walletAddress: string;
   mode?: "demo" | "live";
+  smartAccountAddress?: string;
   txHash?: string;
   callsId?: string;
   chainId?: number;
@@ -744,6 +747,7 @@ export function createApp(options: AppOptions = {}) {
             oneShot: isOneShotLiveReady(),
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
+            brokerEmail: isBrokerEmailConfigured(),
             liveExecutor: isLiveExecutorEnabled(),
             phalaAttestation: Boolean(process.env.PHALA_ATTESTATION_URL)
           },
@@ -760,7 +764,12 @@ export function createApp(options: AppOptions = {}) {
           throw new HttpError(422, "wallet-address-required");
         }
         const sessionMode = body.mode === "live" ? "live" : "demo";
-        const eip7702 = createEip7702Authorization(caseRecord.id, body.walletAddress);
+        const smartAccountAddress = resolveSmartAccountAddress({
+          walletAddress: body.walletAddress,
+          mode: sessionMode,
+          smartAccountAddress: body.smartAccountAddress
+        });
+        const eip7702 = createEip7702Authorization(caseRecord.id, body.walletAddress, smartAccountAddress);
         const erc7715 = createErc7715Permission(caseRecord.id);
         store.permissionGrants.set(eip7702.id, eip7702);
         store.permissionGrants.set(erc7715.id, erc7715);
@@ -781,7 +790,7 @@ export function createApp(options: AppOptions = {}) {
         sendJson(response, 201, {
           mode: sessionMode,
           walletAddress: redactText(body.walletAddress),
-          smartAccountAddress: demoSmartAccountAddress(body.walletAddress),
+          smartAccountAddress,
           txHash: body.txHash,
           callsId: body.callsId,
           chainId: body.chainId,

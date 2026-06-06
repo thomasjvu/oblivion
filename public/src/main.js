@@ -3243,10 +3243,14 @@ async function createSmartAccount(options = {}) {
     throw { error: "case-required", message: "Start with the agent first — create a case, then enable Smart Account." };
   }
   if (!state.walletAddress) await connectWallet({ quiet: true });
+  const sessionMode = options.mode || (state.walletMode === "live" ? "live" : "demo");
   const body = {
     caseId: state.currentCaseId,
     walletAddress: state.walletAddress,
-    mode: options.mode || (state.walletMode === "live" ? "live" : "demo"),
+    mode: sessionMode,
+    smartAccountAddress:
+      options.smartAccountAddress ||
+      (sessionMode === "live" ? state.walletAddress : undefined),
     txHash: options.txHash || state.smartAccountTxHash || undefined,
     callsId: options.callsId || state.walletCallsId || undefined,
     chainId: options.chainId || state.walletConfig?.chainId

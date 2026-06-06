@@ -4,13 +4,35 @@ import {
   buildHackathonStatus,
   createAgentDelegationSet,
   createPaymentSession,
+  demoSmartAccountAddress,
   pendingHackathonTracks,
+  resolveSmartAccountAddress,
   validateErc7710Delegation,
   validatePermissionGrant,
   X402_PRODUCTS
 } from "../src/domain/hackathon.js";
 import { runVeniceAnalysis } from "../src/domain/venice.js";
 import type { Erc7710Delegation, PermissionGrant } from "../src/domain/types.js";
+
+test("resolveSmartAccountAddress uses wallet in live mode and hash in demo", () => {
+  const wallet = "0x1111111111111111111111111111111111111111";
+  assert.equal(
+    resolveSmartAccountAddress({ walletAddress: wallet, mode: "live" }),
+    wallet
+  );
+  assert.equal(
+    resolveSmartAccountAddress({ walletAddress: wallet, mode: "demo" }),
+    demoSmartAccountAddress(wallet)
+  );
+  assert.equal(
+    resolveSmartAccountAddress({
+      walletAddress: wallet,
+      mode: "live",
+      smartAccountAddress: "0x2222222222222222222222222222222222222222"
+    }),
+    "0x2222222222222222222222222222222222222222"
+  );
+});
 
 test("payment catalog covers one-off x402 and ERC-7710 subscription tracks", () => {
   assert.ok(X402_PRODUCTS.some((product) => product.mode === "one-off" && product.x402Endpoint));

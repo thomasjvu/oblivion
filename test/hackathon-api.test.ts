@@ -97,6 +97,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and 1Shot demo sta
       chainId: 11155111
     }, 201);
     assert.equal(smartLive.mode, "live");
+    assert.equal(smartLive.smartAccountAddress, "0x2222222222222222222222222222222222222222");
     assert.equal(smartLive.txHash, "0xabc123");
     assert.ok(smart.permissions.some((permission: { permissionType: string }) => permission.permissionType === "erc7715-advanced"));
 
