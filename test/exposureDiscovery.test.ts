@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   brokerForUrl,
   buildBraveSearchQuery,
+  describeDiscoveryPlan,
   discoverExposureCandidates,
   normalizeDiscoveryUrl
 } from "../src/domain/exposureDiscovery.js";
@@ -102,4 +103,28 @@ test("discoverExposureCandidates uses Brave results when configured", async () =
     if (originalVeniceKey === undefined) delete process.env.VENICE_API_KEY;
     else process.env.VENICE_API_KEY = originalVeniceKey;
   }
+});
+
+test("describeDiscoveryPlan explains broker sweep and manual fallback", () => {
+  delete process.env.BRAVE_SEARCH_API_KEY;
+  const manual = describeDiscoveryPlan({
+    scope: { personLabel: "John Smith", aliases: [], approvedIdentifierLabels: [], sensitiveConstraints: [] },
+    pastedUrlCount: 0,
+    brokerSweep: true
+  });
+  assert.equal(manual.canAutoDiscover, false);
+  assert.equal(manual.methods.some((item) => item.id === "manual-only"), true);
+
+  process.env.BRAVE_SEARCH_API_KEY = "test-key";
+  const automated = describeDiscoveryPlan({
+    scope: { personLabel: "John Smith", aliases: ["J. Smith"], approvedIdentifierLabels: [], sensitiveConstraints: [] },
+    pastedUrlCount: 2,
+    brokerSweep: true
+  });
+  assert.equal(automated.canAutoDiscover, true);
+  assert.equal(automated.methods.some((item) => item.id === "pasted-urls"), true);
+  assert.equal(automated.methods.some((item) => item.id === "broker-sweep"), true);
+  assert.equal(automated.methods.some((item) => item.id === "web-search"), true);
+  if (originalBraveKey === undefined) delete process.env.BRAVE_SEARCH_API_KEY;
+  else process.env.BRAVE_SEARCH_API_KEY = originalBraveKey;
 });

@@ -13,11 +13,15 @@ test("Dockerfile runs the Node app on port 8080 without plaintext build secrets"
   assert.doesNotMatch(dockerfile, /HIBP_API_KEY|VENICE_API_KEY|ONESHOT_API_KEY/);
 });
 
-test("built legal pages ship in public for /privacy and /terms routes", async () => {
+test("built legal pages ship in public for /privacy, /terms, and /pricing routes", async () => {
   const privacy = await readFile(new URL("../public/privacy.html", import.meta.url), "utf8");
   const terms = await readFile(new URL("../public/terms.html", import.meta.url), "utf8");
+  const pricing = await readFile(new URL("../public/pricing.html", import.meta.url), "utf8");
   assert.match(privacy, /Privacy Policy/);
   assert.match(terms, /Terms of Service/);
+  assert.match(pricing, /pricing-page/);
+  assert.match(pricing, /\$5 USDC/);
+  assert.match(pricing, /\$10 USDC\/mo/);
 });
 
 test("Phala compose template is port-aligned and digest-pinned", async () => {

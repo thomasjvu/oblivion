@@ -19,6 +19,9 @@ const state = {
   hackathon: null,
   hackathonStatus: null,
   integrationsStatus: null,
+  discoveryPlan: null,
+  discoveryBusy: false,
+  selectedPaymentMode: localStorage.getItem("oblivion.paymentMode") || "one-off",
   agentNext: null,
   chatMessages: [
     {
@@ -178,9 +181,9 @@ async function copySkillInstallCommand(targetId, button) {
   try {
     await navigator.clipboard.writeText(text);
     if (button) {
-      const prior = button.querySelector(".btn-label")?.textContent;
-      setButtonLabel(button, "Copied");
-      window.setTimeout(() => setButtonLabel(button, prior || "Copy"), 1400);
+      const prior = button.getAttribute("aria-label") || "Copy install command";
+      button.setAttribute("aria-label", "Copied");
+      window.setTimeout(() => button.setAttribute("aria-label", prior), 1400);
     }
   } catch {
     write({ error: "copy-failed", message: "Could not copy install command." });
@@ -266,11 +269,45 @@ function selectPresetId(presetId) {
   document.querySelectorAll("[data-agent-preset]").forEach((starter) => {
     starter.classList.toggle("active", starter.dataset.agentPreset === state.selectedPresetId);
   });
+  document.querySelectorAll("[data-landing-preset]").forEach((starter) => {
+    starter.classList.toggle("active", starter.dataset.landingPreset === state.selectedPresetId);
+  });
   const defaults = SIMPLE_PRESET_DEFAULTS[state.selectedPresetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const jurisdiction = $("#jurisdiction");
   const risk = $("#risk-level");
   if (jurisdiction) jurisdiction.value = defaults.jurisdiction;
   if (risk) risk.value = defaults.riskLevel;
+}
+
+function applyLandingTemplate(presetId) {
+  openNewCaseFlow();
+  applyAgentIntakeTemplate(presetId);
+}
+
+function applyLandingIntakeText(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return;
+  openNewCaseFlow();
+  const parsed = parseIntakeForCase(trimmed);
+  const presetId = recommendPreset(parsed);
+  selectPresetId(presetId);
+  const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
+  const name = parsed.personLabel !== "Private case" ? parsed.personLabel : "";
+  if ($("#simple-name")) $("#simple-name").value = name;
+  if ($("#simple-urls")) $("#simple-urls").value = urlsFromText(trimmed).join("\n");
+  syncSimpleFormToLegacyFields({
+    intakeText: parsed.intakeText,
+    personLabel: parsed.personLabel,
+    pastedUrls: urlsFromText(trimmed),
+    jurisdiction: parsed.jurisdiction,
+    authorityBasis: parsed.authorityBasis,
+    riskLevel: defaults.riskLevel
+  });
+  addChat("user", trimmed);
+  addChat("agent", "Details loaded — edit anything on the left, then tap Start cleanup.");
+  renderIntakeInferencePreview();
+  render();
+  focusIntake();
 }
 
 function applyAgentIntakeTemplate(presetId) {
@@ -457,12 +494,18 @@ function renderUserGuide() {
   }
   const progressTrack = $("#guide-progress-track");
   const progressFill = $("#guide-progress-fill");
+  const progressPct = $("#guide-progress-pct");
   const pct = GUIDE_STEPS.length > 1 ? ((step - 1) / (GUIDE_STEPS.length - 1)) * 100 : 0;
+  const pctLabel = `${Math.round(pct)}%`;
   if (progressTrack) {
-    progressTrack.setAttribute("aria-valuenow", String(step));
-    progressTrack.setAttribute("aria-valuetext", GUIDE_STEPS[step - 1]?.title || "Working");
+    progressTrack.setAttribute("aria-valuenow", String(Math.round(pct)));
+    progressTrack.setAttribute(
+      "aria-valuetext",
+      `Progress ${pctLabel} — ${GUIDE_STEPS[step - 1]?.title || "Working"}`
+    );
   }
   if (progressFill) progressFill.style.width = `${pct}%`;
+  if (progressPct) progressPct.textContent = pctLabel;
   const phaseStatus = $("#guide-phase-status");
   if (phaseStatus) phaseStatus.textContent = showDashboard ? workflowStatusLine() : "";
   syncRouteTabVisibility();
@@ -694,6 +737,145 @@ function needsExposureDiscovery() {
   const pending = state.currentStatus?.pendingFindings?.length ?? 0;
   const total = state.currentStatus?.findings?.length ?? 0;
   return pending === 0 && total === 0;
+}
+
+function presetUsesBrokerDiscoveryClient(presetId) {
+  return presetId === "people-search-cleanup" || presetId === "high-risk-safety";
+}
+
+function presetUsesContentDiscoveryClient(presetId) {
+  return presetId === "content-takedown";
+}
+
+function buildDiscoveryPlanView() {
+  const scope = currentCase()?.redactedScope;
+  const presetId = state.agentPlan?.presetId || state.selectedPresetId;
+  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
+  const veniceReady = Boolean(state.integrationsStatus?.liveReady?.venice);
+  const pastedUrls = discoveryUrlHints();
+  const pastedCount = pastedUrls.length;
+  const brokerSweep = presetUsesBrokerDiscoveryClient(presetId);
+  const contentTakedown = presetUsesContentDiscoveryClient(presetId);
+  const name = scope?.personLabel?.trim() || "";
+  const methods = [];
+
+  if (pastedCount > 0) {
+    methods.push({
+      id: "pasted-urls",
+      label: "Your pasted links",
+      detail: `Import ${pastedCount} URL(s) you provided and match them to known brokers.`,
+      enabled: true
+    });
+  }
+
+  if (braveReady && brokerSweep && !contentTakedown && name) {
+    methods.push({
+      id: "broker-sweep",
+      label: "Broker sweep",
+      detail: `Site-scoped Brave search on ~12 tier-1 brokers (Spokeo, Whitepages, BeenVerified, …) for “${name}”.`,
+      enabled: true
+    });
+  }
+
+  if (braveReady && name && !contentTakedown) {
+    const aliasPart = scope?.aliases?.length ? ` ${scope.aliases.join(" ")}` : "";
+    methods.push({
+      id: "web-search",
+      label: "Web search",
+      detail: `Broader Brave query: ${name}${aliasPart} people search background check listing`,
+      enabled: true
+    });
+  }
+
+  if (contentTakedown && braveReady && name) {
+    methods.push({
+      id: "web-search",
+      label: "Content search",
+      detail: `Brave query for takedown targets related to “${name}”.`,
+      enabled: true
+    });
+  }
+
+  if (methods.some((item) => item.id === "broker-sweep" || item.id === "web-search" || item.id === "pasted-urls")) {
+    methods.push({
+      id: "match-scoring",
+      label: "Match scoring",
+      detail: veniceReady
+        ? "Venice ranks each candidate against your redacted name and labels (no vault plaintext)."
+        : "Heuristic scoring from redacted name, location labels, and broker host patterns.",
+      enabled: true
+    });
+  }
+
+  if (!braveReady && pastedCount === 0) {
+    methods.push({
+      id: "manual-only",
+      label: "Automated search off",
+      detail: "Set BRAVE_SEARCH_API_KEY on the server, or paste profile URLs you already found.",
+      enabled: false
+    });
+  }
+
+  const canAutoDiscover = braveReady || pastedCount > 0;
+  const summary = canAutoDiscover
+    ? "Discover runs the steps below using only redacted case labels — never raw vault data."
+    : "Paste at least one profile URL below, or enable Brave search on the server.";
+
+  return { methods, canAutoDiscover, summary };
+}
+
+function renderDiscoveryPlan() {
+  const section = $("#findings-discovery");
+  const planEl = $("#findings-discovery-plan");
+  const statusEl = $("#findings-discovery-status");
+  const discoverBtn = $("#findings-discover");
+  if (!section || !planEl) return;
+
+  const hasCase = Boolean(state.currentCaseId && state.currentStatus);
+  section.hidden = !hasCase;
+  if (!hasCase) return;
+
+  const plan = state.discoveryPlan || buildDiscoveryPlanView();
+  const reviewables = (state.currentStatus?.findings || []).filter((item) => item.matchStatus !== "rejected");
+  const onReviewStep =
+    currentGuideStep() === 2 ||
+    state.agentPlan?.currentStep === "discover-candidates" ||
+    state.agentPlan?.currentStep === "confirm-matches" ||
+    (state.agentNext?.blockedReasons || []).includes("discovery-needed");
+
+  planEl.innerHTML = `
+    <p class="findings-discovery-summary muted small">${escapeHtml(plan.summary)}</p>
+    <ol class="findings-discovery-methods" role="list">
+      ${plan.methods
+        .map(
+          (method) => `
+        <li class="findings-discovery-method ${method.enabled ? "" : "disabled"}" role="listitem">
+          <strong>${escapeHtml(method.label)}</strong>
+          <span class="muted small">${escapeHtml(method.detail)}</span>
+        </li>`
+        )
+        .join("")}
+    </ol>`;
+
+  if (discoverBtn) {
+    discoverBtn.disabled = state.discoveryBusy;
+    setButtonLabel(
+      discoverBtn,
+      state.discoveryBusy
+        ? "Searching…"
+        : reviewables.length
+          ? "Search again"
+          : "Discover listings"
+    );
+  }
+
+  if (statusEl) {
+    statusEl.textContent = state.discoveryBusy
+      ? "Running broker sweep and web search…"
+      : !plan.canAutoDiscover
+        ? "Add profile URLs below, then tap Discover listings."
+        : "";
+  }
 }
 
 function openFindingsPastePanel() {
@@ -930,11 +1112,14 @@ function renderTrust() {
   const privacy = state.privacy;
   if (!proof || !privacy) return;
   const runtime = runtimeLabel(proof);
-  $("#trust-strip").innerHTML = `
-    <span class="chip pass" data-testid="trust-vault" data-icon="lock" title="Vault locked">Vault</span>
-    <span class="${chipClass(!privacy.serverCanDecryptCaseVault)}" data-testid="trust-server" data-icon="eye-closed" title="Server blind">Blind</span>
-    <span class="${chipClass(runtime.state)}" data-testid="trust-runtime" data-icon="cast" title="${escapeHtml(runtime.text)}">${escapeHtml(runtime.text)}</span>
-  `;
+  const trustStrip = $("#trust-strip");
+  if (trustStrip) {
+    trustStrip.innerHTML = `
+      <span class="chip pass" data-testid="trust-vault" data-icon="lock" title="Vault locked">Vault</span>
+      <span class="${chipClass(!privacy.serverCanDecryptCaseVault)}" data-testid="trust-server" data-icon="eye-closed" title="Server blind">Blind</span>
+      <span class="${chipClass(runtime.state)}" data-testid="trust-runtime" data-icon="cast" title="${escapeHtml(runtime.text)}">${escapeHtml(runtime.text)}</span>
+    `;
+  }
   const teeClass = pillClass(runtime.state);
   const teeNodes = ["#tee-status", "#command-tee-status", "#trust-tab-status"].map((sel) => $(sel)).filter(Boolean);
   teeNodes.forEach((node) => {
@@ -972,6 +1157,9 @@ function toggleCasesPanel(open) {
 
 function openNewCaseFlow() {
   state.appOpen = true;
+  state.dockOpen = true;
+  state.dockPinned = true;
+  location.hash = "app";
   state.currentCaseId = "";
   state.currentStatus = null;
   state.agentPlan = null;
@@ -1176,8 +1364,10 @@ function renderFindings() {
         ? "Yes = yours · Not me = skip"
         : confirmed > 0
           ? "Queued for removal after you approve."
-          : "Add links below or tap Next.";
+          : "Tap Discover listings to search, or paste URLs you already know.";
   }
+
+  renderDiscoveryPlan();
 
   const list = $("#findings-list");
   const reviewables = (status.findings || []).filter((item) => item.matchStatus !== "rejected");
@@ -1210,7 +1400,7 @@ function renderFindings() {
         </article>`;
           })
           .join("")
-      : `<div class="empty">No links yet. Paste URLs above or run Discover.</div>`;
+      : `<div class="empty">No links yet. Tap <strong>Discover listings</strong> above to search brokers and the web, or paste URLs you already know.</div>`;
   }
 
   const queue = $("#removal-queue");
@@ -1249,44 +1439,58 @@ async function maybeAutoDiscoverFindings(options = {}) {
   if (!pastedUrls.length && !braveReady) {
     if (!options.quiet) {
       openFindingsPastePanel();
-      addChat("agent", "Paste profile URLs under Exposure links (one per line), then Discover or Run next step.");
+      addChat("agent", "Automated search is off — paste profile URLs in the review panel, then tap Discover listings.");
     }
     return { ran: false, reason: "urls-needed" };
   }
-  const result = await request(`/api/cases/${state.currentCaseId}/findings/discover`, {
-    method: "POST",
-    body: { pastedUrls }
-  });
-  state.currentStatus = result.status ?? (await request(`/api/cases/${state.currentCaseId}`)).status;
-  if (pastedUrlsFromFindingsInput().length && $("#findings-paste-input")) {
-    $("#findings-paste-input").value = "";
+  state.discoveryBusy = true;
+  renderDiscoveryPlan();
+  try {
+    const result = await request(`/api/cases/${state.currentCaseId}/findings/discover`, {
+      method: "POST",
+      body: { pastedUrls }
+    });
+    state.discoveryPlan = result.discoveryPlan ?? null;
+    state.currentStatus = result.status ?? (await request(`/api/cases/${state.currentCaseId}`)).status;
+    if (pastedUrlsFromFindingsInput().length && $("#findings-paste-input")) {
+      $("#findings-paste-input").value = "";
+    }
+    if (pastedUrls.length) {
+      localStorage.setItem(`oblivion.discoveryUrls.${state.currentCaseId}`, JSON.stringify(pastedUrls));
+    }
+    await refreshAgentPlan({ silent: true }).catch(() => {});
+    await refreshHackathon({ silent: true }).catch(() => {});
+    if (!options.quiet) {
+      addChat(
+        "agent",
+        result.discovered?.length
+          ? `Found ${result.discovered.length} link(s) to review.`
+          : "No new links — try pasting URLs or configure Brave search."
+      );
+      write(result);
+    }
+    return { ran: true, discovered: result.discovered?.length ?? 0, result };
+  } finally {
+    state.discoveryBusy = false;
   }
-  if (pastedUrls.length) {
-    localStorage.setItem(`oblivion.discoveryUrls.${state.currentCaseId}`, JSON.stringify(pastedUrls));
-  }
-  await refreshAgentPlan({ silent: true }).catch(() => {});
-  await refreshHackathon({ silent: true }).catch(() => {});
-  if (!options.quiet) {
-    addChat(
-      "agent",
-      result.discovered?.length
-        ? `Found ${result.discovered.length} link(s) to review.`
-        : "No new links — try pasting URLs or configure Brave search."
-    );
-    write(result);
-  }
-  return { ran: true, discovered: result.discovered?.length ?? 0, result };
 }
 
 async function discoverFindings() {
-  const discovery = await maybeAutoDiscoverFindings({ force: true, quiet: false });
-  if (!discovery.ran && discovery.reason === "urls-needed") {
-    throw { error: "urls-required", message: "Paste at least one profile URL under Exposure links." };
+  await refreshIntegrationsStatus().catch(() => {});
+  try {
+    const discovery = await maybeAutoDiscoverFindings({ force: true, quiet: false });
+    if (!discovery.ran && discovery.reason === "urls-needed") {
+      throw { error: "urls-required", message: "Paste at least one profile URL, or enable Brave search on the server." };
+    }
+    if (discovery.ran && !discovery.discovered) {
+      await syncCurrentCaseStatus();
+    }
+    render();
+  } catch (error) {
+    state.discoveryBusy = false;
+    renderDiscoveryPlan();
+    throw error;
   }
-  if (discovery.ran && !discovery.discovered) {
-    await syncCurrentCaseStatus();
-  }
-  render();
 }
 
 async function decideFinding(findingId, decision) {
@@ -1553,6 +1757,18 @@ function renderHackathonChecklist() {
   `).join("");
 }
 
+function renderLandingTemplates() {
+  const container = $("#landing-preset-starters");
+  if (!container) return;
+  container.innerHTML = Object.entries(AGENT_INTAKE_TEMPLATES)
+    .map(([presetId]) => {
+      const title = presentPreset({ id: presetId }).title;
+      const active = presetId === state.selectedPresetId;
+      return `<button type="button" class="landing-preset-starter${active ? " active" : ""}" data-landing-preset="${presetId}" data-testid="landing-preset-${presetId}">${escapeHtml(title)}</button>`;
+    })
+    .join("");
+}
+
 function renderAgentPresetStarters() {
   const panel = $("#agent-template-panel");
   const container = $("#agent-preset-starters");
@@ -1816,7 +2032,7 @@ function toggleWalletModal(open) {
   const dialog = $("#wallet-modal");
   if (!dialog) return;
   const shouldOpen = typeof open === "boolean" ? open : !dialog.open;
-  if (shouldOpen && state.walletAddress) {
+  if (shouldOpen) {
     renderWalletModal();
     if (!dialog.open) dialog.showModal();
     state.walletModalOpen = true;
@@ -1833,18 +2049,36 @@ function renderWalletModal() {
   const wallet = state.walletAddress || "Not connected";
   const smart = state.smartAccountAddress || "Not created";
   const mode = state.walletMode || "—";
+  const liveHint = state.walletConfig?.liveEnabled
+    ? "Sepolia Smart Account upgrade uses MetaMask wallet_sendCalls (EIP-5792)."
+    : "Smart Account records EIP-7702 + ERC-7715 permissions. Enable WALLET_LIVE_MODE for Sepolia on-chain upgrade.";
   body.innerHTML = `
+    ${state.walletAddress ? `
     <div class="status-list wallet-modal-status">
       <div class="status-row"><span>Wallet</span><strong title="${escapeHtml(wallet)}">${escapeHtml(shortenAddress(wallet))}</strong></div>
       <div class="status-row"><span>Smart Account</span><strong title="${escapeHtml(smart)}">${escapeHtml(shortenAddress(smart))}</strong></div>
       <div class="status-row"><span>Mode</span><strong>${escapeHtml(mode)}</strong></div>
-    </div>
+    </div>` : `<p class="muted small">Connect MetaMask to pay with USDC on Base and enable Smart Account features.</p>`}
     ${state.walletConnectNote ? `<p class="muted small">${escapeHtml(state.walletConnectNote)}</p>` : ""}
     ${state.walletConnectError ? `<p class="wallet-connect-feedback fail">${escapeHtml(state.walletConnectError)}</p>` : ""}
+    <p class="muted small wallet-modal-hint">${escapeHtml(liveHint)}</p>
+    <details class="wallet-debug-panel advanced-only">
+      <summary>Wallet log</summary>
+      <pre id="wallet-debug-log" class="wallet-debug-log"></pre>
+    </details>
   `;
+  renderWalletDebugLog();
+  const connectBtn = $("#wallet-modal-connect");
+  const disconnectBtn = $("#wallet-modal-disconnect");
+  const liveBtn = $("#wallet-modal-live-upgrade");
   const smartBtn = $("#wallet-modal-smart-account");
+  if (connectBtn) connectBtn.hidden = Boolean(state.walletAddress);
+  if (disconnectBtn) disconnectBtn.hidden = !state.walletAddress;
+  if (liveBtn) {
+    liveBtn.hidden = !state.walletConfig?.liveEnabled || !state.walletAddress;
+  }
   if (smartBtn) {
-    smartBtn.hidden = !state.currentCaseId || Boolean(state.smartAccountAddress);
+    smartBtn.hidden = !state.currentCaseId || !state.walletAddress || Boolean(state.smartAccountAddress);
   }
 }
 
@@ -1881,13 +2115,7 @@ function openPaymentRails() {
 }
 
 function openWalletHub() {
-  state.tab = "settings";
-  state.dockOpen = false;
-  render();
-  window.setTimeout(() => {
-    $("#wallet-hub")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    $("#wallet-feedback-primary")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
-  }, 80);
+  toggleWalletModal(true);
 }
 
 function renderWalletCommandStrip() {
@@ -1901,20 +2129,11 @@ function renderWalletCommandStrip() {
     primary.classList.toggle("connected", Boolean(state.walletAddress));
     primary.disabled = false;
     primary.removeAttribute("data-connect-wallet");
+    primary.removeAttribute("data-wallet-modal");
     if (!state.walletAddress) primary.setAttribute("data-connect-wallet", "");
     else primary.setAttribute("data-wallet-modal", "");
   }
-  const liveBtn = $("#upgrade-metamask-live");
-  if (liveBtn) {
-    liveBtn.hidden = !state.walletConfig?.liveEnabled || !state.walletAddress;
-  }
-  const hint = $("#wallet-live-hint");
-  if (hint) {
-    hint.textContent = state.walletConfig?.liveEnabled
-      ? "Sepolia Smart Account upgrade uses MetaMask wallet_sendCalls (EIP-5792)."
-      : "Smart Account records EIP-7702 + ERC-7715 permissions for your case. Enable WALLET_LIVE_MODE for Sepolia on-chain upgrade.";
-  }
-  if (state.walletModalOpen && state.walletAddress) renderWalletModal();
+  if (state.walletModalOpen) renderWalletModal();
 }
 
 function renderWalletPanels() {
@@ -1925,13 +2144,7 @@ function renderWalletPanels() {
     <div class="status-row"><span>Smart Account</span><strong title="${escapeHtml(smart)}">${escapeHtml(shortenAddress(smart))}</strong></div>
   `;
   const onboardingWallet = $("#onboarding-wallet-status");
-  const settingsWallet = $("#wallet-status");
   if (onboardingWallet) onboardingWallet.innerHTML = rows;
-  if (settingsWallet) settingsWallet.innerHTML = rows;
-  const settingsConnect = $("#connect-wallet");
-  const settingsDisconnect = $("#disconnect-wallet");
-  if (settingsConnect) settingsConnect.hidden = Boolean(state.walletAddress);
-  if (settingsDisconnect) settingsDisconnect.hidden = true;
   renderWalletFeedback();
   renderWalletCommandStrip();
 }
@@ -1941,6 +2154,144 @@ function formatProductPrice(product) {
     return `$${product.amountUsd} ${product.token}/mo`;
   }
   return `$${product.amountUsd} ${product.token}`;
+}
+
+function paymentPlanLabel(mode) {
+  return mode === "subscription" ? "Weekly monitor ($10 USDC/mo)" : "One-off cleanup ($5 USDC)";
+}
+
+function hasEntitledPayment(mode) {
+  const sessions = state.hackathon?.payments || [];
+  return sessions.some(
+    (session) =>
+      session.mode === mode && (session.status === "paid" || session.status === "authorized")
+  );
+}
+
+function hasSubscriptionEntitlement() {
+  return hasEntitledPayment("subscription") || state.aiEntitlement?.mode === "subscription";
+}
+
+function upsellDismissKey(caseId) {
+  return `oblivion.upsellDismissed.${caseId}`;
+}
+
+function isUpsellDismissed(caseId) {
+  if (!caseId) return true;
+  return localStorage.getItem(upsellDismissKey(caseId)) === "1";
+}
+
+function dismissSubscriptionUpsell() {
+  if (!state.currentCaseId) return;
+  localStorage.setItem(upsellDismissKey(state.currentCaseId), "1");
+  renderSubscriptionUpsell();
+}
+
+function selectPaymentMode(mode) {
+  if (mode !== "one-off" && mode !== "subscription") return;
+  state.selectedPaymentMode = mode;
+  localStorage.setItem("oblivion.paymentMode", mode);
+  document.querySelectorAll(".payment-plan-card").forEach((card) => {
+    const active = card.dataset.paymentPlan === mode;
+    card.classList.toggle("active", active);
+    const input = card.querySelector('input[type="radio"]');
+    if (input) input.checked = active;
+  });
+}
+
+function syncPaymentPlanFromForm() {
+  const selected = document.querySelector('input[name="payment-plan"]:checked');
+  if (selected?.value) selectPaymentMode(selected.value);
+}
+
+function renderOnboardingPayment() {
+  const panel = $("#onboarding-payment");
+  if (!panel) return;
+  const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
+  const showOnboarding = state.appOpen && (!hasCase || state.preSearchReady);
+  panel.hidden = !showOnboarding;
+  selectPaymentMode(state.selectedPaymentMode);
+  const oneOff = state.products.find((item) => item.id === "broker-opt-out-packet");
+  const subscription = state.products.find((item) => item.id === "weekly-monitor");
+  const oneOffCard = document.querySelector('.payment-plan-card[data-payment-plan="one-off"]');
+  const subCard = document.querySelector('.payment-plan-card[data-payment-plan="subscription"]');
+  if (oneOff && oneOffCard) {
+    const price = oneOffCard.querySelector(".payment-plan-price");
+    const detail = oneOffCard.querySelector(".payment-plan-detail");
+    if (price) price.textContent = formatProductPrice(oneOff);
+    if (detail) {
+      const limits = state.aiBudget?.["one-off"];
+      detail.textContent = limits
+        ? `Single supervised run · ${limits.maxChats} agent chats`
+        : oneOff.description;
+    }
+  }
+  if (subscription && subCard) {
+    const price = subCard.querySelector(".payment-plan-price");
+    const detail = subCard.querySelector(".payment-plan-detail");
+    if (price) price.textContent = formatProductPrice(subscription);
+    if (detail) {
+      const limits = state.aiBudget?.subscription;
+      detail.textContent = limits
+        ? `Weekly rechecks · ${limits.maxChats} agent chats`
+        : subscription.description;
+    }
+  }
+}
+
+function renderSubscriptionUpsell() {
+  const banner = $("#subscription-upsell");
+  if (!banner) return;
+  const show =
+    Boolean(state.currentCaseId && state.currentStatus) &&
+    (state.aiEntitlement?.mode === "one-off" || hasEntitledPayment("one-off")) &&
+    !hasSubscriptionEntitlement() &&
+    !isUpsellDismissed(state.currentCaseId);
+  banner.hidden = !show;
+}
+
+async function ensureCasePayment(options = {}) {
+  const mode = state.selectedPaymentMode || "one-off";
+  const statusEl = options.statusEl || $("#onboarding-payment-status");
+  if (!state.walletAddress) {
+    if (statusEl) statusEl.textContent = "Connect MetaMask to pay for this cleanup…";
+    if (!options.quiet) {
+      addChat("agent", "Approve the MetaMask connection to pay for this cleanup.");
+    }
+    await connectWallet({ openHub: false });
+  }
+  await refreshHackathon({ silent: true }).catch(() => {});
+  if (hasEntitledPayment(mode)) {
+    if (statusEl) statusEl.textContent = `${paymentPlanLabel(mode)} is active for this case.`;
+    return { ok: true, mode, alreadyPaid: true };
+  }
+  if (statusEl) statusEl.textContent = `Confirm ${paymentPlanLabel(mode)} in MetaMask…`;
+  if (!state.smartAccountAddress) {
+    await enableSmartAccount({ quiet: true, openHub: false }).catch(() =>
+      createSmartAccount({ quiet: true, openHub: false })
+    );
+  }
+  await preparePayment(mode, { quiet: true });
+  await refreshHackathon({ silent: true }).catch(() => {});
+  if (!hasEntitledPayment(mode)) {
+    await finishPendingDeveloperActions({ quiet: true, stayOnTab: true });
+    await refreshHackathon({ silent: true }).catch(() => {});
+  }
+  if (statusEl) {
+    statusEl.textContent = hasEntitledPayment(mode)
+      ? `${paymentPlanLabel(mode)} confirmed — agent AI unlocked for this case.`
+      : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.";
+  }
+  if (!options.quiet) {
+    addChat(
+      "agent",
+      hasEntitledPayment(mode)
+        ? `${paymentPlanLabel(mode)} is set for this case. I'll still pause for your approval before anything sends.`
+        : "Finish payment in Settings → Payment rails if MetaMask did not confirm."
+    );
+  }
+  renderSubscriptionUpsell();
+  return { ok: true, mode, alreadyPaid: hasEntitledPayment(mode) };
 }
 
 function productBudgetLine(product) {
@@ -2114,6 +2465,46 @@ function renderTabs() {
   });
 }
 
+function renderVaultPanel() {
+  const status = $("#vault-status");
+  const exportBtn = $("#export");
+  const passphraseInput = $("#export-passphrase");
+  const hasCase = Boolean(state.currentCaseId);
+  const hasVaultKey = Boolean(state.vaultKey);
+  if (status) {
+    if (!hasCase) {
+      status.textContent = "Select or create a case to export its encrypted backup.";
+      status.className = "vault-status muted small";
+    } else if (!hasVaultKey) {
+      status.textContent = "Vault key is only in memory for cases opened this session. You can still download redacted server data; add a passphrase only if the key is available.";
+      status.className = "vault-status muted small warn";
+    } else {
+      status.textContent = `Ready to export ${caseDeleteLabel(state.currentCaseId)}. Add a passphrase to wrap your vault key in the backup.`;
+      status.className = "vault-status muted small pass";
+    }
+  }
+  if (exportBtn) exportBtn.disabled = !hasCase;
+  if (passphraseInput) {
+    passphraseInput.disabled = !hasCase;
+    passphraseInput.placeholder = hasVaultKey
+      ? "Only needed to wrap the vault key"
+      : "Unavailable after refresh — export redacted data without a passphrase";
+  }
+}
+
+function downloadJson(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function render() {
   renderTrust();
   renderCases();
@@ -2122,8 +2513,11 @@ function render() {
   renderWalletCommandStrip();
   renderIntakeInferencePreview();
   renderDashboard();
+  renderOnboardingPayment();
+  renderSubscriptionUpsell();
   renderFindings();
   renderPresets();
+  renderLandingTemplates();
   renderAgentChat();
   renderHackathonChecklist();
   renderPayments();
@@ -2131,8 +2525,10 @@ function render() {
   renderRelayer();
   renderApprovals();
   renderActions();
+  renderVaultPanel();
   renderTabs();
   updateAgentSendState();
+  updateLandingSendState();
   bindIcons();
 }
 
@@ -2144,6 +2540,27 @@ function updateAgentSendState() {
   send.disabled = !hasText;
   send.classList.toggle("send-ready", hasText);
   send.setAttribute("aria-disabled", hasText ? "false" : "true");
+}
+
+function updateLandingSendState() {
+  const input = $("#landing-input");
+  const send = $("#landing-send");
+  if (!input || !send) return;
+  const hasText = Boolean(input.value.trim());
+  send.disabled = !hasText;
+  send.classList.toggle("send-ready", hasText);
+  send.setAttribute("aria-disabled", hasText ? "false" : "true");
+}
+
+async function submitLandingIntake() {
+  const text = $("#landing-input")?.value?.trim();
+  if (!text) {
+    updateLandingSendState();
+    return;
+  }
+  $("#landing-input").value = "";
+  updateLandingSendState();
+  applyLandingIntakeText(text);
 }
 
 async function request(path, options = {}) {
@@ -2192,6 +2609,13 @@ async function createCase(options = {}) {
   state.currentCaseId = caseId;
   state.currentStatus = intake.status;
   state.cases.unshift({ ...intake.case, status: intake.status });
+  syncPaymentPlanFromForm();
+  await ensureCasePayment({ quiet: options.quietPayment, statusEl: $("#onboarding-payment-status") }).catch(
+    (error) => {
+      if (!options.quietPayment) addChat("agent", error?.message || "Could not prepare payment for this case.");
+      throw error;
+    }
+  );
   state.agentPlan = null;
   state.connectorResults = [];
   state.intakeText = intakeText;
@@ -2329,6 +2753,10 @@ async function startSimpleCleanup() {
     syncSimpleFormToLegacyFields(parsed);
     selectPresetId(parsed.presetId);
     const previewFirst = Boolean($("#run-preview-search")?.checked);
+    if (!state.walletAddress) {
+      if (statusEl) statusEl.textContent = "Connect MetaMask to start…";
+      await connectWallet({ openHub: false });
+    }
     if (statusEl) statusEl.textContent = previewFirst ? "Creating case…" : "Starting…";
     await createCase({
       parsed: {
@@ -2445,17 +2873,36 @@ async function executeAction(actionId) {
 
 async function exportCase() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
+  const passphrase = $("#export-passphrase")?.value?.trim() || "";
+  if (passphrase && passphrase.length < 12) {
+    throw { error: "passphrase-too-short", message: "Use at least 12 characters to wrap the vault key." };
+  }
+  if (passphrase && !state.vaultKey) {
+    throw {
+      error: "vault-key-missing",
+      message: "Vault key is not in memory. Omit the passphrase or create the case in this session."
+    };
+  }
   const exported = await request("/api/export", {
     method: "POST",
     body: { caseId: state.currentCaseId }
   });
-  const passphrase = $("#export-passphrase").value;
-  write({
+  const bundle = {
     format: "oblivion-encrypted-case-v1",
     exportedAt: new Date().toISOString(),
     wrappedVaultKey: passphrase ? await Vault.wrapVaultKey(state.vaultKey, passphrase) : undefined,
     payload: exported
-  });
+  };
+  const label = (currentCase()?.redactedScope?.personLabel || "case")
+    .replace(/[^a-z0-9_-]+/gi, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40) || "case";
+  downloadJson(`oblivion-${label}-${state.currentCaseId.slice(0, 8)}.json`, bundle);
+  const status = $("#vault-status");
+  if (status) {
+    status.textContent = `Downloaded backup${passphrase ? " with wrapped vault key" : ""}.`;
+    status.className = "vault-status muted small pass";
+  }
 }
 
 function caseDeleteLabel(caseId) {
@@ -2754,7 +3201,7 @@ async function upgradeMetaMaskLive() {
   });
 }
 
-async function preparePayment(mode) {
+async function preparePayment(mode, options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   if (!state.smartAccountAddress) await createSmartAccount({ quiet: true, openHub: false });
   const productId = mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet";
@@ -2768,8 +3215,10 @@ async function preparePayment(mode) {
     }
   });
   await refreshHackathon({ silent: true });
-  openPaymentRails();
+  renderSubscriptionUpsell();
+  if (!options.quiet) openPaymentRails();
   write(result);
+  return result;
 }
 
 async function finishPendingDeveloperActions(options = {}) {
@@ -2912,7 +3361,7 @@ async function askAgent() {
           "agent",
           error?.error === "ai-chat-budget-exhausted"
             ? "AI chat budget used up for this plan. Subscribe for more capacity or start a new one-off run."
-            : "Agent AI requires payment — $1 USDC one-off or $5 USDC/month. Open Payment rails in Settings."
+            : "Agent AI requires payment — $5 USDC one-off or $10 USDC/month. Open Payment rails in Settings."
         );
         openPaymentRails();
         render();
@@ -3055,6 +3504,12 @@ document.querySelectorAll(".preset-chip").forEach((chip) => {
   });
 });
 document.addEventListener("click", (event) => {
+  const landingStarter = event.target.closest("[data-landing-preset]");
+  if (landingStarter) {
+    event.preventDefault();
+    applyLandingTemplate(landingStarter.dataset.landingPreset);
+    return;
+  }
   const starter = event.target.closest("[data-agent-preset]");
   if (!starter) return;
   event.preventDefault();
@@ -3095,7 +3550,14 @@ function backToLanding() {
 
 $("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
 
-$("#open-app-hero").addEventListener("click", openApp);
+$("#landing-send")?.addEventListener("click", () => submitLandingIntake().catch(write));
+$("#landing-input")?.addEventListener("input", updateLandingSendState);
+$("#landing-input")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    submitLandingIntake().catch(write);
+  }
+});
 $("#toolbar-home")?.addEventListener("click", backToLanding);
 function toggleSidebar() {
   state.sidebarOpen = !state.sidebarOpen;
@@ -3117,9 +3579,7 @@ window.addEventListener("hashchange", () => {
     render();
   }
 });
-$("#jump-how-it-works").addEventListener("click", () => {
-  $("#install-skill")?.scrollIntoView({ behavior: "smooth", block: "start" });
-});
+
 $("#refresh-dashboard")?.addEventListener("click", () => refreshTrust().then(refreshCases).catch(write));
 $("#change-route")?.addEventListener("click", () => revealRouteTab());
 $("#continue-flow").addEventListener("click", () => revealRouteTab());
@@ -3137,8 +3597,12 @@ $("#wallet-modal-close")?.addEventListener("click", () => toggleWalletModal(fals
 $("#wallet-modal-disconnect")?.addEventListener("click", () => disconnectWallet().catch(write));
 $("#wallet-modal-settings")?.addEventListener("click", () => {
   toggleWalletModal(false);
-  openWalletHub();
+  openPaymentRails();
 });
+$("#wallet-modal-connect")?.addEventListener("click", () => {
+  connectWallet({ openHub: true }).catch(write);
+});
+$("#wallet-modal-live-upgrade")?.addEventListener("click", () => upgradeMetaMaskLive().catch(write));
 $("#wallet-modal-smart-account")?.addEventListener("click", () => {
   enableSmartAccount({ quiet: false, openHub: false })
     .then(() => renderWalletModal())
@@ -3160,11 +3624,9 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     walletLog.info("connect button clicked", { id: walletBtn.id || "delegated" });
-    connectWallet({ openHub: walletBtn.id === "connect-wallet" && hasActiveCase() }).catch(write);
+    connectWallet({ openHub: walletBtn.id === "wallet-modal-connect" }).catch(write);
   }
 });
-
-$("#upgrade-metamask-live")?.addEventListener("click", () => upgradeMetaMaskLive().catch(write));
 $("#create-smart-account")?.addEventListener("click", () => createSmartAccount().catch(write));
 
 $("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
@@ -3223,8 +3685,7 @@ $("#agent-dock")?.querySelector(".agent-dock-head")?.addEventListener("click", (
   if (event.target.closest("button")) return;
   openAgentDock();
 });
-$("#export").addEventListener("click", () => exportCase().catch(write));
-$("#delete").addEventListener("click", () => deleteCase().catch(write));
+$("#export")?.addEventListener("click", () => exportCase().catch(write));
 $("#delete-case-modal-close")?.addEventListener("click", closeDeleteCaseModal);
 $("#delete-case-modal-cancel")?.addEventListener("click", closeDeleteCaseModal);
 $("#delete-case-modal-confirm")?.addEventListener("click", () => confirmDeleteCase().catch(write));
@@ -3340,6 +3801,30 @@ function setupDelegates() {
     }
   });
 
+  document.addEventListener("change", (e) => {
+    const planInput = e.target.closest('input[name="payment-plan"]');
+    if (planInput) selectPaymentMode(planInput.value);
+  });
+
+  document.addEventListener("click", (e) => {
+    const planCard = e.target.closest(".payment-plan-card");
+    if (planCard?.dataset.paymentPlan) {
+      selectPaymentMode(planCard.dataset.paymentPlan);
+      return;
+    }
+    if (e.target.closest("#upsell-subscribe")) {
+      e.preventDefault();
+      preparePayment("subscription")
+        .then(() => addChat("agent", "Weekly monitor prepared. Check Settings → Payment rails for status."))
+        .catch(write);
+      return;
+    }
+    if (e.target.closest("#upsell-dismiss")) {
+      e.preventDefault();
+      dismissSubscriptionUpsell();
+    }
+  });
+
   document.addEventListener("click", (e) => {
     const copyBtn = e.target.closest("[data-copy-target]");
     if (!copyBtn) return;
@@ -3357,4 +3842,5 @@ await refreshTrust().catch(write);
 await refreshWalletConfig().catch(write);
 await refreshIntegrationsStatus().catch(write);
 await refreshCases().catch(write);
+await refreshHackathon({ silent: true }).catch(write);
 render();

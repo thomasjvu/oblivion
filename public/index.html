@@ -21,16 +21,16 @@
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
-              <h2>ERASE TRAIL</h2>
-              <div class="landing-actions">
-                <button id="open-app-hero" data-icon="play"><span class="btn-label">Start</span></button>
-                <button class="secondary icon-only" id="jump-how-it-works" data-icon="info-box" aria-label="How it works"><span class="btn-label">Info</span></button>
-                <a class="ghost landing-help-link" href="/help" data-icon="book" aria-label="User guide"><span class="btn-label">Guide</span></a>
-              </div>
-              <div class="trust-strip trust-strip-icons" id="trust-strip" aria-label="Status">
-                <span class="chip pass" data-icon="lock" title="Vault locked">Vault</span>
-                <span class="chip pass" data-icon="eye-closed" title="Server blind">Blind</span>
-                <span class="chip warn" data-icon="cast" title="Runtime">Local</span>
+              <h2>REMOVE YOURSELF FROM DIGITAL REALITY</h2>
+              <div class="landing-chat" id="landing-chat">
+                <div class="landing-template-panel" id="landing-template-panel">
+                  <p class="landing-template-label muted small">Templates</p>
+                  <div class="landing-preset-starters" id="landing-preset-starters" role="group" aria-label="Cleanup templates"></div>
+                </div>
+                <div class="composer landing-composer">
+                  <input id="landing-input" data-testid="landing-input" placeholder="Describe what to clean up…" aria-label="Start your cleanup request" />
+                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Send" disabled><span class="btn-label">Send</span></button>
+                </div>
               </div>
             </div>
           </div>
@@ -43,33 +43,29 @@
             </div>
             <div class="skill-install-grid">
               <div class="skill-install-card">
-                <div class="skill-install-head">
-                  <span class="skill-install-label">skills.sh</span>
-                  <button type="button" class="ghost compact skill-copy-btn" data-copy-target="skill-install-npx" data-icon="copy" aria-label="Copy npx install command"><span class="btn-label">Copy</span></button>
-                </div>
-                <pre class="skill-install-command" id="skill-install-npx"><code>npx skills add thomasjvu/oblivion --skill clean-online-identity</code></pre>
+                <span class="skill-install-label">skills.sh</span>
+                <pre class="skill-install-command" id="skill-install-npx"><code>npx skills add thomasjvu/oblivion --skill clean-online-identity</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-npx" data-icon="copy" aria-label="Copy npx install command"><span class="visually-hidden">Copy</span></button></pre>
               </div>
               <div class="skill-install-card">
-                <div class="skill-install-head">
-                  <span class="skill-install-label">curl installer</span>
-                  <button type="button" class="ghost compact skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="btn-label">Copy</span></button>
-                </div>
-                <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code></pre>
+                <span class="skill-install-label">curl installer</span>
+                <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="visually-hidden">Copy</span></button></pre>
               </div>
             </div>
             <div class="skill-install-actions">
-              <a class="secondary compact" href="/skills/clean-online-identity/SKILL.md" download data-icon="download"><span class="btn-label">Download SKILL.md</span></a>
+              <a class="secondary compact" href="/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" aria-label="View SKILL.md (opens in new tab)"><span class="btn-label">View SKILL.md</span></a>
               <a class="ghost compact" href="/skills/clean-online-identity/manifest.json" data-icon="list"><span class="btn-label">Manifest</span></a>
               <a class="ghost compact" href="https://github.com/thomasjvu/oblivion/tree/main/skills/clean-online-identity" target="_blank" rel="noopener noreferrer" data-icon="github"><span class="btn-label">View source</span></a>
             </div>
           </div>
         </section>
-        <footer class="site-footer landing-footer" id="landing-footer">
+        <footer class="site-footer workspace-footer" id="landing-footer">
           <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
           <nav class="site-footer-legal" aria-label="Help and legal">
             <a class="site-footer-text-link" href="/help">Guide</a>
+            <a class="site-footer-text-link" href="/pricing">Pricing</a>
             <a class="site-footer-text-link" href="/privacy">Privacy</a>
             <a class="site-footer-text-link" href="/terms">Terms</a>
+            <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
           </nav>
           <nav class="site-footer-social" aria-label="Social links">
             <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
@@ -131,9 +127,11 @@
               </header>
               <div class="wallet-modal-body" id="wallet-modal-body"></div>
               <footer class="wallet-modal-actions">
+                <button type="button" id="wallet-modal-connect" data-testid="wallet-modal-connect" data-connect-wallet data-icon="wallet" hidden><span class="btn-label">Connect wallet</span></button>
                 <button type="button" class="secondary compact" id="wallet-modal-smart-account" data-testid="wallet-modal-smart-account" data-icon="cast" hidden><span class="btn-label">Enable Smart Account</span></button>
+                <button type="button" class="secondary compact" id="wallet-modal-live-upgrade" data-testid="wallet-modal-live-upgrade" hidden>Upgrade (Sepolia)</button>
                 <button type="button" class="ghost compact" id="wallet-modal-settings" data-testid="wallet-modal-settings" data-icon="sliders"><span class="btn-label">Payment settings</span></button>
-                <button type="button" class="danger compact" id="wallet-modal-disconnect" data-testid="wallet-modal-disconnect" data-icon="close"><span class="btn-label">Disconnect</span></button>
+                <button type="button" class="danger compact" id="wallet-modal-disconnect" data-testid="wallet-modal-disconnect" data-icon="close" hidden><span class="btn-label">Disconnect</span></button>
               </footer>
             </div>
           </dialog>
@@ -141,7 +139,7 @@
           <dialog class="confirm-modal" id="delete-case-modal" data-testid="delete-case-modal" aria-labelledby="delete-case-modal-title">
             <div class="confirm-modal-panel">
               <header class="confirm-modal-head">
-                <h3 id="delete-case-modal-title" data-icon="delete">Delete case?</h3>
+                <h3 id="delete-case-modal-title">Delete case?</h3>
                 <button type="button" class="ghost compact icon-only" id="delete-case-modal-close" data-testid="delete-case-modal-close" data-icon="close" aria-label="Cancel delete"><span class="btn-label">Close</span></button>
               </header>
               <p class="confirm-modal-copy" id="delete-case-modal-copy"></p>
@@ -157,7 +155,6 @@
           <div class="flow-card onboarding-grid onboarding-compact">
             <div class="onboarding-forms">
             <div class="panel console-panel simple-intake-panel onboarding-intake-panel" data-testid="onboarding-agent-panel">
-              <p class="simple-intake-lead muted">Name and template — we handle the rest until you approve.</p>
               <div class="simple-intake-grid">
                 <label class="simple-field">
                   <span>Your name</span>
@@ -183,6 +180,28 @@
                 <span>Profile links you already have <em class="muted">(optional)</em></span>
                 <textarea id="simple-urls" data-testid="simple-urls" rows="2" placeholder="Paste one broker URL per line"></textarea>
               </label>
+              <section class="onboarding-payment" id="onboarding-payment" aria-labelledby="onboarding-payment-title" data-testid="onboarding-payment">
+                <div class="onboarding-payment-head">
+                  <h4 id="onboarding-payment-title">Choose a plan</h4>
+                  <a class="ghost compact onboarding-pricing-link" href="/pricing">See pricing</a>
+                </div>
+                <p class="muted small onboarding-payment-lead">Pay with USDC on Base via x402. Approvals are still required before anything is sent.</p>
+                <div class="onboarding-payment-options" id="onboarding-payment-options" role="radiogroup" aria-label="Payment plan">
+                  <label class="payment-plan-card active" data-payment-plan="one-off">
+                    <input type="radio" name="payment-plan" value="one-off" data-testid="payment-plan-one-off" checked />
+                    <span class="payment-plan-title">One-off cleanup</span>
+                    <span class="payment-plan-price">$5 USDC</span>
+                    <span class="payment-plan-detail muted small">Single supervised run · 5 agent chats</span>
+                  </label>
+                  <label class="payment-plan-card" data-payment-plan="subscription">
+                    <input type="radio" name="payment-plan" value="subscription" data-testid="payment-plan-subscription" />
+                    <span class="payment-plan-title">Weekly monitor</span>
+                    <span class="payment-plan-price">$10 USDC/mo</span>
+                    <span class="payment-plan-detail muted small">Weekly rechecks · 30 agent chats</span>
+                  </label>
+                </div>
+                <p class="muted small onboarding-payment-status" id="onboarding-payment-status" aria-live="polite"></p>
+              </section>
               <label class="checkbox-row simple-preview-search">
                 <input type="checkbox" id="run-preview-search" data-testid="run-preview-search" checked />
                 Search for my exposure online before starting cleanup
@@ -253,8 +272,14 @@
           <section class="guide-rail guide-rail-minimal" id="user-guide" data-testid="user-guide" aria-label="Progress">
             <div class="guide-progress-block">
               <ol class="guide-checkpoints" id="guide-steps" role="list" aria-label="Cleanup milestones"></ol>
-              <div class="guide-progress-track" id="guide-progress-track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
-                <div class="guide-progress-fill" id="guide-progress-fill"></div>
+              <div class="guide-progress-meter">
+                <div class="guide-progress-meter-head">
+                  <span class="guide-progress-label">Progress</span>
+                  <span class="guide-progress-pct" id="guide-progress-pct" aria-hidden="true">0%</span>
+                </div>
+                <div class="guide-progress-track" id="guide-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <div class="guide-progress-fill" id="guide-progress-fill"></div>
+                </div>
               </div>
               <p class="guide-phase-status muted small" id="guide-phase-status"></p>
             </div>
@@ -269,18 +294,33 @@
               <div class="console-panel cleanup-progress-panel">
                 <div class="cleanup-progress" id="cleanup-progress" aria-live="polite"></div>
               </div>
+              <section class="subscription-upsell" id="subscription-upsell" data-testid="subscription-upsell" hidden aria-label="Upgrade to subscription">
+                <div class="subscription-upsell-copy">
+                  <strong>Keep monitoring weekly</strong>
+                  <p class="muted small">Your one-off run covers this cleanup. Subscribe for weekly exposure rechecks, follow-up prep, and higher agent limits.</p>
+                </div>
+                <div class="subscription-upsell-actions toolbar">
+                  <button type="button" id="upsell-subscribe" data-testid="upsell-subscribe" data-icon="chart"><span class="btn-label">Subscribe — $5/mo</span></button>
+                  <a class="ghost compact" href="/pricing">Compare plans</a>
+                  <button type="button" class="ghost compact" id="upsell-dismiss" data-testid="upsell-dismiss">Not now</button>
+                </div>
+              </section>
               <div class="console-panel findings-panel" id="findings-panel" data-testid="findings-panel">
                 <div class="panel-header">
                   <h3>Is this you?</h3>
                   <span class="pill" id="findings-count-pill">0</span>
                 </div>
                 <p class="muted small findings-hint" id="findings-hint">Yes = yours · Not me = skip</p>
-                <details class="findings-paste" id="findings-paste-details">
-                  <summary data-icon="link">Add more links</summary>
-                  <textarea id="findings-paste-input" rows="2" placeholder="One URL per line"></textarea>
-                  <div class="toolbar">
-                    <button type="button" id="findings-discover" data-icon="search" data-testid="findings-discover">Search again</button>
+                <section class="findings-discovery" id="findings-discovery" aria-label="Discovery">
+                  <div class="findings-discovery-plan" id="findings-discovery-plan" data-testid="findings-discovery-plan"></div>
+                  <div class="findings-discovery-actions toolbar">
+                    <button type="button" id="findings-discover" data-icon="search" data-testid="findings-discover">Discover listings</button>
+                    <p class="muted small findings-discovery-status" id="findings-discovery-status" aria-live="polite"></p>
                   </div>
+                </section>
+                <details class="findings-paste" id="findings-paste-details">
+                  <summary data-icon="link">Paste known profile links (optional)</summary>
+                  <textarea id="findings-paste-input" rows="2" placeholder="One URL per line — e.g. spokeo.com/your-profile"></textarea>
                 </details>
                 <div class="findings-list" id="findings-list" data-testid="findings-list"></div>
                 <div class="findings-queue" id="removal-queue" hidden>
@@ -406,21 +446,6 @@
                 <div class="status-list" id="ai-entitlement-status"></div>
                 <div class="table" id="payments-table"></div>
               </div>
-              <div class="settings-block" id="wallet-hub" data-testid="wallet-hub">
-                <h4>Wallet &amp; MetaMask Smart Account</h4>
-                <p class="wallet-connect-feedback fail" data-wallet-feedback-secondary role="status" aria-live="polite" hidden></p>
-                <div class="status-list" id="wallet-status"></div>
-                <div class="toolbar wallet-hub-toolbar">
-                  <button type="button" id="connect-wallet" data-connect-wallet data-icon="wallet">Connect wallet</button>
-                  <button type="button" id="disconnect-wallet" data-testid="disconnect-wallet" class="secondary" data-icon="close">Disconnect</button>
-                  <button type="button" class="secondary" id="upgrade-metamask-live" hidden>Upgrade (Sepolia)</button>
-                </div>
-                <p class="muted small" id="wallet-live-hint"></p>
-                <details class="wallet-debug-panel advanced-only">
-                  <summary>Wallet log</summary>
-                  <pre id="wallet-debug-log" class="wallet-debug-log"></pre>
-                </details>
-              </div>
               <div class="settings-block">
                 <h4>Developer details</h4>
                 <div class="status-list" id="hackathon-checklist"></div>
@@ -459,28 +484,21 @@
 
           <div class="tab-panel" id="tab-vault" role="tabpanel">
             <div class="tab-panel-main">
-            <div class="panel panel-with-visual vault-panel console-panel">
-              <div class="panel-visual clean-slate-visual" aria-hidden="true"></div>
-              <div class="panel-body">
+            <div class="panel console-panel vault-panel">
               <div class="panel-header">
-                <h3>Vault</h3>
-                <span class="pill">Advanced</span>
+                <h3>Encrypted backup</h3>
+                <span class="pill">Vault</span>
               </div>
-              <label for="export-passphrase">Export passphrase</label>
-              <input id="export-passphrase" type="password" placeholder="Wrap vault key locally" />
-              <div class="actions">
-                <button id="export">Export encrypted case</button>
-                <button class="danger" id="delete">Delete case</button>
+              <p class="muted small vault-lead">Sensitive identifiers stay in your browser. The server only stores encrypted intake. Export a portable backup of redacted case data — optionally wrap your in-memory vault key with a passphrase.</p>
+              <p class="vault-status muted small" id="vault-status" aria-live="polite"></p>
+              <label for="export-passphrase">Export passphrase <em class="muted">(optional, 12+ characters)</em></label>
+              <input id="export-passphrase" type="password" autocomplete="new-password" placeholder="Only needed to wrap the vault key" />
+              <div class="actions vault-actions">
+                <button type="button" id="export" data-icon="download"><span class="btn-label">Download backup</span></button>
               </div>
-              </div>
+              <p class="muted small vault-footnote">Delete cases from the sidebar case list. Vault keys are not recovered after refresh — use export during the same session if you need a wrapped key.</p>
             </div>
             </div>
-            <aside class="side inspector-stack">
-              <div class="panel console-panel">
-                <h3>Storage rule</h3>
-                <p class="muted small">Only redacted summaries and selected case ID are kept in browser storage. The raw vault key stays in memory.</p>
-              </div>
-            </aside>
           </div>
 
           <div class="tab-panel" id="tab-history" role="tabpanel">
@@ -510,8 +528,10 @@
             <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
             <nav class="site-footer-legal" aria-label="Help and legal">
               <a class="site-footer-text-link" href="/help">Guide</a>
+              <a class="site-footer-text-link" href="/pricing">Pricing</a>
               <a class="site-footer-text-link" href="/privacy">Privacy</a>
               <a class="site-footer-text-link" href="/terms">Terms</a>
+              <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
             </nav>
             <nav class="site-footer-social" aria-label="Social links">
               <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
@@ -529,10 +549,6 @@
 
             <div class="agent-chat-body">
               <p class="agent-dock-brief" id="agent-dock-brief" role="status"></p>
-              <div class="agent-template-panel" id="agent-template-panel">
-                <p class="agent-template-label muted small">Templates</p>
-                <div class="agent-preset-starters" id="agent-preset-starters" role="group" aria-label="Cleanup templates"></div>
-              </div>
               <div class="agent-chat-log" id="agent-chat-log" role="log" aria-live="polite" aria-relevant="additions">
                 <div class="agent-chat-messages" id="agent-chat-messages"></div>
                 <div class="agent-cards" id="agent-action-cards"></div>
@@ -553,6 +569,10 @@
                 <div class="agent-suggestions" id="agent-suggestions"></div>
               </details>
               <button type="button" class="visually-hidden" id="agent-do-next" data-testid="agent-do-next" tabindex="-1" aria-hidden="true"><span class="btn-label">Next</span></button>
+              <div class="agent-template-panel" id="agent-template-panel">
+                <p class="agent-template-label muted small">Templates</p>
+                <div class="agent-preset-starters" id="agent-preset-starters" role="group" aria-label="Cleanup templates"></div>
+              </div>
               <div class="composer agent-composer">
                 <input id="agent-input" placeholder="Message the agent…" aria-label="Agent message" />
                 <button id="agent-send" class="icon-only" data-icon="arrow-right" aria-label="Send" disabled><span class="btn-label">Send</span></button>

@@ -36,6 +36,7 @@ import { redactText } from "../domain/redaction.js";
 import { executeApprovedAction } from "../domain/executor.js";
 import {
   applyFindingDecision,
+  describeDiscoveryPlan,
   discoverExposureCandidates,
   discoveryReadinessMessage
 } from "../domain/exposureDiscovery.js";
@@ -210,7 +211,7 @@ interface PremiumTaskBody {
 
 async function serveBuiltOrMarkdownPage(
   publicDir: string,
-  slug: "privacy" | "terms",
+  slug: "privacy" | "terms" | "pricing",
   markdownFile: string,
   page: { pageTitle: string; heading: string }
 ): Promise<string> {
@@ -258,6 +259,15 @@ export function createApp(options: AppOptions = {}) {
         const html = await serveBuiltOrMarkdownPage(publicDir, "terms", "TERMS_OF_SERVICE.md", {
           pageTitle: "Terms of Service",
           heading: "Terms"
+        });
+        sendText(response, 200, html, "text/html");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/pricing") {
+        const html = await serveBuiltOrMarkdownPage(publicDir, "pricing", "PRICING.md", {
+          pageTitle: "Pricing",
+          heading: "Pricing"
         });
         sendText(response, 200, html, "text/html");
         return;
@@ -497,11 +507,19 @@ export function createApp(options: AppOptions = {}) {
       if (method === "GET" && findingsListMatch) {
         const caseRecord = store.getCaseOrThrow(findingsListMatch[1]);
         const status = buildStatus(store, caseRecord.id);
+        const plan = store.agentPlanForCase(caseRecord.id);
+        const presetId = plan?.presetId;
         sendJson(response, 200, {
           findings: status.findings,
           pendingFindings: status.pendingFindings,
           confirmedFindings: status.confirmedFindings,
-          discovery: discoveryReadinessMessage()
+          discovery: discoveryReadinessMessage(),
+          discoveryPlan: describeDiscoveryPlan({
+            scope: caseRecord.redactedScope,
+            pastedUrlCount: 0,
+            brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
+            contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
+          })
         });
         return;
       }
@@ -538,7 +556,13 @@ export function createApp(options: AppOptions = {}) {
             discovered,
             status: buildStatus(store, caseRecord.id),
             timeline,
-            discovery: discoveryReadinessMessage()
+            discovery: discoveryReadinessMessage(),
+            discoveryPlan: describeDiscoveryPlan({
+              scope: caseRecord.redactedScope,
+              pastedUrlCount: body.pastedUrls?.length ?? 0,
+              brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
+              contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
+            })
           });
         } catch (error) {
           throw new HttpError(502, "discovery-failed", {
@@ -669,7 +693,7 @@ export function createApp(options: AppOptions = {}) {
           config: x402PublicConfig(),
           aiBudget: AI_BUDGET_BY_MODE,
           note: isX402Configured()
-            ? "Live x402 catalog. Pay $1 USDC one-off or $5 USDC/month subscription via x402. Agent AI usage is capped per plan."
+            ? "Live x402 catalog. Pay $5 USDC one-off or $10 USDC/month subscription via x402. Agent AI usage is capped per plan."
             : "Configure X402_PAY_TO and X402_FACILITATOR_URL for live HTTP 402 settlement."
         });
         return;

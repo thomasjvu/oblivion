@@ -324,6 +324,95 @@ export function countFindingsByStatus(exposures: Exposure[]): {
   return { pending, confirmed, rejected };
 }
 
+export interface DiscoveryPlanMethod {
+  id: "pasted-urls" | "broker-sweep" | "web-search" | "match-scoring" | "manual-only";
+  label: string;
+  detail: string;
+  enabled: boolean;
+}
+
+export function describeDiscoveryPlan(input: {
+  scope?: RedactedScope;
+  pastedUrlCount?: number;
+  brokerSweep?: boolean;
+  contentTakedown?: boolean;
+}): { methods: DiscoveryPlanMethod[]; canAutoDiscover: boolean; summary: string } {
+  const braveReady = isBraveSearchConfigured();
+  const veniceReady = isVeniceConfigured();
+  const pastedCount = input.pastedUrlCount ?? 0;
+  const brokerSweepEnabled =
+    input.brokerSweep !== false && !input.contentTakedown && braveReady;
+  const name = input.scope?.personLabel?.trim() || "";
+  const methods: DiscoveryPlanMethod[] = [];
+
+  if (pastedCount > 0) {
+    methods.push({
+      id: "pasted-urls",
+      label: "Your pasted links",
+      detail: `Import ${pastedCount} URL(s) you provided and match them to known brokers.`,
+      enabled: true
+    });
+  }
+
+  if (brokerSweepEnabled && name) {
+    const sweepQueries = buildBrokerSweepQueries(input.scope);
+    const hosts = sweepQueries.map((item) => item.host);
+    const preview = hosts.slice(0, 4).join(", ");
+    const more = hosts.length > 4 ? ` +${hosts.length - 4} more` : "";
+    methods.push({
+      id: "broker-sweep",
+      label: "Broker sweep",
+      detail: `Site-scoped Brave search on ${sweepQueries.length} people-search brokers (${preview}${more}) for “${redactText(name)}”.`,
+      enabled: true
+    });
+  }
+
+  if (braveReady && name && !input.contentTakedown) {
+    methods.push({
+      id: "web-search",
+      label: "Web search",
+      detail: `Broader Brave query: ${buildBraveSearchQuery(input.scope)}`,
+      enabled: true
+    });
+  }
+
+  if (input.contentTakedown && braveReady && name) {
+    methods.push({
+      id: "web-search",
+      label: "Content search",
+      detail: `Brave query for takedown targets: ${buildBraveSearchQuery(input.scope)}`,
+      enabled: true
+    });
+  }
+
+  if (methods.some((item) => item.id === "broker-sweep" || item.id === "web-search") || pastedCount > 0) {
+    methods.push({
+      id: "match-scoring",
+      label: "Match scoring",
+      detail: veniceReady
+        ? "Venice ranks each candidate against your redacted name and labels (no vault plaintext)."
+        : "Heuristic scoring from redacted name, location labels, and broker host patterns.",
+      enabled: true
+    });
+  }
+
+  if (!braveReady && pastedCount === 0) {
+    methods.push({
+      id: "manual-only",
+      label: "Automated search off",
+      detail: "Set BRAVE_SEARCH_API_KEY on the server, or paste profile URLs you already found.",
+      enabled: false
+    });
+  }
+
+  const canAutoDiscover = braveReady || pastedCount > 0;
+  const summary = canAutoDiscover
+    ? "Discover runs the steps below using only redacted case labels — never raw vault data."
+    : "Paste at least one profile URL below, or enable Brave search on the server.";
+
+  return { methods, canAutoDiscover, summary };
+}
+
 export function discoveryReadinessMessage(): string {
   const parts: string[] = [];
   if (isBraveSearchConfigured()) parts.push("Brave search + broker sweep");

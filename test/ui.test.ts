@@ -24,9 +24,13 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /clean-online-identity/);
   assert.match(html, /skill\.sh/);
   assert.match(html, /setupLandingSkillInstall/);
-  assert.match(html, /ERASE TRAIL/);
-  assert.match(html, /id="open-app-hero"/);
-  assert.match(html, /id="jump-how-it-works"/);
+  assert.match(html, /REMOVE YOURSELF FROM DIGITAL REALITY/);
+  assert.match(html, /View SKILL\.md/);
+  assert.match(html, /id="landing-input"/);
+  assert.match(html, /id="landing-send"/);
+  assert.match(html, /id="landing-preset-starters"/);
+  assert.match(html, /applyLandingTemplate/);
+  assert.match(html, /submitLandingIntake/);
   assert.match(html, /pixelarticons/);
   assert.match(html, /bindIcons/);
   assert.match(html, /cinematic-hero/);  // new cinematic landing
@@ -83,16 +87,15 @@ test("advanced and noisy sections are collapsed by default", async () => {
   assert.doesNotMatch(html, /<pre id="output">Ready\.<\/pre>\s*<\/div>\s*<\/aside>\s*<\/div>\s*<\/section>\s*<\/main>/);
 });
 
-test("compact trust indicators remain visible on first viewport", async () => {
+test("trust indicators render in workspace runtime views", async () => {
   const html = await readUiBundle();
 
-  assert.match(html, /id="trust-strip"/);
   assert.match(html, /Vault locked/);
   assert.match(html, /Server blind/);
   assert.match(html, /Local mode/);
   assert.match(html, /TEE verified/);
   assert.match(html, /TEE blocked/);
-  assert.match(html, /trust-strip-icons/);
+  assert.doesNotMatch(html, /id="trust-strip"/);
   assert.doesNotMatch(html, /<div class="nav-actions">\s*<div class="trust-strip"/);
 });
 
@@ -100,9 +103,22 @@ test("landing page links legal docs and skill install", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /id="install-skill"/);
+  assert.doesNotMatch(html, /\.landing-skill-inner\s*\{[^}]*border:/s);
+  assert.doesNotMatch(html, /\.skill-install-card\s*\{[^}]*border:/s);
   assert.match(html, /href="\/help"/);
+  assert.match(html, /href="\/pricing"/);
+  assert.match(html, /site-footer-external-link/);
+  assert.match(html, /SKILL\.md/);
+  assert.match(html, /skills\/clean-online-identity\/SKILL\.md/);
   assert.match(html, /href="\/privacy"/);
   assert.match(html, /href="\/terms"/);
+
+  const pricingHtml = await readFile(new URL("../public/pricing.html", import.meta.url), "utf8");
+  assert.match(pricingHtml, /pricing-page/);
+  assert.match(pricingHtml, /\$5 USDC/);
+  assert.match(pricingHtml, /\$10 USDC\/mo/);
+  assert.match(pricingHtml, /Local agent \(SKILL\)/);
+  assert.match(pricingHtml, /Incogni/);
 
   const privacyHtml = await readFile(new URL("../public/privacy.html", import.meta.url), "utf8");
   assert.match(privacyHtml, /Privacy Policy/);
@@ -222,6 +238,20 @@ test("agent dock has mobile bottom-sheet behavior", async () => {
   assert.match(html, /\.app-chrome\.agent-collapsed \.agent-dock\.open[\s\S]*transform:\s*translateY\(0\)/);
 });
 
+test("onboarding asks for one-off or subscription payment", async () => {
+  const html = await readUiBundle();
+
+  assert.match(html, /data-testid="onboarding-payment"/);
+  assert.match(html, /\.payment-plan-card input\[type="radio"\]/);
+  assert.match(html, /width: 1px/);
+  assert.match(html, /data-testid="payment-plan-one-off"/);
+  assert.match(html, /data-testid="payment-plan-subscription"/);
+  assert.match(html, /ensureCasePayment/);
+  assert.match(html, /selectedPaymentMode/);
+  assert.match(html, /data-testid="subscription-upsell"/);
+  assert.match(html, /upsell-subscribe/);
+});
+
 test("agent autopilot auto-discovers exposure links on scout step", async () => {
   const html = await readUiBundle();
 
@@ -231,6 +261,9 @@ test("agent autopilot auto-discovers exposure links on scout step", async () => 
   assert.match(html, /peopleSearchPresetActive/);
   assert.match(html, /findings\/discover/);
   assert.match(html, /openFindingsPastePanel/);
+  assert.match(html, /findings-discovery-plan/);
+  assert.match(html, /buildDiscoveryPlanView/);
+  assert.match(html, /Discover listings/);
   assert.match(html, /Review Exposure links/);
 });
 

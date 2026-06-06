@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oblivion — Pricing</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="/fonts/GeistPixel-Square.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app pricing-page" id="pricing-page">
+    <header class="pricing-topbar">
+      <div class="brand">
+        <div class="mark">O</div>
+        <h1>Pricing</h1>
+      </div>
+      <nav class="pricing-topnav" aria-label="Pricing navigation">
+        <a class="ghost compact" href="/help">Guide</a>
+        <a class="secondary compact pricing-start-link" href="/">Start cleanup</a>
+      </nav>
+    </header>
+
+    <main class="pricing-main">
+      <section class="pricing-hero">
+        <p class="pricing-eyebrow">USDC on Base · x402 · ERC-7710</p>
+        <h2>Pay for agent capacity.<br />Keep approval control.</h2>
+        <p class="pricing-lead muted">Payment unlocks capped AI assistance on your case. Every opt-out still requires your explicit approval before anything leaves the vault boundary.</p>
+      </section>
+
+      <section class="pricing-plans" aria-label="Plans">
+        <article class="pricing-plan-card" data-plan="one-off">
+          <div class="pricing-plan-head">
+            <h3>One-off cleanup</h3>
+            <p class="pricing-plan-price">$5 <span>USDC</span></p>
+          </div>
+          <p class="muted small">Single supervised run — best when you want one focused cleanup pass.</p>
+          <ul class="pricing-plan-features">
+            <li>Broker discovery + match review</li>
+            <li>Approval-gated opt-out drafting</li>
+            <li><strong>5</strong> agent chats per case</li>
+            <li><strong>1</strong> AI analysis task</li>
+            <li><strong>280</strong> token cap</li>
+          </ul>
+          <a class="pricing-plan-cta" href="/">Start one-off</a>
+        </article>
+
+        <article class="pricing-plan-card pricing-plan-featured" data-plan="subscription">
+          <p class="pricing-plan-badge">Recommended</p>
+          <div class="pricing-plan-head">
+            <h3>Weekly monitor</h3>
+            <p class="pricing-plan-price">$10 <span>USDC/mo</span></p>
+          </div>
+          <p class="muted small">Ongoing exposure rechecks and follow-up prep — same gates, more capacity.</p>
+          <ul class="pricing-plan-features">
+            <li>Everything in one-off</li>
+            <li>Weekly exposure rechecks</li>
+            <li>Follow-up cleanup preparation</li>
+            <li><strong>30</strong> agent chats per case</li>
+            <li><strong>6</strong> AI analysis tasks</li>
+            <li><strong>400</strong> token cap</li>
+          </ul>
+          <a class="pricing-plan-cta secondary" href="/">Subscribe</a>
+        </article>
+      </section>
+
+      <section class="pricing-compare" aria-labelledby="pricing-compare-title">
+        <h2 id="pricing-compare-title">Compare plans</h2>
+        <p class="pricing-compare-lead muted small">Broker removal services like <strong>Incogni</strong> and <strong>DeleteMe</strong> charge roughly <strong>$12–15/mo</strong> for automated opt-outs on their timeline. Oblivion is pay-per-capacity with explicit approval gates; the <strong>SKILL.md</strong> path is free if you run the playbook in your own agent.</p>
+        <div class="pricing-compare-scroll">
+          <div class="pricing-compare-table" role="table" aria-label="Plan comparison">
+            <div class="pricing-compare-row pricing-compare-head" role="row">
+              <span role="columnheader">Feature</span>
+              <span role="columnheader">Local agent (SKILL)</span>
+              <span role="columnheader">Oblivion one-off</span>
+              <span role="columnheader">Oblivion weekly</span>
+              <span role="columnheader">Broker services</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Price</span>
+              <span role="cell">Free</span>
+              <span role="cell">$5 USDC</span>
+              <span role="cell">$10 USDC/mo</span>
+              <span role="cell">~$12–15/mo</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Who runs cleanup</span>
+              <span role="cell">Your agent (Cursor, Claude, Grok…)</span>
+              <span role="cell">Oblivion managed agent</span>
+              <span role="cell">Oblivion managed agent</span>
+              <span role="cell">Their operations team</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Approval before send</span>
+              <span role="cell">You enforce in your stack</span>
+              <span role="cell">Always on</span>
+              <span role="cell">Always on</span>
+              <span role="cell">Varies by vendor</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Browser vault / server blind</span>
+              <span role="cell">Your environment</span>
+              <span role="cell">Yes</span>
+              <span role="cell">Yes</span>
+              <span role="cell">Opaque — data sent to vendor</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Broker discovery</span>
+              <span role="cell">Manual + your tooling</span>
+              <span role="cell">Included for one run</span>
+              <span role="cell">Weekly rechecks</span>
+              <span role="cell">Automated broker sweep</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Agent chats</span>
+              <span role="cell">Your LLM limits</span>
+              <span role="cell">5</span>
+              <span role="cell">30</span>
+              <span role="cell">N/A</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">AI analysis tasks</span>
+              <span role="cell">Your LLM limits</span>
+              <span role="cell">1</span>
+              <span role="cell">6</span>
+              <span role="cell">N/A</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Token cap</span>
+              <span role="cell">—</span>
+              <span role="cell">280</span>
+              <span role="cell">400</span>
+              <span role="cell">—</span>
+            </div>
+            <div class="pricing-compare-row" role="row">
+              <span role="cell">Weekly monitoring</span>
+              <span role="cell">You schedule</span>
+              <span role="cell">—</span>
+              <span role="cell">Included</span>
+              <span role="cell">Included</span>
+            </div>
+          </div>
+        </div>
+        <p class="pricing-compare-note muted small">Broker service pricing is indicative (Incogni, DeleteMe, similar). Oblivion does not auto-submit identifiers without your approval.</p>
+      </section>
+
+      <section class="pricing-steps" aria-labelledby="pricing-steps-title">
+        <h2 id="pricing-steps-title">How payment works</h2>
+        <ol class="pricing-steps-list">
+          <li><strong>Choose a plan</strong> when you create a case — one-off or subscription.</li>
+          <li><strong>Connect a wallet</strong> from the sidebar if prompted (Smart Account is optional in demos).</li>
+          <li><strong>x402 session</strong> is prepared and bound to your case via scoped ERC-7710 permission.</li>
+          <li><strong>Agent AI unlocks</strong> once the session is authorized or paid — approvals still required for every send.</li>
+        </ol>
+      </section>
+
+      <section class="pricing-faq" aria-labelledby="pricing-faq-title">
+        <h2 id="pricing-faq-title">FAQ</h2>
+        <details class="pricing-faq-item">
+          <summary>Can I switch from one-off to subscription later?</summary>
+          <p class="muted">Yes. After a one-off run, open <strong>Settings → Payment rails</strong> or use the upgrade prompt on your case overview.</p>
+        </details>
+        <details class="pricing-faq-item">
+          <summary>How is Oblivion different from Incogni or DeleteMe?</summary>
+          <p class="muted">Broker services run opt-outs on their schedule and hold your data in their systems. Oblivion keeps sensitive identifiers in your browser vault, charges per agent capacity in USDC, and pauses for your approval before anything is sent.</p>
+        </details>
+        <details class="pricing-faq-item">
+          <summary>Does paying skip the approval step?</summary>
+          <p class="muted">No. Payment only funds agent assistance. Every disclosure still goes through propose → approve → execute.</p>
+        </details>
+        <details class="pricing-faq-item">
+          <summary>What chain and token do you use?</summary>
+          <p class="muted">USDC on Base via x402. Demo mode can auto-authorize sessions; live deployments settle through your connected wallet.</p>
+        </details>
+        <details class="pricing-faq-item">
+          <summary>Do I need a subscription to paste my own URLs?</summary>
+          <p class="muted">No. Discovery and review work on both plans. Subscription adds monitoring cadence and higher AI limits.</p>
+        </details>
+        <details class="pricing-faq-item">
+          <summary>When should I use the free SKILL.md instead?</summary>
+          <p class="muted">Use the skill when you already run Cursor, Claude, Codex, or Grok locally and want the supervised cleanup playbook without the Oblivion UI or x402 payments. You bring the LLM; Oblivion managed plans add discovery, monitoring, and capped in-app agent assistance.</p>
+        </details>
+      </section>
+
+      <section class="pricing-bottom-cta">
+        <p class="muted small">Ready to start? Pick your plan on the case creation screen.</p>
+        <a class="pricing-plan-cta" href="/">Open Oblivion</a>
+      </section>
+    </main>
+
+    <footer class="site-footer pricing-page-footer">
+      <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
+      <nav class="site-footer-legal" aria-label="Help and legal">
+        <a class="site-footer-text-link" href="/help">Guide</a>
+        <a class="site-footer-text-link" href="/pricing">Pricing</a>
+        <a class="site-footer-text-link" href="/privacy">Privacy</a>
+        <a class="site-footer-text-link" href="/terms">Terms</a>
+        <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer">SKILL.md<span class="site-footer-external-icon" aria-hidden="true"></span></a>
+      </nav>
+    </footer>
+  </div>
+</body>
+</html>

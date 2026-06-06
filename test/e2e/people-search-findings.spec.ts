@@ -12,7 +12,7 @@ test.describe("people-search cleanup flow", () => {
 
   test("discovers broker links, confirms matches, and reaches approval gate", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#open-app-hero").click();
+    await page.getByTestId("landing-preset-people-search-cleanup").click();
     await page.getByTestId("simple-name").fill("John Smith");
     await page.getByTestId("simple-alias").fill("J. Smith");
     await page.getByTestId("simple-region").fill("New York");

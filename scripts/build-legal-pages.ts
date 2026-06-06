@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadMarkdownDoc, projectRoot, staticDocPageFromMarkdown } from "../src/api/markdownPage.js";
 
@@ -17,4 +17,24 @@ for (const page of LEGAL_PAGES) {
     heading: page.heading
   });
   await writeFile(join(publicDir, `${page.slug}.html`), html, "utf8");
+}
+
+const pricingPath = join(publicDir, "pricing.html");
+try {
+  await access(pricingPath);
+  const pricing = await readFile(pricingPath, "utf8");
+  if (!pricing.includes("pricing-page")) {
+    throw new Error("public/pricing.html is missing required pricing-page markup");
+  }
+  if (!pricing.includes("site-footer-external-link") || !pricing.includes("SKILL.md")) {
+    throw new Error("public/pricing.html footer is out of date — add the SKILL.md external link");
+  }
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  const markdown = await loadMarkdownDoc("PRICING.md");
+  const fallback = staticDocPageFromMarkdown(markdown, {
+    pageTitle: "Pricing",
+    heading: "Pricing"
+  });
+  await writeFile(pricingPath, fallback, "utf8");
 }

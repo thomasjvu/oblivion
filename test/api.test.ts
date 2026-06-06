@@ -87,6 +87,14 @@ test("serves split frontend assets with restrictive security headers", async () 
     const termsHtml = await terms.text();
     assert.match(termsHtml, /Terms of Service/);
     assert.match(termsHtml, /No data harvesting/i);
+
+    const pricing = await fetch(`${base}/pricing`);
+    assert.equal(pricing.status, 200);
+    assert.match(pricing.headers.get("content-type") ?? "", /text\/html/);
+    const pricingHtml = await pricing.text();
+    assert.match(pricingHtml, /pricing-page/);
+    assert.match(pricingHtml, /\$5 USDC/);
+    assert.match(pricingHtml, /\$10 USDC\/mo/);
   } finally {
     server.close();
   }

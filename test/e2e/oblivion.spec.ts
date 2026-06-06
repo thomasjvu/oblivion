@@ -5,10 +5,7 @@ const SAMPLE_PROFILE_URL = "https://rocketreach.co/example-person-profile";
 test("guided cleanup route reaches approval gate", async ({ page }) => {
   await page.goto("/");
 
-  await page.getByRole("button", { name: "How it works" }).click();
-  await expect(page.locator("#how-it-works")).toBeInViewport();
-
-  await page.locator("#open-app-hero").click();
+  await page.getByTestId("landing-preset-people-search-cleanup").click();
   await page.getByTestId("simple-name").fill("John Smith");
   await page.getByTestId("simple-urls").fill(
     [SAMPLE_PROFILE_URL, "https://www.anywho.com/people/example+person/new+york"].join("\n")
