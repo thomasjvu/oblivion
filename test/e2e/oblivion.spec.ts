@@ -60,8 +60,7 @@ test("guided cleanup route reaches approval gate", async ({ page }) => {
   }, caseId!);
 
   await expect(page.locator("#agent-action-cards")).toContainText("Approve exact action", { timeout: 30_000 });
-  await page.locator("#toggle-advanced-tabs").click();
-  await page.locator('[data-tab="settings"]').click();
+  await page.locator('[data-tab="trust"]').click();
   await expect(page.locator("#agent-dock")).toBeVisible();
-  await expect(page.locator("#tee-status")).toContainText("Local mode");
+  await expect(page.locator("#trust-tab-status")).toContainText("Local mode");
 });

@@ -39,6 +39,67 @@ export interface Connector {
 
 export const CONNECTOR_REGISTRY: Connector[] = [
   {
+    id: "broker-registry-sweep",
+    capabilities: ["exposure-discovery", "recheck-scheduling"],
+    requiresManagedPlaintext: false,
+    requiresUserHandoff: false,
+    redactionPolicy: [
+      "site-scoped Brave queries use redacted scope labels only",
+      "timeline stores broker host and match category only"
+    ]
+  },
+  {
+    id: "broker-opt-out-live",
+    capabilities: ["removal-drafting"],
+    requiredApproval: {
+      actionType: "broker-opt-out",
+      dataToDisclose: ["legal-name", "email", "city-state"],
+      exactDestinationRequired: true
+    },
+    requiresManagedPlaintext: true,
+    requiresUserHandoff: false,
+    redactionPolicy: [
+      "submit only approval-bound identifiers inside managed runtime",
+      "connector result stores broker id and status only"
+    ]
+  },
+  {
+    id: "dmca-notice-drafter",
+    capabilities: ["removal-drafting", "official-handoff"],
+    requiredApproval: {
+      actionType: "dmca-takedown",
+      dataToDisclose: ["legal-name", "email", "infringing-url", "original-work-ref"],
+      exactDestinationRequired: true
+    },
+    requiresManagedPlaintext: false,
+    requiresUserHandoff: true,
+    redactionPolicy: ["draft statutory notice text only", "never store raw media in connector results"]
+  },
+  {
+    id: "platform-abuse-handoff",
+    capabilities: ["official-handoff"],
+    requiredApproval: {
+      actionType: "platform-abuse-report",
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      exactDestinationRequired: true
+    },
+    requiresManagedPlaintext: false,
+    requiresUserHandoff: true,
+    redactionPolicy: ["open official abuse or copyright report path", "user submits after approval"]
+  },
+  {
+    id: "platform-abuse-live",
+    capabilities: ["removal-drafting"],
+    requiredApproval: {
+      actionType: "platform-abuse-report",
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      exactDestinationRequired: true
+    },
+    requiresManagedPlaintext: true,
+    requiresUserHandoff: false,
+    redactionPolicy: ["send approved abuse notice from managed runtime only", "no media attachments without explicit approval"]
+  },
+  {
     id: "people-search-guidance",
     capabilities: ["exposure-discovery", "removal-drafting", "recheck-scheduling"],
     requiredApproval: {

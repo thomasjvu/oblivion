@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY config ./config
+COPY docs ./docs
 COPY public ./public
 COPY src ./src
 

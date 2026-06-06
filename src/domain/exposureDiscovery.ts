@@ -1,3 +1,10 @@
+import {
+  BROKER_HOST_HINT,
+  brokerCatalogEntryById,
+  brokerForUrl,
+  buildBrokerSweepQueries,
+  type BrokerCatalogEntry
+} from "./brokerCatalog.js";
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import { braveSearchBaseUrl, braveSearchCount, isBraveSearchConfigured } from "./integrations.js";
@@ -9,83 +16,15 @@ import type {
 } from "./types.js";
 import { veniceChatCompletion, isVeniceConfigured } from "./venice.js";
 
+export type { BrokerCatalogEntry };
+export { brokerForUrl, brokerCatalogEntryById, BROKER_HOST_HINT };
+
 export interface DiscoveryCandidate {
   sourceUrl: string;
   title?: string;
   snippet?: string;
-  origin: "pasted" | "brave-search";
-}
-
-export interface BrokerRegistryEntry {
-  brokerId: string;
-  brokerLabel: string;
-  hostPattern: RegExp;
-  officialOptOutUrl: string;
-  officialRemovalPath: string;
-}
-
-export const BROKER_REGISTRY: BrokerRegistryEntry[] = [
-  {
-    brokerId: "fastbackgroundcheck",
-    brokerLabel: "FastBackgroundCheck",
-    hostPattern: /fastbackgroundcheck\.com/i,
-    officialOptOutUrl: "https://www.fastbackgroundcheck.com/optout",
-    officialRemovalPath: "https://www.fastbackgroundcheck.com/optout"
-  },
-  {
-    brokerId: "rocketreach",
-    brokerLabel: "RocketReach",
-    hostPattern: /rocketreach\.co/i,
-    officialOptOutUrl: "https://rocketreach.co/privacy",
-    officialRemovalPath: "https://rocketreach.co/privacy"
-  },
-  {
-    brokerId: "thatsthem",
-    brokerLabel: "ThatsThem",
-    hostPattern: /thatsthem\.com/i,
-    officialOptOutUrl: "https://thatsthem.com/optout",
-    officialRemovalPath: "https://thatsthem.com/optout"
-  },
-  {
-    brokerId: "anywho",
-    brokerLabel: "AnyWho",
-    hostPattern: /anywho\.com/i,
-    officialOptOutUrl: "https://www.anywho.com/contact",
-    officialRemovalPath: "https://www.anywho.com/contact"
-  },
-  {
-    brokerId: "whitepages",
-    brokerLabel: "Whitepages",
-    hostPattern: /whitepages\.com/i,
-    officialOptOutUrl: "https://www.whitepages.com/suppression-requests",
-    officialRemovalPath: "https://www.whitepages.com/suppression-requests"
-  },
-  {
-    brokerId: "spokeo",
-    brokerLabel: "Spokeo",
-    hostPattern: /spokeo\.com/i,
-    officialOptOutUrl: "https://www.spokeo.com/opt-out",
-    officialRemovalPath: "https://www.spokeo.com/opt-out"
-  },
-  {
-    brokerId: "beenverified",
-    brokerLabel: "BeenVerified",
-    hostPattern: /beenverified\.com/i,
-    officialOptOutUrl: "https://www.beenverified.com/app/optout/search",
-    officialRemovalPath: "https://www.beenverified.com/app/optout/search"
-  }
-];
-
-const PEOPLE_SEARCH_HINT =
-  /people-?search|background.?check|whitepages|spokeo|beenverified|rocketreach|thatsthem|anywho|fastbackgroundcheck|intelius|truthfinder|instantcheckmate/i;
-
-export function brokerForUrl(url: string): BrokerRegistryEntry | undefined {
-  try {
-    const host = new URL(url).hostname;
-    return BROKER_REGISTRY.find((entry) => entry.hostPattern.test(host));
-  } catch {
-    return undefined;
-  }
+  origin: "pasted" | "brave-search" | "broker-sweep";
+  brokerId?: string;
 }
 
 export function normalizeDiscoveryUrl(raw: string): string | null {
@@ -134,12 +73,34 @@ export async function fetchBraveSearchCandidates(query: string): Promise<Discove
   for (const item of results) {
     const sourceUrl = item.url ? normalizeDiscoveryUrl(item.url) : null;
     if (!sourceUrl) continue;
+    const broker = brokerForUrl(sourceUrl);
     candidates.push({
       sourceUrl,
       title: item.title ? redactText(item.title) : undefined,
       snippet: item.description ? redactText(item.description) : undefined,
-      origin: "brave-search"
+      origin: "brave-search",
+      brokerId: broker?.brokerId
     });
+  }
+  return candidates;
+}
+
+export async function fetchBrokerSweepCandidates(scope: RedactedScope | undefined): Promise<DiscoveryCandidate[]> {
+  if (!isBraveSearchConfigured()) return [];
+  const queries = buildBrokerSweepQueries(scope);
+  const candidates: DiscoveryCandidate[] = [];
+  for (const item of queries) {
+    try {
+      const results = await fetchBraveSearchCandidates(item.query);
+      for (const result of results) {
+        const broker = brokerForUrl(result.sourceUrl);
+        if (broker?.brokerId === item.brokerId) {
+          candidates.push({ ...result, origin: "broker-sweep", brokerId: item.brokerId });
+        }
+      }
+    } catch {
+      continue;
+    }
   }
   return candidates;
 }
@@ -153,7 +114,7 @@ function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope
     .concat(scope?.sensitiveConstraints ?? [])
     .map((item) => item.toLowerCase());
   const nameHit = needles.some((needle) => haystack.includes(needle.replace(/\s+/g, "-")) || haystack.includes(needle));
-  const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl)) || PEOPLE_SEARCH_HINT.test(haystack);
+  const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl)) || BROKER_HOST_HINT.test(haystack);
   const locationHit = locationHints.some(
     (hint) => hint.length > 2 && (haystack.includes(hint) || /massachusetts|\bma\b/.test(haystack))
   );
@@ -227,11 +188,42 @@ export function confidenceFromMatchScore(score: ExposureMatchScore): Exposure["c
   return "low";
 }
 
+function exposureFromBroker(
+  broker: BrokerCatalogEntry | undefined,
+  candidate: DiscoveryCandidate,
+  scored: { matchScore: ExposureMatchScore; matchReason: string },
+  caseId: string,
+  now: string
+): Exposure {
+  return {
+    id: `exposure_${crypto.randomUUID()}`,
+    caseId,
+    sourceUrl: candidate.sourceUrl,
+    visibleDataCategories: ["legal-name", "city-state"],
+    confidence: confidenceFromMatchScore(scored.matchScore),
+    evidencePointer: `discovery://${candidate.origin}`,
+    officialRemovalPath: broker?.officialRemovalPath,
+    officialOptOutUrl: broker?.officialOptOutUrl,
+    createdAt: now,
+    matchStatus: "pending" satisfies ExposureMatchStatus,
+    brokerId: broker?.brokerId ?? candidate.brokerId,
+    brokerLabel: broker?.brokerLabel,
+    redactedSnippet: candidate.snippet || candidate.title,
+    matchScore: scored.matchScore,
+    matchReason: scored.matchReason,
+    removalStatus: "not-started",
+    submissionMethod: broker?.submissionMethod,
+    teeAutomatable: broker?.teeAutomatable
+  };
+}
+
 export async function discoverExposureCandidates(input: {
   caseId: string;
   scope?: RedactedScope;
   pastedUrls?: string[];
   existingUrls?: string[];
+  contentTakedown?: boolean;
+  brokerSweep?: boolean;
 }): Promise<Exposure[]> {
   const seen = new Set<string>();
   const candidates: DiscoveryCandidate[] = [];
@@ -240,11 +232,20 @@ export async function discoverExposureCandidates(input: {
     const sourceUrl = normalizeDiscoveryUrl(raw);
     if (!sourceUrl || seen.has(sourceUrl)) continue;
     seen.add(sourceUrl);
-    candidates.push({ sourceUrl, origin: "pasted" });
+    const broker = brokerForUrl(sourceUrl);
+    candidates.push({ sourceUrl, origin: "pasted", brokerId: broker?.brokerId });
   }
 
   if (isBraveSearchConfigured()) {
     try {
+      if (input.brokerSweep !== false && !input.contentTakedown) {
+        const sweepResults = await fetchBrokerSweepCandidates(input.scope);
+        for (const item of sweepResults) {
+          if (seen.has(item.sourceUrl)) continue;
+          seen.add(item.sourceUrl);
+          candidates.push(item);
+        }
+      }
       const query = buildBraveSearchQuery(input.scope);
       const braveResults = await fetchBraveSearchCandidates(query);
       for (const item of braveResults) {
@@ -259,34 +260,17 @@ export async function discoverExposureCandidates(input: {
 
   const filtered = candidates.filter((candidate) => {
     if ((input.existingUrls ?? []).includes(candidate.sourceUrl)) return false;
+    if (input.contentTakedown) return true;
     const broker = brokerForUrl(candidate.sourceUrl);
     if (broker) return true;
-    return PEOPLE_SEARCH_HINT.test(`${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`);
+    return BROKER_HOST_HINT.test(`${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`);
   });
 
   const exposures: Exposure[] = [];
   for (const candidate of filtered.slice(0, 25)) {
     const scored = await scoreWithVenice(candidate, input.scope);
-    const broker = brokerForUrl(candidate.sourceUrl);
-    const now = new Date().toISOString();
-    exposures.push({
-      id: `exposure_${crypto.randomUUID()}`,
-      caseId: input.caseId,
-      sourceUrl: candidate.sourceUrl,
-      visibleDataCategories: ["legal-name", "city-state"],
-      confidence: confidenceFromMatchScore(scored.matchScore),
-      evidencePointer: `discovery://${candidate.origin}`,
-      officialRemovalPath: broker?.officialRemovalPath,
-      officialOptOutUrl: broker?.officialOptOutUrl,
-      createdAt: now,
-      matchStatus: "pending" satisfies ExposureMatchStatus,
-      brokerId: broker?.brokerId,
-      brokerLabel: broker?.brokerLabel,
-      redactedSnippet: candidate.snippet || candidate.title,
-      matchScore: scored.matchScore,
-      matchReason: scored.matchReason,
-      removalStatus: "not-started"
-    });
+    const broker = brokerForUrl(candidate.sourceUrl) ?? (candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : undefined);
+    exposures.push(exposureFromBroker(broker, candidate, scored, input.caseId, new Date().toISOString()));
   }
 
   return exposures;
@@ -305,7 +289,9 @@ export function applyFindingDecision(
       removalStatus: "not-started"
     };
   }
-  const broker = exposure.brokerId ? BROKER_REGISTRY.find((b) => b.brokerId === exposure.brokerId) : brokerForUrl(exposure.sourceUrl);
+  const broker = exposure.brokerId
+    ? brokerCatalogEntryById(exposure.brokerId)
+    : brokerForUrl(exposure.sourceUrl);
   return {
     ...exposure,
     matchStatus: "confirmed",
@@ -314,6 +300,8 @@ export function applyFindingDecision(
     brokerLabel: broker?.brokerLabel ?? exposure.brokerLabel,
     officialOptOutUrl: broker?.officialOptOutUrl ?? exposure.officialOptOutUrl,
     officialRemovalPath: broker?.officialRemovalPath ?? exposure.officialRemovalPath,
+    submissionMethod: broker?.submissionMethod ?? exposure.submissionMethod,
+    teeAutomatable: broker?.teeAutomatable ?? exposure.teeAutomatable,
     removalStatus: exposure.removalStatus === "not-started" ? "drafted" : exposure.removalStatus,
     matchReason: exposure.matchReason ?? "Confirmed by user."
   };
@@ -338,7 +326,7 @@ export function countFindingsByStatus(exposures: Exposure[]): {
 
 export function discoveryReadinessMessage(): string {
   const parts: string[] = [];
-  if (isBraveSearchConfigured()) parts.push("Brave search");
+  if (isBraveSearchConfigured()) parts.push("Brave search + broker sweep");
   if (isVeniceConfigured()) parts.push("Venice match scoring");
   if (!parts.length) return "Paste URLs to discover listings (configure BRAVE_SEARCH_API_KEY for automated search).";
   return `${parts.join(" + ")} ready. Paste known links or run search.`;

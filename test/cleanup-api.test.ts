@@ -19,7 +19,8 @@ test("cleanup presets render every launch route and enforce jurisdiction", async
       "california-drop",
       "gdpr-erasure",
       "breach-exposure",
-      "high-risk-safety"
+      "high-risk-safety",
+      "content-takedown"
     ]);
 
     const euCase = await post(base, "/api/cases", {

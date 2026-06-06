@@ -42,3 +42,16 @@ test("source verification registry covers official cleanup routes", () => {
   assert.match(sourceVerificationFor("gdpr-template")?.claimVerified ?? "", /not absolute/);
 });
 
+test("broker opt-out live connector requires managed plaintext", () => {
+  const connector = connectorById("broker-opt-out-live");
+  assert.equal(connector?.requiresManagedPlaintext, true);
+  assert.equal(connector?.requiredApproval?.actionType, "broker-opt-out");
+  assert.equal(connectorHasVerifiedSource("broker-registry-sweep"), true);
+});
+
+test("content takedown connectors register dmca and platform abuse paths", () => {
+  assert.equal(connectorById("dmca-notice-drafter")?.requiredApproval?.actionType, "dmca-takedown");
+  assert.equal(connectorById("platform-abuse-live")?.requiresManagedPlaintext, true);
+  assert.equal(sourceVerificationFor("dmca-notice-drafter")?.officialUrl, "https://www.copyright.gov/dmca/");
+});
+

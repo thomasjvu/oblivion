@@ -14,21 +14,27 @@ const state = {
   agentPlan: null,
   connectorResults: [],
   products: [],
+  aiBudget: null,
+  aiEntitlement: null,
   hackathon: null,
   hackathonStatus: null,
   integrationsStatus: null,
   agentNext: null,
   chatMessages: [
     {
+      id: 1,
       role: "agent",
-      text: "Hi — I'm your cleanup agent. I find listings, draft opt-outs, and pause for your approval before anything is sent."
+      text: "Hi — I'm your cleanup agent. I find listings, draft opt-outs, and pause for your approval before anything is sent.",
+      animate: false
     },
     {
+      id: 2,
       role: "agent",
-      text: "Quick start: enter your name on the left, keep People-search selected, then tap Start cleanup. I'll ask you to confirm each match — Yes or Not me."
+      text: "Quick start: enter your name on the left, keep People-search selected, then tap Start cleanup. I'll ask you to confirm each match — Yes or Not me.",
+      animate: false
     }
   ],
-  showAdvancedTabs: false,
+
   walletAddress: "",
   smartAccountAddress: "",
   ethereumProvider: null,
@@ -47,15 +53,20 @@ const state = {
   intakeText: "",
   dockOpen: false,
   dockPinned: true,
+  sidebarOpen: localStorage.getItem("oblivion.sidebarOpen") !== "0",
   showRouteTab: false,
   showAdvancedUI: false,
   autopilotBusy: false,
   casesPanelOpen: false,
-  walletModalOpen: false
+  walletModalOpen: false,
+  deleteConfirmCaseId: "",
+  preSearchReady: false
 };
 
 const $ = (selector) => document.querySelector(selector);
 const output = $("#output");
+let chatMessageSeq = 2;
+let chatTypewriterTimers = [];
 
 function renderWalletDebugLog(entries) {
   const pre = $("#wallet-debug-log");
@@ -91,7 +102,8 @@ const SIMPLE_PRESET_DEFAULTS = {
   "california-drop": { jurisdiction: "US", riskLevel: "standard" },
   "gdpr-erasure": { jurisdiction: "EU", riskLevel: "standard" },
   "breach-exposure": { jurisdiction: "US", riskLevel: "standard" },
-  "high-risk-safety": { jurisdiction: "US", riskLevel: "high-risk-safety" }
+  "high-risk-safety": { jurisdiction: "US", riskLevel: "high-risk-safety" },
+  "content-takedown": { jurisdiction: "US", riskLevel: "standard" }
 };
 
 const AGENT_INTAKE_TEMPLATES = {
@@ -100,7 +112,7 @@ const AGENT_INTAKE_TEMPLATES = {
     alias: "J. Smith",
     region: "New York",
     urls: "",
-    chatLine: "People-search cleanup for John Smith in New York (also known as J. Smith)."
+    chatLine: "Data-broker and people-search cleanup for John Smith in New York (also known as J. Smith)."
   },
   "search-result-suppression": {
     name: "John Smith",
@@ -122,6 +134,13 @@ const AGENT_INTAKE_TEMPLATES = {
     region: "New York",
     urls: "",
     chatLine: "Urgent safety cleanup — remove address and profile exposure for John Smith in New York."
+  },
+  "content-takedown": {
+    name: "Rights Holder",
+    alias: "",
+    region: "",
+    urls: "https://example.com/unauthorized-copy",
+    chatLine: "Takedown unauthorized copies of my content at the pasted URLs."
   }
 };
 
@@ -138,7 +157,7 @@ function currentGuideStep() {
 
 function guidePrimaryLabel(step) {
   if (!state.appOpen || step === 1) return "Start cleanup";
-  if (step === 2) return state.currentStatus?.pendingFindings?.length ? "Continue" : "Keep going";
+  if (step === 2) return state.currentStatus?.pendingFindings?.length ? "Continue" : "What's next?";
   if (step === 3) return "Review approval";
   return "Continue";
 }
@@ -180,10 +199,6 @@ function fillAgentInput(text) {
 
 function applyAdvancedUiVisibility() {
   document.querySelectorAll(".advanced-only").forEach((node) => {
-    if (node.id === "toggle-advanced-tabs") {
-      node.hidden = !state.showAdvancedUI;
-      return;
-    }
     node.hidden = !state.showAdvancedUI;
     node.setAttribute("aria-hidden", state.showAdvancedUI ? "false" : "true");
   });
@@ -236,8 +251,10 @@ function intakeTextForPreset(presetId, { name, region, alias }) {
       return `Check breach exposure and plan mitigation for ${name}${regionPart}${aliasPart}.`;
     case "california-drop":
       return `California DROP deletion request for ${name}${regionPart}${aliasPart}.`;
+    case "content-takedown":
+      return `Takedown unauthorized copies of my content at the URLs listed in this case.`;
     default:
-      return `Remove ${name} from people-search and data-broker listings${regionPart}${aliasPart}.`;
+      return `Remove ${name} from data-broker and people-search listings${regionPart}${aliasPart}.`;
   }
 }
 
@@ -406,7 +423,8 @@ function renderUserGuide() {
   const guide = $("#user-guide");
   if (!guide) return;
   const step = currentGuideStep();
-  const showDashboard = state.appOpen && Boolean(state.currentCaseId && currentCase() && state.currentStatus);
+  const showDashboard =
+    state.appOpen && Boolean(state.currentCaseId && currentCase() && state.currentStatus) && !state.preSearchReady;
   guide.hidden = !showDashboard;
 
   const lead = $("#guide-lead");
@@ -414,10 +432,6 @@ function renderUserGuide() {
     const active = GUIDE_STEPS[step - 1];
     lead.textContent = showDashboard ? active.hint : "";
   }
-
-  const primary = $("#guide-primary-action");
-  const label = guidePrimaryLabel(step);
-  setButtonLabel(primary, label);
 
   const toolbarMeta = $("#toolbar-case-meta");
   const toolbarStep = $("#toolbar-step-label");
@@ -435,7 +449,7 @@ function renderUserGuide() {
       const status =
         item.num < step ? "done" : item.num === step ? "active" : "pending";
       return `<li class="guide-checkpoint ${status}" role="listitem" data-guide-step="${item.num}" title="${escapeHtml(item.hint)}">
-        <span class="guide-checkpoint-icon" data-icon="${item.icon}" aria-hidden="true"></span>
+        <span class="guide-checkpoint-num">Step ${item.num}</span>
         <span class="guide-checkpoint-label">${escapeHtml(item.title)}</span>
       </li>`;
     }).join("");
@@ -449,15 +463,8 @@ function renderUserGuide() {
     progressTrack.setAttribute("aria-valuetext", GUIDE_STEPS[step - 1]?.title || "Working");
   }
   if (progressFill) progressFill.style.width = `${pct}%`;
-  renderWorkflowProgress($("#guide-phase-strip"), $("#guide-phase-status"));
-  const toggle = $("#toggle-advanced-tabs");
-  if (toggle) {
-    toggle.textContent = state.showAdvancedTabs ? "Fewer tabs" : "More tabs";
-  }
-
-  document.querySelectorAll(".tab-advanced").forEach((tab) => {
-    tab.hidden = !state.showAdvancedTabs;
-  });
+  const phaseStatus = $("#guide-phase-status");
+  if (phaseStatus) phaseStatus.textContent = showDashboard ? workflowStatusLine() : "";
   syncRouteTabVisibility();
 }
 
@@ -470,7 +477,6 @@ function write(value) {
     if (value.plan) state.agentPlan = value.plan;
     if (value.connectorResults) state.connectorResults = value.connectorResults;
     renderDashboard();
-    renderWorkflow();
     renderAgentChat();
     renderApprovals();
     renderActions();
@@ -538,6 +544,44 @@ function runtimeLabel(proof = state.trustProof) {
   if (proof?.verifierResult === "pass") return { text: "TEE verified", state: "pass" };
   if (proof?.verifierResult === "fail") return { text: "TEE blocked", state: "fail" };
   return { text: "Local mode", state: "warn" };
+}
+
+function teeQuestionIntent(lower) {
+  return (
+    /\b(tee|attestation|trust center|runtime proof|hardware quote|verify runtime)\b/.test(lower) ||
+    lower.includes("view tee") ||
+    lower.includes("verify tee")
+  );
+}
+
+async function buildTeeVerificationBrief() {
+  const proof = state.trustProof || (await refreshTrust());
+  const privacy = state.privacy;
+  const runtime = runtimeLabel(proof);
+  const lines = [`Runtime: ${runtime.text}.`];
+  if (proof) {
+    lines.push(
+      `Verifier result: ${proof.verifierResult || "unknown"}.`,
+      `TEE quote verified: ${yesNo(proof.hardwareQuoteVerified)}.`,
+      `Compose hash matches: ${yesNo(proof.composeHashMatches)}.`,
+      `Image digests pinned: ${yesNo(proof.imageDigestsPinned)}.`,
+      `Attestation fresh: ${yesNo(proof.attestationFresh)}.`
+    );
+    if (proof.errors?.length) {
+      lines.push(`Open issues: ${proof.errors.slice(0, 3).join("; ")}.`);
+    }
+  } else {
+    lines.push("Attestation proof is not loaded yet.");
+  }
+  if (privacy) {
+    lines.push(`Server can decrypt vault: ${yesNo(privacy.serverCanDecryptCaseVault)} (should be no).`);
+  }
+  if (runtime.state === "pass") {
+    lines.push("TEE is passing — sensitive connectors may run only after your explicit approval.");
+  } else {
+    lines.push("Sensitive connectors stay blocked until attestation passes. Open the Trust tab for the full proof JSON.");
+  }
+  return lines.join(" ");
 }
 
 function parseIntakeForCase(intakeText) {
@@ -630,7 +674,17 @@ function discoveryUrlHints() {
 
 function peopleSearchPresetActive() {
   const presetId = state.agentPlan?.presetId || state.selectedPresetId;
-  return presetId === "people-search-cleanup" || presetId === "high-risk-safety";
+  return (
+    presetId === "people-search-cleanup" ||
+    presetId === "high-risk-safety" ||
+    presetId === "content-takedown"
+  );
+}
+
+function brokerSubmissionBadge(finding) {
+  if (!finding.submissionMethod) return "";
+  const mode = finding.teeAutomatable ? "automatable" : "handoff";
+  return `<span class="pill small">${escapeHtml(finding.submissionMethod)} · ${mode}</span>`;
 }
 
 function needsExposureDiscovery() {
@@ -683,6 +737,9 @@ function recommendPreset(input) {
   if (/(drop|california|\bca\b)/.test(text) && jurisdiction === "US") return "california-drop";
   if (/(gdpr|erasure|controller|\buk\b|\beu\b)/.test(text) && ["EU", "UK"].includes(jurisdiction)) return "gdpr-erasure";
   if (/(breach|password|email leak|leaked email)/.test(text)) return "breach-exposure";
+  if (/(takedown|dmca|copyright|onlyfans|fanvue|leaked video|stolen content|infringing)/.test(text)) {
+    return "content-takedown";
+  }
   if (/google/.test(text)) return "search-result-suppression";
   if (/(people-search|people search|profile|address)/.test(text)) return "people-search-cleanup";
   if (/(search|result)/.test(text)) return "search-result-suppression";
@@ -703,14 +760,46 @@ function escapeHtml(value) {
 
 function renderChatBubble(message) {
   const role = message.role === "user" ? "user" : "agent";
-  const avatarIcon = role === "user" ? "user" : "message";
-  const avatarLabel = role === "user" ? "You" : "Agent";
-  const body = `<div class="chat-bubble ${role}">${escapeHtml(message.text)}</div>`;
-  const avatar = `<span class="chat-avatar chat-avatar-${role}" title="${avatarLabel}" aria-label="${avatarLabel}" data-icon="${avatarIcon}"></span>`;
+  const animate = role === "agent" && message.animate && message.text;
+  const bodyText = animate ? "" : escapeHtml(message.text);
+  const bodyAttrs = animate ? ` data-typewriter-text="${escapeHtml(message.text)}"` : "";
+  const rowAttrs = message.id != null ? ` data-chat-msg-id="${message.id}"` : "";
+  const body = `<div class="chat-bubble ${role}${animate ? " chat-bubble-typing" : ""}"${bodyAttrs}>${bodyText}</div>`;
   if (role === "user") {
-    return `<div class="chat-row user" data-chat-role="user">${body}${avatar}</div>`;
+    return `<div class="chat-row user" data-chat-role="user"${rowAttrs}>${body}</div>`;
   }
-  return `<div class="chat-row agent" data-chat-role="agent">${avatar}${body}</div>`;
+  const avatar = `<span class="chat-avatar chat-avatar-agent" title="Agent" aria-label="Agent" data-icon="message"></span>`;
+  return `<div class="chat-row agent" data-chat-role="agent"${rowAttrs}>${avatar}${body}</div>`;
+}
+
+function cancelChatTypewriters() {
+  chatTypewriterTimers.forEach((timer) => window.clearTimeout(timer));
+  chatTypewriterTimers = [];
+}
+
+function runChatTypewriters(log, logShell) {
+  cancelChatTypewriters();
+  log.querySelectorAll("[data-typewriter-text]").forEach((bubble) => {
+    const fullText = bubble.dataset.typewriterText || "";
+    const row = bubble.closest("[data-chat-msg-id]");
+    const msgId = row ? Number(row.dataset.chatMsgId) : NaN;
+    let index = 0;
+    const step = () => {
+      bubble.textContent = fullText.slice(0, index);
+      if (logShell) logShell.scrollTop = logShell.scrollHeight;
+      if (index < fullText.length) {
+        index += 1;
+        const delay = fullText.length > 160 ? 8 : fullText.length > 80 ? 12 : 18;
+        chatTypewriterTimers.push(window.setTimeout(step, delay));
+      } else {
+        bubble.classList.remove("chat-bubble-typing");
+        bubble.removeAttribute("data-typewriter-text");
+        const msg = state.chatMessages.find((item) => item.id === msgId);
+        if (msg) msg.animate = false;
+      }
+    };
+    step();
+  });
 }
 
 function saveLocalCases() {
@@ -847,7 +936,7 @@ function renderTrust() {
     <span class="${chipClass(runtime.state)}" data-testid="trust-runtime" data-icon="cast" title="${escapeHtml(runtime.text)}">${escapeHtml(runtime.text)}</span>
   `;
   const teeClass = pillClass(runtime.state);
-  const teeNodes = ["#tee-status", "#command-tee-status"].map((sel) => $(sel)).filter(Boolean);
+  const teeNodes = ["#tee-status", "#command-tee-status", "#trust-tab-status"].map((sel) => $(sel)).filter(Boolean);
   teeNodes.forEach((node) => {
     node.className = teeClass;
     node.textContent = runtime.text;
@@ -891,6 +980,7 @@ function openNewCaseFlow() {
   state.selectedPresetId = "people-search-cleanup";
   state.showRouteTab = false;
   state.casesPanelOpen = false;
+  resetPreSearchUi();
   localStorage.removeItem("oblivion.currentCaseId");
   ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
     const field = $(`#${id}`);
@@ -904,23 +994,7 @@ function openNewCaseFlow() {
 
 function renderCases() {
   const list = $("#case-list");
-  const panel = $("#case-manager");
-  const countLabel = $("#case-count-label");
-  const toggleBtn = $("#toolbar-cases-toggle");
   if (!list) return;
-
-  if (toggleBtn) {
-    toggleBtn.hidden = !state.appOpen;
-    toggleBtn.setAttribute("aria-expanded", state.casesPanelOpen ? "true" : "false");
-    toggleBtn.classList.toggle("active", state.casesPanelOpen);
-    setButtonLabel(toggleBtn, state.cases.length ? `Cases (${state.cases.length})` : "Cases");
-  }
-  if (panel) panel.hidden = !state.appOpen || !state.casesPanelOpen;
-  if (countLabel) {
-    countLabel.textContent = state.cases.length
-      ? `${state.cases.length} saved`
-      : "No saved cases";
-  }
 
   if (state.cases.length === 0) {
     list.innerHTML = `<div class="empty case-empty">No cases yet. Tap New case to start a cleanup.</div>`;
@@ -934,9 +1008,9 @@ function renderCases() {
     const meta = [item.jurisdiction, item.riskLevel, updated].filter(Boolean).join(" · ");
     return `
       <div class="case-row${active}" data-case-row="${item.id}">
-        <button type="button" class="case-button${active}" data-case-id="${item.id}">
-          <strong>${escapeHtml(label)}</strong>
-          <span class="muted small">${escapeHtml(meta)}</span>
+        <button type="button" class="case-button${active}" data-case-id="${item.id}" title="${escapeHtml(meta)}">
+          <span class="case-button-label">${escapeHtml(label)}</span>
+          <span class="case-button-meta muted small">${escapeHtml(meta)}</span>
         </button>
         <button type="button" class="ghost compact icon-only case-delete-btn" data-delete-case="${item.id}" data-icon="delete" aria-label="Delete ${escapeHtml(label)}"><span class="btn-label">Delete</span></button>
       </div>
@@ -955,28 +1029,6 @@ function workflowStatusLine() {
   return statusLine;
 }
 
-function renderWorkflowProgress(phasesTarget, statusTarget) {
-  if (!state.agentPlan) {
-    if (phasesTarget) phasesTarget.innerHTML = "";
-    if (statusTarget) statusTarget.textContent = "";
-    return;
-  }
-  const step = state.agentPlan.currentStep;
-  const order = WORKFLOW_PHASES.map((phase) => phase.id);
-  const index = Math.max(0, order.indexOf(step));
-  const statusLine = workflowStatusLine();
-  if (phasesTarget) {
-    phasesTarget.innerHTML = WORKFLOW_PHASES.slice(0, 7)
-      .map((phase, i) => {
-        const done = i < index;
-        const active = phase.id === step;
-        return `<span class="progress-phase ${done ? "done" : ""} ${active ? "active" : ""}">${escapeHtml(phase.label)}</span>`;
-      })
-      .join("");
-  }
-  if (statusTarget) statusTarget.textContent = statusLine;
-}
-
 function renderShell() {
   const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
   const app = $(".app");
@@ -989,11 +1041,20 @@ function renderShell() {
     chrome.hidden = !state.appOpen;
     chrome.classList.toggle("active", state.appOpen);
     chrome.classList.toggle("agent-collapsed", state.appOpen && !state.dockPinned);
+    chrome.classList.toggle("sidebar-collapsed", state.appOpen && !state.sidebarOpen);
+  }
+  const sidebarCollapse = $("#sidebar-collapse");
+  if (sidebarCollapse) {
+    sidebarCollapse.setAttribute("aria-expanded", state.sidebarOpen ? "true" : "false");
+    sidebarCollapse.setAttribute("aria-label", state.sidebarOpen ? "Collapse sidebar" : "Expand sidebar");
+    setIcon(sidebarCollapse, state.sidebarOpen ? "layout-sidebar-left" : "layout-sidebar-right");
   }
   workspace?.classList.toggle("simple-mode", !state.showAdvancedUI);
   agentColumn?.classList.toggle("collapsed", state.appOpen && !state.dockPinned);
-  $("#onboarding-region")?.classList.toggle("active", state.appOpen && !hasCase);
-  $("#dashboard-region")?.classList.toggle("active", state.appOpen && hasCase);
+  const showOnboarding = state.appOpen && (!hasCase || state.preSearchReady);
+  const showDashboard = state.appOpen && hasCase && !state.preSearchReady;
+  $("#onboarding-region")?.classList.toggle("active", showOnboarding);
+  $("#dashboard-region")?.classList.toggle("active", showDashboard);
   applyAdvancedUiVisibility();
   const dockCollapse = $("#agent-dock-collapse");
   if (dockCollapse) {
@@ -1130,6 +1191,7 @@ function renderFindings() {
           <div class="finding-card-head">
             <strong>${escapeHtml(finding.brokerLabel || "Listing")}</strong>
             <span class="pill ${pillClass(matchScorePill(finding.matchScore))}">${escapeHtml(finding.matchScore || "uncertain")}</span>
+            ${brokerSubmissionBadge(finding)}
           </div>
           <a class="finding-url" href="${escapeHtml(finding.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(shortenUrl(finding.sourceUrl))}</a>
           ${
@@ -1163,7 +1225,7 @@ function renderFindings() {
         <div class="finding-queue-row">
           <div>
             <strong>${escapeHtml(finding.brokerLabel || shortenUrl(finding.sourceUrl))}</strong>
-            <div class="muted small">${escapeHtml(finding.removalStatus || "not-started")}</div>
+            <div class="muted small">${escapeHtml(finding.removalStatus || "not-started")}${finding.submissionMethod ? ` · ${finding.submissionMethod}` : ""}</div>
           </div>
           ${
             finding.officialOptOutUrl
@@ -1262,79 +1324,6 @@ function titleForAction(action) {
   }[action] || action || "Choose cleanup preset";
 }
 
-function renderWorkflow() {
-  const plan = state.agentPlan;
-  const nodes = plan?.visualNodes?.length
-    ? plan.visualNodes
-    : [
-        ["collect-minimum-identifiers", "Vault", "Vault", "Collect only what the route needs."],
-        ["discover-candidates", "Scout", "Scout", "Find exposure candidates from approved sources."],
-        ["verify-removal-path", "Verify", "Verifier", "Check official removal paths."],
-        ["draft-actions", "Draft", "Draft", "Prepare request text."],
-        ["request-approval", "Approve", "User", "Review disclosure before action."],
-        ["execute-approved-action", "Submit", "Connector", "Record or execute approved work."],
-        ["schedule-recheck", "Recheck", "Scheduler", "Look for recurrence later."]
-      ].map(([id, label, actor, detail], index) => ({
-        id,
-        label,
-        actor,
-        detail,
-        status: index === 0 ? "active" : "pending"
-      }));
-  const stepPill = $("#plan-step-pill");
-  if (stepPill) {
-    stepPill.textContent = plan ? titleForAction(plan.currentStep) : "Choose preset";
-    stepPill.className = pillClass(plan?.blockedReasons?.length ? "blocked" : plan ? "ready" : "warn");
-  }
-
-  const workflowPanel = $("#workflow-panel");
-  const canvas = $("#workflow-canvas");
-  const showWorkflow = Boolean(state.currentCaseId && plan);
-  if (workflowPanel) workflowPanel.hidden = !showWorkflow;
-  if (!canvas) {
-    const summary = $("#plan-summary");
-    if (summary) summary.innerHTML = "";
-    return;
-  }
-  canvas.hidden = !showWorkflow;
-  canvas.setAttribute("aria-hidden", showWorkflow ? "false" : "true");
-  if (!showWorkflow) {
-    const summary = $("#plan-summary");
-    if (summary) summary.innerHTML = "";
-    return;
-  }
-  // Use data attrs + targeted updates where possible (first paint builds skeleton)
-  if (!canvas.dataset.built) {
-    canvas.innerHTML = nodes.map((node) => `
-      <div class="workflow-node" data-id="${node.id}" data-status="${node.status}" data-testid="workflow-node">
-        <span>${escapeHtml(node.actor)}</span>
-        <strong>${escapeHtml(node.label)}</strong>
-        <p>${escapeHtml(node.detail)}</p>
-      </div>
-    `).join("");
-    canvas.dataset.built = "true";
-  } else {
-    nodes.forEach((n) => {
-      const el = canvas.querySelector(`[data-id="${n.id}"]`);
-      if (el) {
-        el.setAttribute("data-status", n.status);
-        // micro motion hook
-        if (n.status === "active") el.classList.add("is-advancing");
-        else el.classList.remove("is-advancing");
-      }
-    });
-  }
-
-  const summary = $("#plan-summary");
-  if (summary) {
-    summary.innerHTML = `
-      <div><span class="muted small">Route</span><br /><strong>${escapeHtml(presetTitle(plan?.presetId) || "Select a preset")}</strong></div>
-      <div><span class="muted small">Next decision</span><br /><strong>${escapeHtml(plan?.nextUserDecision || "Pick a cleanup route.")}</strong></div>
-      <div><span class="muted small">Disclosure</span><br /><strong>${(state.currentStatus?.approvalsNeeded?.length || 0) > 0 ? "approval waiting" : "locked"}</strong></div>
-    `;
-  }
-}
-
 function renderPresets() {
   const caseRecord = currentCase();
   const presets = state.presets.length ? state.presets : [];
@@ -1382,6 +1371,16 @@ function renderPresets() {
 async function refreshHackathon(options = {}) {
   const products = await request("/api/x402/products");
   state.products = products.products || [];
+  state.aiBudget = products.aiBudget || null;
+  if (state.currentCaseId) {
+    try {
+      state.aiEntitlement = await request(`/api/cases/${state.currentCaseId}/ai-entitlement`);
+    } catch {
+      state.aiEntitlement = null;
+    }
+  } else {
+    state.aiEntitlement = null;
+  }
   if (!state.currentCaseId) {
     state.hackathon = null;
     state.hackathonStatus = null;
@@ -1394,6 +1393,7 @@ async function refreshHackathon(options = {}) {
   const next = await request(`/api/agent/next?caseId=${state.currentCaseId}`);
   state.hackathon = timeline;
   state.hackathonStatus = checklist.status;
+  state.hackathonPending = checklist.pending || [];
   state.agentNext = next;
   if (!options.silent) write({ products, timeline, checklist });
 }
@@ -1409,8 +1409,19 @@ async function syncCurrentCaseStatus() {
   saveLocalCases();
 }
 
-function addChat(role, text) {
-  state.chatMessages.push({ role, text });
+function addChat(role, text, options = {}) {
+  if (role === "agent") {
+    state.chatMessages.forEach((item) => {
+      if (item.role === "agent") item.animate = false;
+    });
+  }
+  const animate = role === "agent" && options.animate !== false;
+  state.chatMessages.push({
+    id: ++chatMessageSeq,
+    role,
+    text,
+    animate
+  });
   state.chatMessages = state.chatMessages.slice(-24);
 }
 
@@ -1452,7 +1463,7 @@ function agentPromptForState() {
     return { state: "Start", message: "Enter your name → Start cleanup.", actions: [] };
   }
   if (!state.walletAddress && state.showAdvancedUI) {
-    return { state: "Wallet", message: "Optional: connect wallet in the header bar.", actions: [] };
+    return { state: "Wallet", message: "Optional: connect wallet at the bottom of the sidebar.", actions: [] };
   }
   if (!plan) {
     return { state: "Setup", message: "Tap Next to run your template.", actions: ["run"] };
@@ -1501,13 +1512,29 @@ function agentPromptForState() {
   };
 }
 
+function hackathonPendingTracks() {
+  const status = state.hackathonStatus;
+  if (!status) return [];
+  const pending = [];
+  if (!status.x402OneOffReady) pending.push("x402");
+  if (!status.veniceOutputReady) pending.push("Venice");
+  if (!status.a2aRedelegationVisible) pending.push("A2A");
+  if (!status.oneShotRelayerVisible) pending.push("1Shot");
+  return pending;
+}
+
 function renderHackathonChecklist() {
   const target = $("#hackathon-checklist");
   if (!target) return;
-  const veniceLive = state.integrationsStatus?.liveReady?.venice;
-  const oneShotLive = state.integrationsStatus?.liveReady?.oneShot;
-  $("#relay-demo")?.toggleAttribute("hidden", !oneShotLive);
-  $("#delegate-agents")?.toggleAttribute("hidden", !veniceLive);
+  const pending = hackathonPendingTracks();
+  const finishBtn = $("#finish-pending-tracks");
+  if (finishBtn) {
+    finishBtn.hidden = !state.currentCaseId || pending.length === 0;
+    finishBtn.textContent = pending.length
+      ? `Finish pending tracks (${pending.length})`
+      : "All tracks ready";
+    finishBtn.disabled = pending.length === 0;
+  }
   const status = state.hackathonStatus;
   const rows = [
     ["MetaMask", status?.smartAccountVisible],
@@ -1578,6 +1605,7 @@ function renderAgentChat() {
     }
     log.innerHTML = transcript.slice(-40).map(renderChatBubble).join("");
     bindIcons(log);
+    runChatTypewriters(log, logShell);
     if (logShell) logShell.scrollTop = logShell.scrollHeight;
   }
 
@@ -1595,11 +1623,11 @@ function renderAgentSuggestionStrip(prompt) {
   const phrases = [];
   if (state.appOpen) {
     phrases.push(guidePrimaryLabel(currentGuideStep()));
+    phrases.push("Verify TEE");
   }
   if (prompt.actions.includes("review")) phrases.push("Review approval");
   if (prompt.actions.includes("explain")) phrases.push("Explain disclosure");
   if (currentCase()) {
-    phrases.push("Keep going");
     phrases.push("What's next?");
   }
   if (!currentCase() && state.appOpen) {
@@ -1843,8 +1871,16 @@ function renderWalletFeedback() {
   }
 }
 
+function openPaymentRails() {
+  state.tab = "settings";
+  state.dockOpen = false;
+  render();
+  window.setTimeout(() => {
+    $("#payment-rails")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, 80);
+}
+
 function openWalletHub() {
-  state.showAdvancedTabs = true;
   state.tab = "settings";
   state.dockOpen = false;
   render();
@@ -1900,21 +1936,72 @@ function renderWalletPanels() {
   renderWalletCommandStrip();
 }
 
+function formatProductPrice(product) {
+  if (product.mode === "subscription") {
+    return `$${product.amountUsd} ${product.token}/mo`;
+  }
+  return `$${product.amountUsd} ${product.token}`;
+}
+
+function productBudgetLine(product) {
+  const limits = state.aiBudget?.[product.mode];
+  if (!limits) return "";
+  return `${limits.maxChats} agent chats · ${limits.maxAnalyses} AI tasks · ${limits.maxTokens} token cap`;
+}
+
 function renderPayments() {
   renderWalletPanels();
-  $("#product-list").innerHTML = state.products.length
-    ? state.products.map((product) => `
-        <div class="stack-card">
-          <strong>${escapeHtml(product.name)}</strong>
-          <div class="muted small">${escapeHtml(product.description)}</div>
-          <div class="toolbar">
-            <span class="pill">${product.mode}</span>
-            <span class="pill">${product.amountUsd} ${product.token}</span>
-            <span class="pill">${product.cadence || "one time"}</span>
-          </div>
-        </div>
-      `).join("")
-    : `<div class="empty">Payment products are loading.</div>`;
+  const grid = $("#payment-rails-grid");
+  if (grid) {
+    grid.innerHTML = state.products.length
+      ? state.products.map((product) => {
+          const activeSession = (state.hackathon?.payments || []).find(
+            (session) => session.productId === product.id
+          );
+          const status = activeSession?.status || "not-started";
+          return `
+            <article class="payment-rail-card" data-payment-product="${product.id}">
+              <div class="payment-rail-head">
+                <strong>${escapeHtml(product.name)}</strong>
+                <span class="pill">${formatProductPrice(product)}</span>
+              </div>
+              <p class="muted small">${escapeHtml(product.description)}</p>
+              <p class="muted small payment-rail-budget">${escapeHtml(productBudgetLine(product))}</p>
+              <button
+                type="button"
+                class="${product.mode === "subscription" ? "secondary" : ""}"
+                data-pay-product="${product.id}"
+                data-pay-mode="${product.mode}"
+                data-testid="pay-${product.id}"
+              >
+                ${product.mode === "subscription" ? "Subscribe" : "Pay once"}
+              </button>
+              <p class="muted small payment-rail-status">${escapeHtml(status)}</p>
+            </article>
+          `;
+        }).join("")
+      : `<div class="empty">Payment products are loading.</div>`;
+    grid.querySelectorAll("[data-pay-product]").forEach((button) => {
+      button.addEventListener("click", () => {
+        preparePayment(button.dataset.payMode).catch(write);
+      });
+    });
+  }
+  const entitlementEl = $("#ai-entitlement-status");
+  if (entitlementEl) {
+    const ent = state.aiEntitlement;
+    if (!state.currentCaseId) {
+      entitlementEl.innerHTML = `<div class="status-row"><span>Plan</span><strong>Start a case to pay</strong></div>`;
+    } else if (!ent?.limits) {
+      entitlementEl.innerHTML = `<div class="status-row"><span>Plan</span><strong>Payment required for agent AI</strong></div>`;
+    } else {
+      entitlementEl.innerHTML = `
+        <div class="status-row"><span>Active plan</span><strong>${escapeHtml(ent.mode || "—")}</strong></div>
+        <div class="status-row"><span>Agent chats</span><strong>${ent.usage.chats} / ${ent.limits.maxChats}</strong></div>
+        <div class="status-row"><span>AI tasks</span><strong>${ent.usage.analyses} / ${ent.limits.maxAnalyses}</strong></div>
+      `;
+    }
+  }
   const payments = state.hackathon?.payments || [];
   $("#payments-table").innerHTML = payments.length
     ? payments.map((session) => `
@@ -1923,10 +2010,10 @@ function renderPayments() {
             <strong>${escapeHtml(session.productId)}</strong>
             <div class="muted small">${session.mode} · ${session.amountUsd} ${session.token} · ${session.status}</div>
           </div>
-          <span class="${pillClass(session.status === "payment-required")}">x402</span>
+          <span class="${pillClass(session.status === "paid" || session.status === "authorized")}">x402</span>
         </div>
       `).join("")
-    : `<div class="empty">No payment session yet. Prepare one-off or weekly monitor payment.</div>`;
+    : `<div class="empty">No payment session yet. Choose a plan above.</div>`;
 }
 
 function renderAgentNetwork() {
@@ -2035,7 +2122,6 @@ function render() {
   renderWalletCommandStrip();
   renderIntakeInferencePreview();
   renderDashboard();
-  renderWorkflow();
   renderFindings();
   renderPresets();
   renderAgentChat();
@@ -2143,15 +2229,107 @@ async function createCase(options = {}) {
   write(intake);
 }
 
+function resetPreSearchUi() {
+  state.preSearchReady = false;
+  const panel = $("#pre-search-panel");
+  const list = $("#pre-search-results");
+  const preStatus = $("#pre-search-status");
+  if (panel) panel.hidden = true;
+  if (list) list.innerHTML = "";
+  if (preStatus) preStatus.textContent = "";
+  const btn = $("#start-cleanup");
+  if (btn) setButtonLabel(btn, "Start cleanup");
+}
+
+function renderPreSearchPreview(findings, message) {
+  const panel = $("#pre-search-panel");
+  const list = $("#pre-search-results");
+  const preStatus = $("#pre-search-status");
+  if (!panel || !list || !preStatus) return;
+  panel.hidden = false;
+  preStatus.textContent = message;
+  const rows = (findings || []).slice(0, 12);
+  if (!rows.length) {
+    list.innerHTML = `<li class="muted">No links found yet. Paste URLs above or continue — the agent can search again later.</li>`;
+    return;
+  }
+  list.innerHTML = rows
+    .map((item) => {
+      const label = shortenUrl(item.sourceUrl);
+      return `<li><a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>${item.title ? ` — ${escapeHtml(item.title)}` : ""}</li>`;
+    })
+    .join("");
+}
+
+async function runPreliminarySearch(parsed) {
+  const statusEl = $("#simple-start-status");
+  const preStatus = $("#pre-search-status");
+  if (statusEl) statusEl.textContent = "Searching for exposure…";
+  if (preStatus) preStatus.textContent = "Searching…";
+  $("#pre-search-panel")?.removeAttribute("hidden");
+  await refreshIntegrationsStatus().catch(() => {});
+  await startPreset({ quiet: true });
+  if (parsed.pastedUrls?.length) {
+    if ($("#findings-paste-input")) {
+      $("#findings-paste-input").value = parsed.pastedUrls.join("\n");
+    }
+    localStorage.setItem(`oblivion.discoveryUrls.${state.currentCaseId}`, JSON.stringify(parsed.pastedUrls));
+  }
+  const discovery = await maybeAutoDiscoverFindings({ force: true, quiet: true });
+  await syncCurrentCaseStatus();
+  const findings = state.currentStatus?.findings || [];
+  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
+  let message = "";
+  if (discovery.ran && findings.length) {
+    message = `Found ${findings.length} link(s) to review. Continue to start cleanup.`;
+  } else if (discovery.reason === "urls-needed" && !braveReady) {
+    message = "Automated search is not configured — paste profile URLs above or continue anyway.";
+  } else if (discovery.ran) {
+    message = "Search complete. No new links yet — you can continue or paste URLs above.";
+  } else {
+    message = "Ready to continue. The agent can search again from Overview.";
+  }
+  renderPreSearchPreview(findings, message);
+  state.preSearchReady = true;
+  const btn = $("#start-cleanup");
+  if (btn) setButtonLabel(btn, "Continue cleanup");
+  if (statusEl) statusEl.textContent = "";
+  addChat("agent", message);
+  render();
+}
+
+async function continueAfterPreSearch() {
+  const statusEl = $("#simple-start-status");
+  if (statusEl) statusEl.textContent = "Starting cleanup…";
+  state.preSearchReady = false;
+  state.autopilotBusy = true;
+  render();
+  try {
+    await agentAutopilot({ silentUser: true }).catch(() => {});
+    addChat("agent", `Running ${presetTitle(state.selectedPresetId)}. Pauses for your OK.`);
+    resetPreSearchUi();
+    if (statusEl) statusEl.textContent = "";
+    $("#dashboard-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  } finally {
+    state.autopilotBusy = false;
+    render();
+  }
+}
+
 async function startSimpleCleanup() {
   const btn = $("#start-cleanup");
   const statusEl = $("#simple-start-status");
   if (btn) btn.disabled = true;
-  if (statusEl) statusEl.textContent = "Starting…";
   try {
+    if (state.preSearchReady && state.currentCaseId) {
+      await continueAfterPreSearch();
+      return;
+    }
     const parsed = readSimpleIntakeForm();
     syncSimpleFormToLegacyFields(parsed);
     selectPresetId(parsed.presetId);
+    const previewFirst = Boolean($("#run-preview-search")?.checked);
+    if (statusEl) statusEl.textContent = previewFirst ? "Creating case…" : "Starting…";
     await createCase({
       parsed: {
         intakeText: parsed.intakeText,
@@ -2164,8 +2342,12 @@ async function startSimpleCleanup() {
       },
       presetId: parsed.presetId,
       pastedUrls: parsed.pastedUrls,
-      autoStartRoute: true
+      autoStartRoute: !previewFirst
     });
+    if (previewFirst) {
+      await runPreliminarySearch(parsed);
+      return;
+    }
     if (statusEl) statusEl.textContent = "";
     $("#dashboard-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
@@ -2276,11 +2458,35 @@ async function exportCase() {
   });
 }
 
+function caseDeleteLabel(caseId) {
+  return state.cases.find((item) => item.id === caseId)?.redactedScope?.personLabel || "this case";
+}
+
+function openDeleteCaseModal(caseId) {
+  if (!caseId) return;
+  const label = caseDeleteLabel(caseId);
+  state.deleteConfirmCaseId = caseId;
+  const copy = $("#delete-case-modal-copy");
+  if (copy) {
+    copy.textContent = `Delete ${label}? Server data will be purged and cannot be recovered.`;
+  }
+  const dialog = $("#delete-case-modal");
+  if (dialog && !dialog.open) {
+    dialog.showModal();
+    bindIcons(dialog);
+  }
+}
+
+function closeDeleteCaseModal() {
+  state.deleteConfirmCaseId = "";
+  $("#delete-case-modal")?.close();
+}
+
 async function deleteCaseById(caseId, options = {}) {
   if (!caseId) throw { error: "case-required", message: "Select a case." };
   if (!options.skipConfirm) {
-    const label = state.cases.find((item) => item.id === caseId)?.redactedScope?.personLabel || "this case";
-    if (!confirm(`Delete ${label}? Server data will be purged and cannot be recovered.`)) return;
+    openDeleteCaseModal(caseId);
+    return;
   }
   const deleted = await request("/api/delete", {
     method: "POST",
@@ -2297,13 +2503,20 @@ async function deleteCaseById(caseId, options = {}) {
     localStorage.removeItem("oblivion.currentCaseId");
   }
   saveLocalCases();
+  closeDeleteCaseModal();
   render();
   write(deleted);
 }
 
+async function confirmDeleteCase() {
+  const caseId = state.deleteConfirmCaseId || state.currentCaseId;
+  if (!caseId) return;
+  await deleteCaseById(caseId, { skipConfirm: true });
+}
+
 async function deleteCase() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
-  await deleteCaseById(state.currentCaseId, { skipConfirm: false });
+  openDeleteCaseModal(state.currentCaseId);
 }
 
 async function refreshWalletConfig() {
@@ -2428,7 +2641,17 @@ async function createSmartAccount(options = {}) {
   state.walletMode = result.mode || body.mode;
   await refreshHackathon({ silent: true });
   if (!options.quiet) {
-    addChat("agent", "Smart Account ready. Checklist updated — try x402 one-off next.");
+    addChat("agent", "Smart Account ready. Checklist updated — finishing pending developer tracks next.");
+  }
+  await finishPendingDeveloperActions({ quiet: true });
+  if (!options.quiet) {
+    const remaining = hackathonPendingTracks();
+    addChat(
+      "agent",
+      remaining.length
+        ? `Still pending: ${remaining.join(", ")}. Open Settings → Developer details.`
+        : "Developer tracks ready: x402, Venice, A2A, and 1Shot."
+    );
   }
   if (options.openHub !== false) openWalletHub();
   else render();
@@ -2533,7 +2756,7 @@ async function upgradeMetaMaskLive() {
 
 async function preparePayment(mode) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  if (!state.smartAccountAddress) await createSmartAccount();
+  if (!state.smartAccountAddress) await createSmartAccount({ quiet: true, openHub: false });
   const productId = mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet";
   const result = await request(`/api/x402/${mode === "subscription" ? "subscription" : "one-off"}`, {
     method: "POST",
@@ -2545,9 +2768,44 @@ async function preparePayment(mode) {
     }
   });
   await refreshHackathon({ silent: true });
-  state.tab = "settings";
+  openPaymentRails();
+  write(result);
+}
+
+async function finishPendingDeveloperActions(options = {}) {
+  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  await refreshHackathon({ silent: true });
+  if (hackathonPendingTracks().length === 0) {
+    if (!options.quiet) addChat("agent", "All developer tracks are already ready.");
+    return { completed: [], status: state.hackathonStatus };
+  }
+  if (!state.smartAccountAddress && state.walletAddress) {
+    await createSmartAccount({ quiet: true, openHub: false });
+  }
+  const result = await request("/api/hackathon/complete-pending", {
+    method: "POST",
+    body: {
+      caseId: state.currentCaseId,
+      walletAddress: state.walletAddress,
+      smartAccountAddress: state.smartAccountAddress,
+      notes: $("#purpose")?.value || "Redacted people-search cleanup case.",
+      destination: $("#destination")?.value || "approved broker",
+      actionType: state.actionType
+    }
+  });
+  await refreshHackathon({ silent: true });
+  if (!options.quiet) {
+    addChat(
+      "agent",
+      result.completed?.length
+        ? `Finished ${result.completed.join(", ")}. Check Developer details.`
+        : "No pending developer tracks remained."
+    );
+  }
+  state.tab = options.stayOnTab ? state.tab : "settings";
   render();
   write(result);
+  return result;
 }
 
 async function runVenice(kind) {
@@ -2611,6 +2869,13 @@ async function askAgent() {
   addChat("user", text);
   $("#agent-input").value = "";
   updateAgentSendState();
+  const lower = text.toLowerCase();
+  if (teeQuestionIntent(lower)) {
+    addChat("agent", await buildTeeVerificationBrief());
+    state.tab = "trust";
+    render();
+    return;
+  }
   if (!state.currentCaseId) {
     if (!text) {
       addChat("agent", "Describe what to clean up in one sentence — here or in the intake box.");
@@ -2623,7 +2888,6 @@ async function askAgent() {
     await startWithAgent();
     return;
   }
-  const lower = text.toLowerCase();
   if (lower.includes("run") || lower.includes("do it") || lower.includes("continue")) {
     await agentAutopilot();
     return;
@@ -2643,6 +2907,17 @@ async function askAgent() {
       render();
       return;
     } catch (error) {
+      if (error?.error === "ai-payment-required" || error?.error === "ai-chat-budget-exhausted") {
+        addChat(
+          "agent",
+          error?.error === "ai-chat-budget-exhausted"
+            ? "AI chat budget used up for this plan. Subscribe for more capacity or start a new one-off run."
+            : "Agent AI requires payment — $1 USDC one-off or $5 USDC/month. Open Payment rails in Settings."
+        );
+        openPaymentRails();
+        render();
+        return;
+      }
       addChat("agent", error?.message || "Venice request failed.");
       render();
       return;
@@ -2712,7 +2987,7 @@ async function agentRunNext(options = {}) {
     return;
   }
   if (state.agentNext?.action === "complete") {
-    addChat("agent", "Cleanup cycle complete. Settings contain proof details.");
+    addChat("agent", "Cleanup cycle complete. Open the Trust tab for proof details.");
     render();
     return;
   }
@@ -2818,20 +3093,22 @@ function backToLanding() {
   $("#landing-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-$("#guide-primary-action")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
-$("#agent-do-next")?.addEventListener("click", () => {
-  const label = guidePrimaryLabel(currentGuideStep());
-  fillAgentInput(label);
-});
-$("#toggle-advanced-tabs")?.addEventListener("click", () => {
-  state.showAdvancedTabs = !state.showAdvancedTabs;
-  if (!state.showAdvancedTabs && ["vault", "history", "settings"].includes(state.tab)) {
-    state.tab = "overview";
-  }
-  render();
-});
+$("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
+
 $("#open-app-hero").addEventListener("click", openApp);
 $("#toolbar-home")?.addEventListener("click", backToLanding);
+function toggleSidebar() {
+  state.sidebarOpen = !state.sidebarOpen;
+  localStorage.setItem("oblivion.sidebarOpen", state.sidebarOpen ? "1" : "0");
+  render();
+}
+
+$("#sidebar-home")?.addEventListener("click", backToLanding);
+$("#sidebar-new-case")?.addEventListener("click", () => openNewCaseFlow());
+$("#sidebar-collapse")?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleSidebar();
+});
 window.addEventListener("hashchange", () => {
   syncAppRoute();
   if (state.appOpen && state.currentCaseId && !state.currentStatus) {
@@ -2889,8 +3166,8 @@ document.addEventListener("click", (event) => {
 
 $("#upgrade-metamask-live")?.addEventListener("click", () => upgradeMetaMaskLive().catch(write));
 $("#create-smart-account")?.addEventListener("click", () => createSmartAccount().catch(write));
-$("#one-off-pay").addEventListener("click", () => preparePayment("one-off").catch(write));
-$("#subscription-pay").addEventListener("click", () => preparePayment("subscription").catch(write));
+
+$("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
 $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));
 $("#draft-request").addEventListener("click", () => runVenice("draft-request").catch(write));
 $("#review-approval").addEventListener("click", () => runVenice("review-approval").catch(write));
@@ -2948,6 +3225,16 @@ $("#agent-dock")?.querySelector(".agent-dock-head")?.addEventListener("click", (
 });
 $("#export").addEventListener("click", () => exportCase().catch(write));
 $("#delete").addEventListener("click", () => deleteCase().catch(write));
+$("#delete-case-modal-close")?.addEventListener("click", closeDeleteCaseModal);
+$("#delete-case-modal-cancel")?.addEventListener("click", closeDeleteCaseModal);
+$("#delete-case-modal-confirm")?.addEventListener("click", () => confirmDeleteCase().catch(write));
+$("#delete-case-modal")?.addEventListener("close", () => {
+  state.deleteConfirmCaseId = "";
+});
+$("#delete-case-modal")?.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeDeleteCaseModal();
+});
 document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => {
     state.tab = button.dataset.tab;
@@ -2964,20 +3251,6 @@ document.querySelectorAll("[data-action-choice]").forEach((button) => {
 
 // One-time delegation for dynamic lists (big win: no per-render rebinds)
 function setupDelegates() {
-  // Workflow canvas (for future node clicks / keyboard)
-  const workflow = $("#workflow-canvas");
-  if (workflow) {
-    workflow.addEventListener("click", (e) => {
-      const node = e.target.closest(".workflow-node");
-      if (node) {
-        // Example: focus the step in dock
-        const step = node.dataset.id || node.querySelector("strong")?.textContent;
-        if (step) addChat("agent", `Focusing on ${step}.`);
-      }
-    });
-    workflow.setAttribute("data-testid", "workflow-canvas");
-  }
-
   // Preset grid delegation + data-testid
   const presetGrid = $("#preset-grid");
   if (presetGrid) {

@@ -50,7 +50,13 @@ test("runVeniceAnalysis calls Venice chat API and parses JSON output", async () 
 });
 
 test("runVeniceAnalysis fails when Venice is not configured", async () => {
+  const priorKey = process.env.VENICE_API_KEY;
+  const priorDemo = process.env.VENICE_DEMO_FALLBACK;
+  const priorNode = process.env.NODE_ENV;
   delete process.env.VENICE_API_KEY;
+  process.env.NODE_ENV = "production";
+  process.env.VENICE_DEMO_FALLBACK = "false";
+  try {
   await assert.rejects(
     () =>
       runVeniceAnalysis({
@@ -63,4 +69,12 @@ test("runVeniceAnalysis fails when Venice is not configured", async () => {
       return true;
     }
   );
+  } finally {
+    if (priorKey === undefined) delete process.env.VENICE_API_KEY;
+    else process.env.VENICE_API_KEY = priorKey;
+    if (priorDemo === undefined) delete process.env.VENICE_DEMO_FALLBACK;
+    else process.env.VENICE_DEMO_FALLBACK = priorDemo;
+    if (priorNode === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = priorNode;
+  }
 });

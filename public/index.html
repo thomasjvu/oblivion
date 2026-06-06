@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oblivion</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <link rel="preload" href="/fonts/Compass.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/fonts/GeistPixel-Square.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -66,7 +66,8 @@
         </section>
         <footer class="site-footer landing-footer" id="landing-footer">
           <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
-          <nav class="site-footer-legal" aria-label="Legal">
+          <nav class="site-footer-legal" aria-label="Help and legal">
+            <a class="site-footer-text-link" href="/help">Guide</a>
             <a class="site-footer-text-link" href="/privacy">Privacy</a>
             <a class="site-footer-text-link" href="/terms">Terms</a>
           </nav>
@@ -78,19 +79,48 @@
       </section>
 
       <div class="app-chrome" id="app-chrome" hidden>
+        <aside class="app-sidebar" id="app-sidebar" data-testid="app-sidebar" aria-label="Workspace">
+          <div class="app-sidebar-top">
+            <div class="app-sidebar-head">
+              <button type="button" class="app-sidebar-brand" id="sidebar-home" data-testid="sidebar-home" aria-label="Back to home">
+                <pre class="app-sidebar-ascii" aria-hidden="true"> ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓██████▓▒░░▒▓███████▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
+              </button>
+              <button type="button" class="ghost compact icon-only app-sidebar-collapse" id="sidebar-collapse" data-testid="sidebar-collapse" data-icon="layout-sidebar-left" aria-label="Collapse sidebar" aria-expanded="true"><span class="btn-label">Collapse</span></button>
+            </div>
+            <nav class="app-sidebar-nav tabs-vertical" role="tablist" aria-label="Case workspace">
+              <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">Overview</span></button>
+              <button class="tab tab-essential tab-route" type="button" role="tab" data-tab="tasks" hidden data-icon="pin"><span class="tab-label">Route</span></button>
+              <button class="tab tab-essential" type="button" role="tab" data-tab="approvals" data-icon="check"><span class="tab-label">Approvals</span></button>
+              <button class="tab tab-advanced" type="button" role="tab" data-tab="vault" data-icon="archive"><span class="tab-label">Vault</span></button>
+              <button class="tab tab-advanced" type="button" role="tab" data-tab="history" data-icon="list"><span class="tab-label">History</span></button>
+              <button class="tab tab-advanced" type="button" role="tab" data-tab="trust" data-icon="cast"><span class="tab-label">Trust</span></button>
+              <button class="tab tab-advanced" type="button" role="tab" data-tab="settings" data-icon="sliders"><span class="tab-label">Settings</span></button>
+            </nav>
+          </div>
+          <section class="app-sidebar-cases" aria-label="Saved cases">
+            <div class="app-sidebar-cases-head">
+              <h2 class="app-sidebar-section-title">Cases</h2>
+              <button type="button" class="ghost compact sidebar-new-case-btn" id="sidebar-new-case" data-testid="sidebar-new-case" data-icon="plus"><span class="btn-label">New</span></button>
+            </div>
+            <div class="case-list app-sidebar-case-list" id="case-list"></div>
+          </section>
+          <div class="app-sidebar-wallet wallet-command-strip workspace-wallet-bar" id="wallet-command-strip" data-testid="wallet-command-strip">
+            <button type="button" class="secondary compact wallet-connect-btn" id="connect-wallet-primary" data-testid="connect-wallet-primary" data-connect-wallet data-icon="wallet"><span class="btn-label">Connect wallet</span></button>
+            <p class="wallet-connect-feedback visually-hidden" id="wallet-feedback-primary" data-wallet-feedback role="status" aria-live="polite"></p>
+          </div>
+        </aside>
+
         <div class="app-main-column">
           <header class="app-toolbar workspace-header" id="workspace-header">
-            <div class="app-toolbar-group app-toolbar-start">
-              <button type="button" class="app-toolbar-brand" id="toolbar-home" data-testid="toolbar-home" aria-label="Back to home">OBLIVION</button>
-              <button type="button" class="ghost compact" id="toolbar-cases-toggle" data-testid="toolbar-cases-toggle" data-icon="briefcase" aria-expanded="false" aria-controls="case-manager" hidden><span class="btn-label">Cases</span></button>
-            </div>
             <div class="app-toolbar-group app-toolbar-center" id="toolbar-case-meta" hidden>
               <span class="app-toolbar-step" id="toolbar-step-label"></span>
             </div>
-            <div class="app-toolbar-group app-toolbar-end wallet-command-strip workspace-wallet-bar" id="wallet-command-strip" data-testid="wallet-command-strip">
-              <button type="button" class="secondary compact wallet-connect-btn" id="connect-wallet-primary" data-testid="connect-wallet-primary" data-connect-wallet data-icon="wallet"><span class="btn-label">Connect wallet</span></button>
-            </div>
-            <p class="visually-hidden wallet-connect-feedback" id="wallet-feedback-primary" data-wallet-feedback role="status" aria-live="polite"></p>
           </header>
 
           <dialog class="wallet-modal" id="wallet-modal" data-testid="wallet-modal" aria-labelledby="wallet-modal-title">
@@ -108,27 +138,25 @@
             </div>
           </dialog>
 
-          <section class="case-manager" id="case-manager" data-testid="case-manager" hidden aria-label="Case manager">
-            <div class="case-manager-head">
-              <h3 data-icon="briefcase">Cases</h3>
-              <span class="muted small" id="case-count-label"></span>
-              <button type="button" class="ghost compact icon-only" id="case-manager-close" data-testid="case-manager-close" data-icon="close" aria-label="Close cases"><span class="btn-label">Close</span></button>
+          <dialog class="confirm-modal" id="delete-case-modal" data-testid="delete-case-modal" aria-labelledby="delete-case-modal-title">
+            <div class="confirm-modal-panel">
+              <header class="confirm-modal-head">
+                <h3 id="delete-case-modal-title" data-icon="delete">Delete case?</h3>
+                <button type="button" class="ghost compact icon-only" id="delete-case-modal-close" data-testid="delete-case-modal-close" data-icon="close" aria-label="Cancel delete"><span class="btn-label">Close</span></button>
+              </header>
+              <p class="confirm-modal-copy" id="delete-case-modal-copy"></p>
+              <footer class="confirm-modal-actions">
+                <button type="button" class="ghost compact" id="delete-case-modal-cancel" data-testid="delete-case-modal-cancel">Cancel</button>
+                <button type="button" class="danger compact" id="delete-case-modal-confirm" data-testid="delete-case-modal-confirm">Delete</button>
+              </footer>
             </div>
-            <p class="muted small case-manager-hint">Open a saved case or start fresh. Deleting purges encrypted server data.</p>
-            <div class="case-manager-toolbar">
-              <button type="button" class="secondary compact" id="case-manager-new" data-testid="case-manager-new" data-icon="plus"><span class="btn-label">New case</span></button>
-            </div>
-            <div class="case-list" id="case-list"></div>
-          </section>
+          </dialog>
 
           <main class="workspace-shell" id="app-workspace">
         <section class="hero" id="onboarding-region" data-view="onboarding">
           <div class="flow-card onboarding-grid onboarding-compact">
             <div class="onboarding-forms">
-            <div class="panel console-panel simple-intake-panel" data-testid="onboarding-agent-panel">
-              <div class="panel-header panel-header-minimal">
-                <h3 data-icon="user" data-icon-pos="start">Your cleanup</h3>
-              </div>
+            <div class="panel console-panel simple-intake-panel onboarding-intake-panel" data-testid="onboarding-agent-panel">
               <p class="simple-intake-lead muted">Name and template — we handle the rest until you approve.</p>
               <div class="simple-intake-grid">
                 <label class="simple-field">
@@ -149,11 +177,20 @@
                 <button type="button" class="preset-chip" data-preset-id="search-result-suppression" data-testid="preset-google">Google</button>
                 <button type="button" class="preset-chip" data-preset-id="gdpr-erasure" data-testid="preset-gdpr">GDPR</button>
                 <button type="button" class="preset-chip" data-preset-id="high-risk-safety" data-testid="preset-safety">Safety</button>
+                <button type="button" class="preset-chip" data-preset-id="content-takedown" data-testid="preset-takedown">Takedown</button>
               </div>
               <label class="simple-field simple-field-optional">
                 <span>Profile links you already have <em class="muted">(optional)</em></span>
                 <textarea id="simple-urls" data-testid="simple-urls" rows="2" placeholder="Paste one broker URL per line"></textarea>
               </label>
+              <label class="checkbox-row simple-preview-search">
+                <input type="checkbox" id="run-preview-search" data-testid="run-preview-search" checked />
+                Search for my exposure online before starting cleanup
+              </label>
+              <section class="pre-search-panel" id="pre-search-panel" data-testid="pre-search-panel" hidden aria-live="polite">
+                <p class="muted small pre-search-status" id="pre-search-status"></p>
+                <ul class="pre-search-results" id="pre-search-results"></ul>
+              </section>
               <button type="button" id="start-cleanup" data-testid="start-cleanup" data-icon="play"><span class="btn-label">Start cleanup</span></button>
               <p class="muted small simple-status" id="simple-start-status" aria-live="polite"></p>
               <textarea id="agent-intake" hidden aria-hidden="true"></textarea>
@@ -190,7 +227,7 @@
                 </div>
                 <label class="checkbox-row"><input type="checkbox" id="show-advanced-ui" /> Show technical panels</label>
                 <label class="checkbox-row"><input type="checkbox" id="high-autonomy-toggle" /> High autonomy (batch approvals)</label>
-                <p class="muted small">Wallet connection lives in the header bar. Use <strong>Cases</strong> in the toolbar to switch or delete saved cases.</p>
+                <p class="muted small">Wallet connection lives at the bottom of the sidebar. Use <strong>Cases</strong> there to switch or delete saved cases.</p>
                 <p class="wallet-connect-feedback muted visually-hidden" id="wallet-feedback-onboarding" aria-live="polite"></p>
               </details>
             </div>
@@ -219,39 +256,18 @@
               <div class="guide-progress-track" id="guide-progress-track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
                 <div class="guide-progress-fill" id="guide-progress-fill"></div>
               </div>
-              <div class="guide-phase-strip" id="guide-phase-strip" aria-label="Workflow checkpoints"></div>
               <p class="guide-phase-status muted small" id="guide-phase-status"></p>
             </div>
             <div class="guide-rail-main">
               <p class="guide-rail-hint" id="guide-lead"></p>
-              <div class="guide-rail-actions">
-                <button type="button" id="guide-primary-action" data-testid="guide-primary-action" data-icon="arrow-right"><span class="btn-label">Continue</span></button>
-                <button type="button" class="ghost compact icon-only advanced-only" id="toggle-advanced-tabs" data-icon="menu" aria-label="More tabs" hidden><span class="btn-label">Tabs</span></button>
-              </div>
             </div>
           </section>
-
-          <nav class="tabs tabs-horizontal" role="tablist" aria-label="Case workspace">
-            <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">Overview</span></button>
-            <button class="tab tab-essential tab-route" type="button" role="tab" data-tab="tasks" hidden data-icon="pin"><span class="tab-label">Route</span></button>
-            <button class="tab tab-essential" type="button" role="tab" data-tab="approvals" data-icon="check"><span class="tab-label">Approvals</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="vault" hidden data-icon="archive"><span class="tab-label">Vault</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="history" hidden data-icon="list"><span class="tab-label">History</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="settings" hidden data-icon="sliders"><span class="tab-label">Settings</span></button>
-          </nav>
 
           <div class="console-stage" data-testid="console-stage">
           <div class="tab-panel active" id="tab-overview" role="tabpanel">
             <div class="tab-panel-main">
               <div class="console-panel cleanup-progress-panel">
                 <div class="cleanup-progress" id="cleanup-progress" aria-live="polite"></div>
-              </div>
-              <div class="console-panel workflow-panel" id="workflow-panel" hidden>
-                <div class="panel-header panel-header-minimal">
-                  <h3 data-icon="cast" data-icon-pos="start">Workflow</h3>
-                </div>
-                <div class="workflow-canvas workflow-stage" id="workflow-canvas" data-visual="/assets/workflow-nodes.webp" aria-label="Cleanup workflow steps"></div>
-                <div class="plan-summary advanced-only" id="plan-summary" hidden></div>
               </div>
               <div class="console-panel findings-panel" id="findings-panel" data-testid="findings-panel">
                 <div class="panel-header">
@@ -342,13 +358,14 @@
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-settings" role="tabpanel">
+          <div class="tab-panel" id="tab-trust" role="tabpanel">
             <div class="tab-panel-main">
-            <div class="panel console-panel settings-wide">
+            <div class="panel console-panel settings-wide trust-panel">
               <div class="panel-header">
-                <h3>Settings</h3>
-                <span class="pill">Advanced</span>
+                <h3 data-icon="cast" data-icon-pos="start">TEE verification</h3>
+                <span class="pill" id="trust-tab-status">Local mode</span>
               </div>
+              <p class="muted small trust-panel-lead">Runtime attestation, compose hash checks, and vault-blind guarantees for sensitive connector execution.</p>
               <div class="settings-block trust-proof-block">
                 <h4>Privacy</h4>
                 <div
@@ -365,8 +382,32 @@
                   <pre id="trust-output">Checking...</pre>
                 </details>
               </div>
+            </div>
+            </div>
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
+                <h3>Why this matters</h3>
+                <p class="muted small">Sensitive connectors stay blocked until Intel TDX quote verification, compose hash match, pinned image digests, and fresh attestation all pass.</p>
+              </div>
+            </aside>
+          </div>
+
+          <div class="tab-panel" id="tab-settings" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel console-panel settings-wide">
+              <div class="panel-header">
+                <h3>Settings</h3>
+                <span class="pill">Advanced</span>
+              </div>
+              <div class="settings-block payment-rails-block" id="payment-rails" data-testid="payment-rails">
+                <h4>Payment rails</h4>
+                <p class="muted small payment-rails-lead">Pay with USDC on Base via x402. Agent AI usage is capped per plan to protect your spend.</p>
+                <div class="payment-rails-grid" id="payment-rails-grid"></div>
+                <div class="status-list" id="ai-entitlement-status"></div>
+                <div class="table" id="payments-table"></div>
+              </div>
               <div class="settings-block" id="wallet-hub" data-testid="wallet-hub">
-                <h4>Payments &amp; MetaMask Smart Account</h4>
+                <h4>Wallet &amp; MetaMask Smart Account</h4>
                 <p class="wallet-connect-feedback fail" data-wallet-feedback-secondary role="status" aria-live="polite" hidden></p>
                 <div class="status-list" id="wallet-status"></div>
                 <div class="toolbar wallet-hub-toolbar">
@@ -379,18 +420,13 @@
                   <summary>Wallet log</summary>
                   <pre id="wallet-debug-log" class="wallet-debug-log"></pre>
                 </details>
-                <div class="stack-grid" id="product-list"></div>
-                <div class="toolbar">
-                  <button id="one-off-pay">Prepare one-off x402</button>
-                  <button class="secondary" id="subscription-pay">Prepare weekly subscription</button>
-                </div>
-                <div class="table" id="payments-table"></div>
               </div>
               <div class="settings-block">
                 <h4>Developer details</h4>
                 <div class="status-list" id="hackathon-checklist"></div>
                 <div class="toolbar">
-                  <button id="classify-case">Venice classify</button>
+                  <button id="finish-pending-tracks" data-testid="finish-pending-tracks">Finish pending tracks</button>
+                  <button class="secondary" id="classify-case">Venice classify</button>
                   <button class="secondary" id="draft-request">Venice draft</button>
                   <button class="secondary" id="review-approval">Review approval</button>
                   <button class="secondary" id="delegate-agents">Delegate sub-agents</button>
@@ -403,31 +439,22 @@
             </div>
             <aside class="side inspector-stack">
               <div class="panel console-panel">
-                <h3>Advanced proof</h3>
-                <p class="muted small">Normal cleanup stays focused on presets and approvals. Runtime proof, A2A redelegation, 1Shot relayer status, payment demos, and developer instrumentation remain here for auditability.</p>
+                <h3>Developer tools</h3>
+                <p class="muted small">Payments, Venice demos, A2A redelegation, and 1Shot relayer status. TEE verification lives on the Trust tab.</p>
               </div>
             </aside>
           </div>
 
           <div class="tab-panel" id="tab-approvals" role="tabpanel">
             <div class="tab-panel-main">
-            <div class="panel panel-with-visual approval-panel console-panel">
-              <div class="panel-visual approval-visual" aria-hidden="true"></div>
-              <div class="panel-body">
-                <div class="panel-header">
-                  <h3>Review approval</h3>
-                  <span class="pill">Step 4</span>
-                </div>
-                <div class="table" id="approval-table"></div>
+            <div class="panel approval-panel console-panel">
+              <div class="panel-header">
+                <h3>Review approval</h3>
+                <span class="pill">Step 4</span>
               </div>
+              <div class="table" id="approval-table"></div>
             </div>
             </div>
-            <aside class="side inspector-stack">
-              <div class="panel console-panel">
-                <h3>Before approval</h3>
-                <p class="muted small">Confirm destination, data categories, purpose, and third-party disclosure risk.</p>
-              </div>
-            </aside>
           </div>
 
           <div class="tab-panel" id="tab-vault" role="tabpanel">
@@ -481,7 +508,8 @@
           </main>
           <footer class="site-footer workspace-footer" id="workspace-footer">
             <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
-            <nav class="site-footer-legal" aria-label="Legal">
+            <nav class="site-footer-legal" aria-label="Help and legal">
+              <a class="site-footer-text-link" href="/help">Guide</a>
               <a class="site-footer-text-link" href="/privacy">Privacy</a>
               <a class="site-footer-text-link" href="/terms">Terms</a>
             </nav>

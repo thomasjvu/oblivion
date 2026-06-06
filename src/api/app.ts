@@ -1,14 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join } from "node:path";
+import { loadMarkdownDoc, staticDocPageFromMarkdown } from "./markdownPage.js";
 import { buildAttestationProof, type TrustCenterConfig } from "../domain/attestation.js";
 import {
   buildAgentPlanView,
   CLEANUP_PRESETS,
   createAgentPlan,
-  getPreset
+  getPreset,
+  presetUsesBrokerDiscovery,
+  presetUsesContentDiscovery
 } from "../domain/cleanup.js";
 import {
+  completePendingHackathonTracks,
   createAgentDelegationSet,
   createEip7702Authorization,
   createErc7715Permission,
@@ -17,6 +21,7 @@ import {
   createRelayerEvents,
   createTimelineEvent,
   demoSmartAccountAddress,
+  pendingHackathonTracks,
   X402_PRODUCTS
 } from "../domain/hackathon.js";
 import { canExecuteWithApproval } from "../domain/policy.js";
@@ -39,7 +44,8 @@ import {
   isHibpConfigured,
   isLiveExecutorEnabled,
   isOneShotConfigured,
-  isX402Configured
+  isX402Configured,
+  veniceDemoFallbackEnabled
 } from "../domain/integrations.js";
 import { relayOneShotForCase, type OneShotRelayBody } from "../domain/oneshot.js";
 import {
@@ -49,7 +55,13 @@ import {
   settleX402Payment,
   x402PublicConfig
 } from "../domain/x402.js";
-import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
+import {
+  AI_BUDGET_BY_MODE,
+  assertAiBudget,
+  maxTokensForEntitlement,
+  resolveAiEntitlement
+} from "../domain/aiBudget.js";
+import { isVeniceAvailable, isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
 import { sanitizeForLog } from "../domain/safeLogging.js";
 import type {
   ActionType,
@@ -196,111 +208,18 @@ interface PremiumTaskBody {
   paymentSessionId?: string;
 }
 
-function escapeHelpHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function formatHelpInline(text: string): string {
-  let html = escapeHelpHtml(text);
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-  html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2">$1</a>'
-  );
-  return html;
-}
-
-function staticDocPageFromMarkdown(
-  markdown: string,
-  options: { pageTitle: string; heading: string }
-): string {
-  const lines = markdown.split("\n");
-  const parts: string[] = [];
-  let inTable = false;
-  let inList = false;
-  const closeList = () => {
-    if (inList) {
-      parts.push("</ul>");
-      inList = false;
-    }
-  };
-  for (const line of lines) {
-    if (line.startsWith("|")) {
-      closeList();
-      if (!inTable) {
-        parts.push("<table>");
-        inTable = true;
-      }
-      const cells = line
-        .split("|")
-        .slice(1, -1)
-        .map((cell) => cell.trim());
-      if (cells.every((cell) => /^-+$/.test(cell.replace(/:/g, "")))) continue;
-      parts.push(`<tr>${cells.map((c) => `<td>${formatHelpInline(c)}</td>`).join("")}</tr>`);
-      continue;
-    }
-    if (inTable) {
-      parts.push("</table>");
-      inTable = false;
-    }
-    if (line.startsWith("# ")) {
-      closeList();
-      parts.push(`<h1>${formatHelpInline(line.slice(2))}</h1>`);
-    } else if (line.startsWith("## ")) {
-      closeList();
-      parts.push(`<h2>${formatHelpInline(line.slice(3))}</h2>`);
-    } else if (line.startsWith("### ")) {
-      closeList();
-      parts.push(`<h3>${formatHelpInline(line.slice(4))}</h3>`);
-    } else if (/^\d+\.\s/.test(line)) {
-      closeList();
-      parts.push(`<p class="step-line">${formatHelpInline(line)}</p>`);
-    } else if (line.startsWith("- ")) {
-      if (!inList) {
-        parts.push("<ul>");
-        inList = true;
-      }
-      parts.push(`<li>${formatHelpInline(line.slice(2))}</li>`);
-    } else if (line.trim() === "---") {
-      closeList();
-      parts.push("<hr />");
-    } else if (line.trim()) {
-      closeList();
-      parts.push(`<p>${formatHelpInline(line)}</p>`);
-    }
+async function serveBuiltOrMarkdownPage(
+  publicDir: string,
+  slug: "privacy" | "terms",
+  markdownFile: string,
+  page: { pageTitle: string; heading: string }
+): Promise<string> {
+  try {
+    return await readFile(join(publicDir, `${slug}.html`), "utf8");
+  } catch {
+    const markdown = await loadMarkdownDoc(markdownFile);
+    return staticDocPageFromMarkdown(markdown, page);
   }
-  closeList();
-  if (inTable) parts.push("</table>");
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Oblivion — ${escapeHelpHtml(options.pageTitle)}</title>
-  <link rel="stylesheet" href="/styles.css" />
-</head>
-<body>
-  <div class="app help-page">
-    <header class="topbar">
-      <div class="brand"><div class="mark">O</div><h1>${escapeHelpHtml(options.heading)}</h1></div>
-      <div class="nav-actions"><a class="secondary help-back" href="/">← Home</a></div>
-    </header>
-    <article class="help-article">${parts.join("\n")}</article>
-    <footer class="site-footer help-page-footer">
-      <nav class="site-footer-legal" aria-label="Legal">
-        <a class="site-footer-text-link" href="/privacy">Privacy</a>
-        <a class="site-footer-text-link" href="/terms">Terms</a>
-      </nav>
-    </footer>
-  </div>
-</body>
-</html>`;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -316,8 +235,7 @@ export function createApp(options: AppOptions = {}) {
       const method = request.method ?? "GET";
 
       if (method === "GET" && url.pathname === "/help") {
-        const guidePath = join(process.cwd(), "docs", "USER_GUIDE.md");
-        const markdown = await readFile(guidePath, "utf8");
+        const markdown = await loadMarkdownDoc("USER_GUIDE.md");
         sendText(
           response,
           200,
@@ -328,26 +246,20 @@ export function createApp(options: AppOptions = {}) {
       }
 
       if (method === "GET" && url.pathname === "/privacy") {
-        const privacyPath = join(process.cwd(), "docs", "PRIVACY_POLICY.md");
-        const markdown = await readFile(privacyPath, "utf8");
-        sendText(
-          response,
-          200,
-          staticDocPageFromMarkdown(markdown, { pageTitle: "Privacy Policy", heading: "Privacy" }),
-          "text/html"
-        );
+        const html = await serveBuiltOrMarkdownPage(publicDir, "privacy", "PRIVACY_POLICY.md", {
+          pageTitle: "Privacy Policy",
+          heading: "Privacy"
+        });
+        sendText(response, 200, html, "text/html");
         return;
       }
 
       if (method === "GET" && url.pathname === "/terms") {
-        const termsPath = join(process.cwd(), "docs", "TERMS_OF_SERVICE.md");
-        const markdown = await readFile(termsPath, "utf8");
-        sendText(
-          response,
-          200,
-          staticDocPageFromMarkdown(markdown, { pageTitle: "Terms of Service", heading: "Terms" }),
-          "text/html"
-        );
+        const html = await serveBuiltOrMarkdownPage(publicDir, "terms", "TERMS_OF_SERVICE.md", {
+          pageTitle: "Terms of Service",
+          heading: "Terms"
+        });
+        sendText(response, 200, html, "text/html");
         return;
       }
 
@@ -600,11 +512,15 @@ export function createApp(options: AppOptions = {}) {
         const body = await readJson<{ pastedUrls?: string[] }>(request);
         const existingUrls = store.exposuresForCase(caseRecord.id).map((item) => item.sourceUrl);
         try {
+          const plan = store.agentPlanForCase(caseRecord.id);
+          const presetId = plan?.presetId;
           const discovered = await discoverExposureCandidates({
             caseId: caseRecord.id,
             scope: caseRecord.redactedScope,
             pastedUrls: body.pastedUrls,
-            existingUrls
+            existingUrls,
+            brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
+            contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
           });
           for (const exposure of discovered) {
             store.exposures.set(exposure.id, exposure);
@@ -751,10 +667,18 @@ export function createApp(options: AppOptions = {}) {
         sendJson(response, 200, {
           products: X402_PRODUCTS,
           config: x402PublicConfig(),
+          aiBudget: AI_BUDGET_BY_MODE,
           note: isX402Configured()
-            ? "Live x402 catalog. Pay protected agent routes with PAYMENT-SIGNATURE, then ERC-7710 scopes still govern cleanup disclosure."
+            ? "Live x402 catalog. Pay $1 USDC one-off or $5 USDC/month subscription via x402. Agent AI usage is capped per plan."
             : "Configure X402_PAY_TO and X402_FACILITATOR_URL for live HTTP 402 settlement."
         });
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/api/cases/") && url.pathname.endsWith("/ai-entitlement")) {
+        const caseId = url.pathname.split("/")[3];
+        const caseRecord = store.getCaseOrThrow(caseId);
+        sendJson(response, 200, resolveAiEntitlement(store, caseRecord.id));
         return;
       }
 
@@ -791,7 +715,7 @@ export function createApp(options: AppOptions = {}) {
             metamaskSmartAccounts: process.env.WALLET_LIVE_MODE === "true",
             x402: isX402Configured(),
             erc7710: isX402Configured(),
-            venice: isVeniceConfigured(),
+            venice: isVeniceConfigured() || veniceDemoFallbackEnabled(),
             oneShot: isOneShotConfigured(),
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
@@ -846,13 +770,16 @@ export function createApp(options: AppOptions = {}) {
         const mode: PaymentMode = url.pathname.endsWith("subscription") ? "subscription" : "one-off";
         const body = await readJson<PaymentBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const session = createPaymentSession({
+        const created = createPaymentSession({
           caseId: caseRecord.id,
           mode,
           productId: body.productId,
           walletAddress: body.walletAddress ? redactText(body.walletAddress) : undefined,
           smartAccountAddress: body.smartAccountAddress
         });
+        const session = isX402Configured()
+          ? created
+          : { ...created, status: "authorized" as const, updatedAt: new Date().toISOString() };
         const permission = createPaymentPermission(caseRecord.id, session);
         store.paymentSessions.set(session.id, session);
         store.permissionGrants.set(permission.id, permission);
@@ -917,6 +844,12 @@ export function createApp(options: AppOptions = {}) {
             config: x402PublicConfig()
           });
         }
+        const authorized = {
+          ...session,
+          status: session.status === "paid" ? "paid" : "authorized",
+          updatedAt: new Date().toISOString()
+        } as typeof session;
+        store.paymentSessions.set(authorized.id, authorized);
         const timeline = createTimelineEvent(
           caseRecord.id,
           "x402",
@@ -926,7 +859,7 @@ export function createApp(options: AppOptions = {}) {
         store.agentTimeline.set(timeline.id, timeline);
         sendJson(response, 200, {
           entitlement: "payment-session-verified",
-          session,
+          session: authorized,
           nextRequired: "explicit-cleanup-approval",
           timeline
         });
@@ -991,12 +924,27 @@ export function createApp(options: AppOptions = {}) {
             message: "Set VENICE_API_KEY to enable the live agent."
           });
         }
+        let entitlement;
+        try {
+          entitlement = assertAiBudget(store, caseRecord.id, "chat");
+        } catch (error) {
+          const err = error as Error & { statusCode?: number; code?: string };
+          if (err.statusCode === 402) {
+            throw new HttpError(402, err.code || "ai-payment-required", {
+              products: X402_PRODUCTS,
+              entitlement: resolveAiEntitlement(store, caseRecord.id),
+              config: x402PublicConfig()
+            });
+          }
+          throw error;
+        }
         const plan = store.agentPlanForCase(caseRecord.id);
         const reply = await runVeniceAgentReply({
           caseId: caseRecord.id,
           message: body.message,
           planStep: plan?.currentStep,
-          presetId: plan?.presetId
+          presetId: plan?.presetId,
+          maxTokens: maxTokensForEntitlement(entitlement)
         });
         const timeline = createTimelineEvent(caseRecord.id, "Venice", "Agent reply", reply);
         store.agentTimeline.set(timeline.id, timeline);
@@ -1038,17 +986,32 @@ export function createApp(options: AppOptions = {}) {
             : url.pathname === "/api/ai/review-approval"
               ? "review-approval"
               : "classify-case";
-        if (!isVeniceConfigured()) {
+        if (!isVeniceAvailable()) {
           throw new HttpError(503, "venice-not-configured", {
-            message: "Set VENICE_API_KEY (and optional VENICE_BASE_URL, VENICE_MODEL) to enable Venice.ai."
+            message: "Set VENICE_API_KEY or VENICE_DEMO_FALLBACK=true to enable Venice.ai."
           });
+        }
+        let entitlement;
+        try {
+          entitlement = assertAiBudget(store, caseRecord.id, "analysis");
+        } catch (error) {
+          const err = error as Error & { statusCode?: number; code?: string };
+          if (err.statusCode === 402) {
+            throw new HttpError(402, err.code || "ai-payment-required", {
+              products: X402_PRODUCTS,
+              entitlement: resolveAiEntitlement(store, caseRecord.id),
+              config: x402PublicConfig()
+            });
+          }
+          throw error;
         }
         const analysis = await runVeniceAnalysis({
           caseId: caseRecord.id,
           kind,
           notes: body.notes,
           destination: body.destination,
-          actionType: body.actionType
+          actionType: body.actionType,
+          maxTokens: maxTokensForEntitlement(entitlement)
         });
         store.veniceAnalyses.set(analysis.id, analysis);
         const timeline = createTimelineEvent(caseRecord.id, "Venice", analysis.output.title, analysis.output.summary);
@@ -1109,9 +1072,27 @@ export function createApp(options: AppOptions = {}) {
         const caseId = url.searchParams.get("caseId");
         if (!caseId) throw new HttpError(422, "case-id-required");
         store.getCaseOrThrow(caseId);
+        const status = buildHackathonStatusForCase(store, caseId);
         sendJson(response, 200, {
-          status: buildHackathonStatusForCase(store, caseId)
+          status,
+          pending: pendingHackathonTracks(status)
         });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/hackathon/complete-pending") {
+        const body = await readJson<VeniceBody & PaymentBody>(request);
+        const caseRecord = store.getCaseOrThrow(body.caseId);
+        const result = await completePendingHackathonTracks({
+          store,
+          caseId: caseRecord.id,
+          walletAddress: body.walletAddress ? redactText(body.walletAddress) : undefined,
+          smartAccountAddress: body.smartAccountAddress,
+          notes: body.notes,
+          destination: body.destination,
+          actionType: body.actionType
+        });
+        sendJson(response, 201, result);
         return;
       }
 

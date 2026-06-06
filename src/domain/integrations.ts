@@ -20,6 +20,10 @@ export function isVeniceEnvConfigured(): boolean {
   return Boolean(envString("VENICE_API_KEY"));
 }
 
+export function veniceDemoFallbackEnabled(): boolean {
+  return envFlag("VENICE_DEMO_FALLBACK", process.env.NODE_ENV !== "production");
+}
+
 export function isHibpConfigured(): boolean {
   return Boolean(envString("HIBP_API_KEY"));
 }

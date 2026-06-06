@@ -26,7 +26,11 @@ export type IdentifierCategory =
   | "ssn"
   | "password"
   | "payment"
+  | "infringing-url"
+  | "original-work-ref"
   | "unknown";
+
+export type BrokerSubmissionMethod = "web-form" | "email" | "portal" | "postal" | "drop";
 
 export type ActionType =
   | "people-search-discovery"
@@ -37,7 +41,9 @@ export type ActionType =
   | "hibp-email-check"
   | "pwned-password-range-check"
   | "follow-up"
-  | "escalation-draft";
+  | "escalation-draft"
+  | "dmca-takedown"
+  | "platform-abuse-report";
 
 export type ApprovalStatus = "pending" | "approved" | "expired" | "revoked" | "used";
 
@@ -113,6 +119,8 @@ export interface Exposure {
   matchReason?: string;
   removalStatus?: ExposureRemovalStatus;
   officialOptOutUrl?: string;
+  submissionMethod?: BrokerSubmissionMethod;
+  teeAutomatable?: boolean;
 }
 
 export interface Approval {
@@ -145,6 +153,8 @@ export interface ActionRequest {
   createdAt: string;
   executedAt?: string;
   executionRecord?: string;
+  brokerId?: string;
+  exposureId?: string;
 }
 
 export interface SourceCheck {
@@ -162,6 +172,9 @@ export interface FollowUp {
   dueDate: string;
   expectedResponseWindow: string;
   escalationPath: string;
+  brokerId?: string;
+  brokerLabel?: string;
+  exposureId?: string;
 }
 
 export type PresetId =
@@ -170,7 +183,8 @@ export type PresetId =
   | "california-drop"
   | "gdpr-erasure"
   | "breach-exposure"
-  | "high-risk-safety";
+  | "high-risk-safety"
+  | "content-takedown";
 
 export type AutonomyMode = "approval-gated" | "high-autonomy";
 

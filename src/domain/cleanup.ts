@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { brokerCatalogEntryById } from "./brokerCatalog.js";
 import { followUpDate } from "./deadlines.js";
 import type {
   ActionRequest,
@@ -40,8 +41,8 @@ export const CLEANUP_PRESETS: Preset[] = [
     requiredIdentifierCategories: ["legal-name", "email", "city-state"],
     defaultAutonomy: "approval-gated",
     steps: WORKFLOW_STEPS,
-    disclosurePoints: ["Search approved sources", "Submit broker opt-out request", "Recheck profile URL"],
-    connectorIds: ["people-search-guidance", "google-removal-plan"],
+    disclosurePoints: ["Sweep data-broker catalog", "Submit per-broker opt-out", "Recheck each listing"],
+    connectorIds: ["broker-registry-sweep", "people-search-guidance", "broker-opt-out-live", "california-drop-guided"],
     expectedWindow: "1-21 days depending on broker response"
   },
   {
@@ -106,8 +107,21 @@ export const CLEANUP_PRESETS: Preset[] = [
     defaultAutonomy: "approval-gated",
     steps: WORKFLOW_STEPS,
     disclosurePoints: ["Verify high-risk match locally", "Avoid repeating current address", "Prioritize source removal"],
-    connectorIds: ["people-search-guidance", "google-removal-plan", "gdpr-template"],
+    connectorIds: ["broker-registry-sweep", "people-search-guidance", "broker-opt-out-live", "google-removal-plan", "gdpr-template"],
     expectedWindow: "Triage immediately; response windows vary by source"
+  },
+  {
+    id: "content-takedown",
+    title: "Takedown copied content",
+    summary: "Identify infringing URLs, draft DMCA or platform abuse notices, and pause for approval before any host contact.",
+    jurisdictions: ["US", "EU", "UK"],
+    riskLevel: "standard",
+    requiredIdentifierCategories: ["legal-name", "email", "infringing-url", "original-work-ref"],
+    defaultAutonomy: "approval-gated",
+    steps: WORKFLOW_STEPS,
+    disclosurePoints: ["Confirm infringing URL", "Draft takedown notice", "Disclose contact to host or platform"],
+    connectorIds: ["dmca-notice-drafter", "platform-abuse-handoff", "platform-abuse-live"],
+    expectedWindow: "Hours to several weeks depending on host response"
   }
 ];
 
@@ -174,6 +188,14 @@ export function presetSkipsMatchReview(presetId: PresetId): boolean {
     presetId === "california-drop" ||
     presetId === "gdpr-erasure"
   );
+}
+
+export function presetUsesBrokerDiscovery(presetId: PresetId): boolean {
+  return presetId === "people-search-cleanup" || presetId === "high-risk-safety";
+}
+
+export function presetUsesContentDiscovery(presetId: PresetId): boolean {
+  return presetId === "content-takedown";
 }
 
 export function advanceAgentPlan(input: {
@@ -300,7 +322,11 @@ export function createScoutFindings(caseId: string, presetId: PresetId): Connect
           ? "california-drop-guided"
           : presetId === "gdpr-erasure"
             ? "gdpr-template"
-            : "people-search-guidance";
+            : presetId === "content-takedown"
+              ? "dmca-notice-drafter"
+              : presetUsesBrokerDiscovery(presetId)
+                ? "broker-registry-sweep"
+                : "people-search-guidance";
   const officialRemovalPath =
     presetId === "search-result-suppression"
       ? "https://support.google.com/websearch/answer/12719076"
@@ -310,7 +336,9 @@ export function createScoutFindings(caseId: string, presetId: PresetId): Connect
           ? "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/individual-rights/right-to-erasure/"
           : presetId === "breach-exposure"
             ? "https://haveibeenpwned.com/API/v3"
-            : "https://www.consumer.ftc.gov/articles/what-know-about-people-search-sites";
+            : presetId === "content-takedown"
+              ? "https://www.copyright.gov/dmca/"
+              : "https://www.consumer.ftc.gov/articles/what-know-about-people-search-sites";
   return {
     id: `connector_${crypto.randomUUID()}`,
     caseId,
@@ -374,9 +402,60 @@ export function createPlanFollowUp(caseId: string, presetId: PresetId): FollowUp
   return {
     id: `followup_${crypto.randomUUID()}`,
     caseId,
-    dueDate: followUpDate(presetId === "california-drop" ? 90 : 14),
-    expectedResponseWindow: presetId === "california-drop" ? "Track official 90-day broker processing window." : "Recheck source after expected response window.",
-    escalationPath: presetId === "gdpr-erasure" ? "Prepare regulator escalation draft if no lawful response." : "Prepare follow-up request or source recheck."
+    dueDate: followUpDate(presetId === "california-drop" ? 90 : presetId === "content-takedown" ? 7 : 14),
+    expectedResponseWindow:
+      presetId === "california-drop"
+        ? "Track official 90-day broker processing window."
+        : presetId === "content-takedown"
+          ? "Track host or platform response to the approved takedown notice."
+          : "Recheck source after expected response window.",
+    escalationPath:
+      presetId === "gdpr-erasure"
+        ? "Prepare regulator escalation draft if no lawful response."
+        : presetId === "content-takedown"
+          ? "Prepare counter-notice review notes or escalate to platform trust and safety."
+          : "Prepare follow-up request or source recheck."
+  };
+}
+
+export function createBrokerFollowUps(
+  caseId: string,
+  exposures: Array<{ id: string; brokerId?: string; brokerLabel?: string }>
+): FollowUp[] {
+  const followUps: FollowUp[] = [];
+  for (const exposure of exposures) {
+    if (!exposure.brokerId) continue;
+    const catalog = brokerCatalogEntryById(exposure.brokerId);
+    followUps.push({
+      id: `followup_${crypto.randomUUID()}`,
+      caseId,
+      brokerId: exposure.brokerId,
+      brokerLabel: exposure.brokerLabel ?? catalog?.brokerLabel,
+      exposureId: exposure.id,
+      dueDate: followUpDate(catalog?.recheckDays ?? 14),
+      expectedResponseWindow: `Recheck ${catalog?.brokerLabel ?? "broker"} listing after opt-out submission.`,
+      escalationPath: catalog?.requiresIdVerification
+        ? "Broker may require ID verification — complete user-held steps if listing remains."
+        : "Prepare follow-up opt-out or broker sweep recheck."
+    });
+  }
+  return followUps;
+}
+
+export function createBrokerRemovalPathPlan(caseId: string, brokerCount: number): ConnectorResult {
+  const now = new Date().toISOString();
+  return {
+    id: `connector_${crypto.randomUUID()}`,
+    caseId,
+    connectorId: "broker-registry-sweep",
+    status: "ready",
+    sourceUrl: "https://www.consumer.ftc.gov/articles/what-know-about-people-search-sites",
+    officialRemovalPath: "https://www.consumer.ftc.gov/articles/what-know-about-people-search-sites",
+    confidence: "high",
+    requiresUserHandoff: false,
+    nextCheckAt: followUpDate(14),
+    summary: `Verified official opt-out paths for ${brokerCount} confirmed broker listing(s).`,
+    createdAt: now
   };
 }
 
@@ -390,8 +469,10 @@ export function sha1Hex(value: string): string {
 
 function createBatchApprovalPolicy(preset: Preset, now: Date): BatchApprovalPolicy {
   return {
-    maxDestinations: preset.id === "people-search-cleanup" ? 5 : 3,
-    maxActions: preset.id === "high-risk-safety" ? 3 : 8,
+    maxDestinations:
+      preset.id === "people-search-cleanup" ? 25 : preset.id === "high-risk-safety" ? 10 : preset.id === "content-takedown" ? 5 : 3,
+    maxActions:
+      preset.id === "people-search-cleanup" ? 25 : preset.id === "high-risk-safety" ? 10 : preset.id === "content-takedown" ? 5 : 8,
     dataCategories: preset.requiredIdentifierCategories.filter((category) => category !== "password"),
     expiresAt: followUpDate(3, now)
   };

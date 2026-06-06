@@ -55,6 +55,46 @@ export const SOURCE_VERIFICATION_REGISTRY: SourceVerificationRecord[] = [
     claimVerified: "UK/GDPR erasure rights are not absolute and may require controller-specific review.",
     expectedRemovalPath: "Draft controller request, track response window, and prepare escalation notes.",
     operatorVersion: "oblivion-source-registry-v1"
+  },
+  {
+    connectorId: "broker-registry-sweep",
+    officialUrl: "https://cppa.ca.gov/data_broker_registry/",
+    checkedAt: "2026-06-05",
+    claimVerified: "Broker sweep uses catalog opt-out URLs and site-scoped search over redacted labels only.",
+    expectedRemovalPath: "Match confirmed listings to catalog opt-out paths before drafting requests.",
+    operatorVersion: "oblivion-source-registry-v1"
+  },
+  {
+    connectorId: "broker-opt-out-live",
+    officialUrl: "https://www.consumer.ftc.gov/articles/what-know-about-people-search-sites",
+    checkedAt: "2026-06-05",
+    claimVerified: "Live broker opt-out requires TEE pass, exact destination, and approval-bound identifiers.",
+    expectedRemovalPath: "Submit to the broker official opt-out path recorded in the catalog.",
+    operatorVersion: "oblivion-source-registry-v1"
+  },
+  {
+    connectorId: "dmca-notice-drafter",
+    officialUrl: "https://www.copyright.gov/dmca/",
+    checkedAt: "2026-06-05",
+    claimVerified: "DMCA notices require rights-holder authority and accurate infringement identification.",
+    expectedRemovalPath: "Draft notice for user review; host submission remains approval-gated.",
+    operatorVersion: "oblivion-source-registry-v1"
+  },
+  {
+    connectorId: "platform-abuse-handoff",
+    officialUrl: "https://www.copyright.gov/dmca/",
+    checkedAt: "2026-06-05",
+    claimVerified: "Platform abuse reports must use each service official copyright or abuse channel.",
+    expectedRemovalPath: "Open official report URL and record user-held submission.",
+    operatorVersion: "oblivion-source-registry-v1"
+  },
+  {
+    connectorId: "platform-abuse-live",
+    officialUrl: "https://www.copyright.gov/dmca/",
+    checkedAt: "2026-06-05",
+    claimVerified: "Live platform abuse submission requires managed runtime and explicit approval.",
+    expectedRemovalPath: "Send approved notice to host abuse contact after TEE verification.",
+    operatorVersion: "oblivion-source-registry-v1"
   }
 ];
 

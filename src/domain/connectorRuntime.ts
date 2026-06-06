@@ -1,5 +1,6 @@
 import type { TrustCenterConfig } from "./attestation.js";
 import { buildAttestationProof } from "./attestation.js";
+import { brokerCatalogEntryById } from "./brokerCatalog.js";
 import { connectorById } from "./connectors.js";
 import { createGoogleRemovalPlan, pwnedPasswordRangeUrl } from "./cleanup.js";
 import { followUpDate } from "./deadlines.js";
@@ -25,7 +26,7 @@ export interface LiveConnectorOutput {
   neverTransmit: string[];
 }
 
-export function connectorIdForAction(actionType: ActionRequest["actionType"]): string {
+export function connectorIdForAction(actionType: ActionRequest["actionType"], brokerId?: string): string {
   switch (actionType) {
     case "hibp-email-check":
       return "hibp-email";
@@ -38,13 +39,19 @@ export function connectorIdForAction(actionType: ActionRequest["actionType"]): s
       return "gdpr-template";
     case "follow-up":
       return "california-drop-guided";
+    case "broker-opt-out":
+      return brokerId && brokerCatalogEntryById(brokerId)?.teeAutomatable ? "broker-opt-out-live" : "people-search-guidance";
+    case "dmca-takedown":
+      return "dmca-notice-drafter";
+    case "platform-abuse-report":
+      return "platform-abuse-live";
     default:
       return "people-search-guidance";
   }
 }
 
 export async function runLiveConnector(input: LiveConnectorInput): Promise<LiveConnectorOutput> {
-  const connectorId = connectorIdForAction(input.action.actionType);
+  const connectorId = connectorIdForAction(input.action.actionType, input.action.brokerId);
   const connector = connectorById(connectorId);
   if (!connector) {
     throw Object.assign(new Error("connector-not-registered"), { statusCode: 500 });
@@ -65,6 +72,15 @@ export async function runLiveConnector(input: LiveConnectorInput): Promise<LiveC
   }
   if (connectorId === "google-removal-plan") {
     return runGooglePlan(input, connectorId);
+  }
+  if (connectorId === "broker-opt-out-live") {
+    return runBrokerOptOutLive(input, connectorId);
+  }
+  if (connectorId === "platform-abuse-live") {
+    return runPlatformAbuseLive(input, connectorId);
+  }
+  if (connectorId === "dmca-notice-drafter") {
+    return runGuidanceConnector(input, connectorId, true);
   }
   return runGuidanceConnector(input, connectorId, connector.requiresUserHandoff);
 }
@@ -138,6 +154,82 @@ async function runHibpEmail(input: LiveConnectorInput, connectorId: string): Pro
     executionRecord: `live connector ${connectorId}: email check ${result.status}.`,
     transmitted: ["email"],
     neverTransmit: ["password", "ssn"]
+  };
+}
+
+async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: string): Promise<LiveConnectorOutput> {
+  const broker = input.action.brokerId ? brokerCatalogEntryById(input.action.brokerId) : undefined;
+  const profileUrl = input.handoff?.sourceUrl;
+  const emailLabel = input.handoff?.emailLabel;
+  if (!broker) {
+    return handoffResult(input, connectorId, "Live broker opt-out requires brokerId on the approved action.");
+  }
+  if (!profileUrl && broker.submissionMethod === "web-form") {
+    return handoffResult(
+      input,
+      connectorId,
+      "Live broker opt-out requires sourceUrl in the execute handoff (profile URL from vault)."
+    );
+  }
+  if (broker.submissionMethod === "email" && !emailLabel && !broker.privacyEmail) {
+    return handoffResult(input, connectorId, "Live email opt-out requires emailLabel or a catalog privacy email.");
+  }
+  if (!broker.teeAutomatable || broker.requiresIdVerification) {
+    const result = buildConnectorResult(input.action.caseId, connectorId, {
+      status: "ready",
+      sourceUrl: broker.officialOptOutUrl,
+      officialRemovalPath: broker.officialOptOutUrl,
+      summary: `${broker.brokerLabel} requires user-held verification. Open the official opt-out path.`,
+      requiresUserHandoff: true
+    });
+    return {
+      result,
+      executionRecord: `live connector ${connectorId}: handoff required for ${broker.brokerId}.`,
+      transmitted: [],
+      neverTransmit: ["ssn", "government-id", "password"]
+    };
+  }
+  const destination = broker.privacyEmail ?? broker.officialOptOutUrl;
+  const result = buildConnectorResult(input.action.caseId, connectorId, {
+    status: "recorded",
+    sourceUrl: destination,
+    officialRemovalPath: broker.officialOptOutUrl,
+    summary: `Live ${broker.brokerLabel} opt-out recorded via ${broker.submissionMethod}. Awaiting broker confirmation.`,
+    requiresUserHandoff: broker.submissionMethod === "portal"
+  });
+  return {
+    result,
+    executionRecord: `live connector ${connectorId}: ${broker.brokerId} opt-out ${result.status}.`,
+    transmitted: ["legal-name", "email", "profile-url"],
+    neverTransmit: ["ssn", "password", "government-id"]
+  };
+}
+
+async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: string): Promise<LiveConnectorOutput> {
+  const infringingUrl = input.handoff?.sourceUrl;
+  const emailLabel = input.handoff?.emailLabel;
+  if (!infringingUrl) {
+    return handoffResult(
+      input,
+      connectorId,
+      "Live platform abuse report requires sourceUrl in the execute handoff (infringing URL from vault)."
+    );
+  }
+  if (!emailLabel) {
+    return handoffResult(input, connectorId, "Live platform abuse report requires emailLabel in the execute handoff.");
+  }
+  const result = buildConnectorResult(input.action.caseId, connectorId, {
+    status: "recorded",
+    sourceUrl: input.action.destination,
+    officialRemovalPath: input.action.destination,
+    summary: "Live platform abuse notice recorded for host review. Track response in follow-ups.",
+    requiresUserHandoff: false
+  });
+  return {
+    result,
+    executionRecord: `live connector ${connectorId}: platform abuse notice recorded.`,
+    transmitted: ["legal-name", "email", "infringing-url"],
+    neverTransmit: ["original-media", "password", "ssn"]
   };
 }
 

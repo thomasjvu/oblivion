@@ -12,7 +12,9 @@ import type { Erc7710Delegation, PermissionGrant } from "../src/domain/types.js"
 
 test("payment catalog covers one-off x402 and ERC-7710 subscription tracks", () => {
   assert.ok(X402_PRODUCTS.some((product) => product.mode === "one-off" && product.x402Endpoint));
-  assert.ok(X402_PRODUCTS.some((product) => product.mode === "subscription" && product.cadence === "weekly"));
+  assert.ok(X402_PRODUCTS.some((product) => product.mode === "subscription" && product.cadence === "monthly"));
+  assert.ok(X402_PRODUCTS.some((product) => product.mode === "one-off" && product.amountUsd === 1));
+  assert.ok(X402_PRODUCTS.some((product) => product.mode === "subscription" && product.amountUsd === 5));
   assert.ok(X402_PRODUCTS.every((product) => product.requiredPermission === "erc7710-payment"));
 });
 

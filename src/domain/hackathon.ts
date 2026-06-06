@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
+import { isX402Configured } from "./integrations.js";
 import { redactText } from "./redaction.js";
+import { runVeniceAnalysis } from "./venice.js";
+import type { MemoryStore } from "../storage/memoryStore.js";
 import type {
   ActionType,
   AgentDelegation,
@@ -23,10 +26,10 @@ import type {
 export const X402_PRODUCTS: PaymentProduct[] = [
   {
     id: "broker-opt-out-packet",
-    name: "Broker opt-out packet",
+    name: "One-off cleanup run",
     mode: "one-off",
-    description: "Prepare one approved people-search broker opt-out packet from an encrypted case.",
-    amountUsd: 5,
+    description: "$1 USDC for a single supervised cleanup run with capped agent assistance.",
+    amountUsd: 1,
     token: "USDC",
     network: "base",
     x402Endpoint: "/api/agent/premium-task",
@@ -34,13 +37,13 @@ export const X402_PRODUCTS: PaymentProduct[] = [
   },
   {
     id: "weekly-monitor",
-    name: "Weekly cleanup monitor",
+    name: "Weekly review & cleanup",
     mode: "subscription",
-    description: "Recheck approved sources weekly and prepare follow-ups when data reappears.",
-    amountUsd: 9,
+    description: "$5 USDC/month for weekly exposure rechecks and follow-up cleanup prep.",
+    amountUsd: 5,
     token: "USDC",
     network: "base",
-    cadence: "weekly",
+    cadence: "monthly",
     x402Endpoint: "/api/agent/monitor",
     requiredPermission: "erc7710-payment"
   }
@@ -317,6 +320,153 @@ export function buildHackathonStatus(input: {
     veniceOutputReady: input.veniceAnalyses.length > 0,
     a2aRedelegationVisible: input.delegations.length >= 3,
     oneShotRelayerVisible: input.relayerEvents.some((event) => event.provider === "1shot")
+  };
+}
+
+export function pendingHackathonTracks(status: HackathonStatus): Array<"x402" | "venice" | "a2a" | "1shot"> {
+  const pending: Array<"x402" | "venice" | "a2a" | "1shot"> = [];
+  if (!status.x402OneOffReady) pending.push("x402");
+  if (!status.veniceOutputReady) pending.push("venice");
+  if (!status.a2aRedelegationVisible) pending.push("a2a");
+  if (!status.oneShotRelayerVisible) pending.push("1shot");
+  return pending;
+}
+
+function authorizePaymentSession(session: PaymentSession): PaymentSession {
+  if (isX402Configured() || session.status === "paid") return session;
+  return { ...session, status: "authorized", updatedAt: new Date().toISOString() };
+}
+
+function walletContextForCase(store: MemoryStore, caseId: string, input?: { walletAddress?: string; smartAccountAddress?: string }) {
+  const eip7702 = store.permissionGrantsForCase(caseId).find((grant) => grant.permissionType === "eip7702-authorization");
+  return {
+    walletAddress: input?.walletAddress,
+    smartAccountAddress: input?.smartAccountAddress || eip7702?.delegate
+  };
+}
+
+export async function completePendingHackathonTracks(input: {
+  store: MemoryStore;
+  caseId: string;
+  walletAddress?: string;
+  smartAccountAddress?: string;
+  notes?: string;
+  destination?: string;
+  actionType?: ActionType;
+}): Promise<{
+  completed: Array<"x402" | "venice" | "a2a" | "1shot">;
+  status: HackathonStatus;
+  artifacts: {
+    payments: PaymentSession[];
+    veniceAnalyses: VeniceAnalysis[];
+    delegations: AgentDelegation[];
+    relayerEvents: RelayerEvent[];
+    timeline: AgentTimelineEvent[];
+  };
+}> {
+  const completed: Array<"x402" | "venice" | "a2a" | "1shot"> = [];
+  const payments: PaymentSession[] = [];
+  const veniceAnalyses: VeniceAnalysis[] = [];
+  const delegations: AgentDelegation[] = [];
+  const relayerEvents: RelayerEvent[] = [];
+  const timeline: AgentTimelineEvent[] = [];
+  const { walletAddress, smartAccountAddress } = walletContextForCase(input.store, input.caseId, input);
+
+  let status = buildHackathonStatus({
+    caseId: input.caseId,
+    permissions: input.store.permissionGrantsForCase(input.caseId),
+    payments: input.store.paymentSessionsForCase(input.caseId),
+    veniceAnalyses: input.store.veniceAnalysesForCase(input.caseId),
+    delegations: input.store.agentDelegationsForCase(input.caseId),
+    relayerEvents: input.store.relayerEventsForCase(input.caseId)
+  });
+
+  if (!status.x402OneOffReady) {
+    const created = createPaymentSession({
+      caseId: input.caseId,
+      mode: "one-off",
+      productId: "broker-opt-out-packet",
+      walletAddress: walletAddress ? redactText(walletAddress) : undefined,
+      smartAccountAddress
+    });
+    const session = authorizePaymentSession(created);
+    const permission = createPaymentPermission(input.caseId, session);
+    input.store.paymentSessions.set(session.id, session);
+    input.store.permissionGrants.set(permission.id, permission);
+    payments.push(session);
+    const event = createTimelineEvent(
+      input.caseId,
+      "x402",
+      "One-off payment prepared",
+      `${session.productId} requires ERC-7710 scoped payment permission before execution.`
+    );
+    input.store.agentTimeline.set(event.id, event);
+    timeline.push(event);
+    completed.push("x402");
+    status = { ...status, x402OneOffReady: true };
+  }
+
+  if (!status.veniceOutputReady) {
+    const analysis = await runVeniceAnalysis({
+      caseId: input.caseId,
+      kind: "classify-case",
+      notes: input.notes,
+      destination: input.destination,
+      actionType: input.actionType
+    });
+    input.store.veniceAnalyses.set(analysis.id, analysis);
+    veniceAnalyses.push(analysis);
+    const event = createTimelineEvent(input.caseId, "Venice", analysis.output.title, analysis.output.summary);
+    input.store.agentTimeline.set(event.id, event);
+    timeline.push(event);
+    completed.push("venice");
+    status = { ...status, veniceOutputReady: true };
+  }
+
+  if (!status.a2aRedelegationVisible) {
+    const result = createAgentDelegationSet(input.caseId);
+    result.grants.forEach((grant) => input.store.permissionGrants.set(grant.id, grant));
+    result.delegations.forEach((delegation) => {
+      input.store.agentDelegations.set(delegation.id, delegation);
+      delegations.push(delegation);
+    });
+    result.messages.forEach((message) => input.store.agentMessages.set(message.id, message));
+    result.timeline.forEach((event) => {
+      input.store.agentTimeline.set(event.id, event);
+      timeline.push(event);
+    });
+    completed.push("a2a");
+    status = { ...status, a2aRedelegationVisible: true };
+  }
+
+  if (!status.oneShotRelayerVisible) {
+    const latestSession =
+      input.store.paymentSessionsForCase(input.caseId).find((session) => session.mode === "one-off") ||
+      input.store.paymentSessionsForCase(input.caseId).at(-1);
+    const events = createRelayerEvents({
+      caseId: input.caseId,
+      sessionId: latestSession?.id
+    });
+    events.forEach((relayerEvent) => {
+      input.store.relayerEvents.set(relayerEvent.id, relayerEvent);
+      relayerEvents.push(relayerEvent);
+    });
+    const event = createTimelineEvent(
+      input.caseId,
+      "1Shot",
+      "Relayer status",
+      `1Shot demo relay: ${events.at(-1)?.status ?? "submitted"}`
+    );
+    input.store.agentTimeline.set(event.id, event);
+    timeline.push(event);
+    completed.push("1shot");
+    status = { ...status, oneShotRelayerVisible: true };
+  }
+
+  return {
+    completed,
+    status,
+    artifacts: { payments, veniceAnalyses, delegations, relayerEvents, timeline }
   };
 }
 

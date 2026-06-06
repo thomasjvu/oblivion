@@ -22,11 +22,11 @@ test("serves split frontend assets with restrictive security headers", async () 
     const css = await fetch(`${base}/styles.css`);
     assert.equal(css.status, 200);
     assert.match(css.headers.get("content-type") ?? "", /text\/css/);
-    assert.match(await css.text(), /\/fonts\/Compass\.ttf/);
+    assert.match(await css.text(), /\/fonts\/GeistPixel-Square\.woff2/);
 
-    const font = await fetch(`${base}/fonts/Compass.ttf`);
+    const font = await fetch(`${base}/fonts/GeistPixel-Square.woff2`);
     assert.equal(font.status, 200);
-    assert.match(font.headers.get("content-type") ?? "", /font\/ttf/);
+    assert.match(font.headers.get("content-type") ?? "", /font\/woff2/);
 
     const js = await fetch(`${base}/app.js`);
     assert.equal(js.status, 200);
@@ -72,7 +72,7 @@ test("serves split frontend assets with restrictive security headers", async () 
     assert.equal(help.status, 200);
     assert.match(help.headers.get("content-type") ?? "", /text\/html/);
     const helpHtml = await help.text();
-    assert.match(helpHtml, /Step 1 — Tell the agent/);
+    assert.match(helpHtml, /<h2>Start<\/h2>/);
     assert.match(helpHtml, /<strong>private cleanup agent<\/strong>/);
     assert.doesNotMatch(helpHtml, /\*\*private cleanup agent\*\*/);
 

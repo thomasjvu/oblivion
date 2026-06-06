@@ -26,7 +26,7 @@ export interface ExecuteActionResult {
 export async function executeApprovedAction(input: ExecuteActionInput): Promise<ExecuteActionResult> {
   if (!isLiveExecutorEnabled()) {
     if (input.action.actionType === "broker-opt-out") {
-      markConfirmedExposuresSubmitted(input.store, input.action.caseId);
+      markExposuresSubmitted(input.store, input.action.caseId, input.action.exposureId);
     }
     return {
       mode: "record-only",
@@ -35,7 +35,7 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
     };
   }
 
-  const connectorId = connectorIdForAction(input.action.actionType);
+  const connectorId = connectorIdForAction(input.action.actionType, input.action.brokerId);
   const source = sourceVerificationFor(connectorId);
   if (!source?.claimVerified) {
     return {
@@ -53,7 +53,10 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
   input.store.connectorResults.set(output.result.id, output.result);
   recordSourceCheck(input.store, input.action.caseId, connectorId);
   if (input.action.actionType === "broker-opt-out") {
-    markConfirmedExposuresSubmitted(input.store, input.action.caseId);
+    markExposuresSubmitted(input.store, input.action.caseId, input.action.exposureId);
+  }
+  if (input.action.actionType === "dmca-takedown" || input.action.actionType === "platform-abuse-report") {
+    markExposuresSubmitted(input.store, input.action.caseId, input.action.exposureId);
   }
   return {
     mode: "live",
@@ -62,9 +65,10 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
   };
 }
 
-function markConfirmedExposuresSubmitted(store: MemoryStore, caseId: string): void {
+function markExposuresSubmitted(store: MemoryStore, caseId: string, exposureId?: string): void {
   for (const exposure of store.exposuresForCase(caseId)) {
     if (exposure.matchStatus !== "confirmed") continue;
+    if (exposureId && exposure.id !== exposureId) continue;
     store.exposures.set(exposure.id, {
       ...exposure,
       removalStatus: "submitted"

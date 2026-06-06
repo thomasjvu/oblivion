@@ -1,19 +1,24 @@
 import { buildAttestationProof, type TrustCenterConfig } from "./attestation.js";
+import { brokerCatalogEntryById, dataToDiscloseForBroker } from "./brokerCatalog.js";
 import {
   advanceAgentPlan,
   buildAgentPlanView,
   createAgentPlan,
+  createBrokerFollowUps,
+  createBrokerRemovalPathPlan,
   createDropPlan,
   createGoogleRemovalPlan,
   createScoutFindings,
   createPlanFollowUp,
-  getPreset
+  getPreset,
+  presetUsesBrokerDiscovery,
+  presetUsesContentDiscovery
 } from "./cleanup.js";
 import { deadlineBasisFor, followUpDate } from "./deadlines.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
 import { executeApprovedAction } from "./executor.js";
 import { buildHackathonStatus, createTimelineEvent } from "./hackathon.js";
-import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
+import { isVeniceAvailable, runVeniceAnalysis } from "./venice.js";
 import { canExecuteWithApproval, evaluateProposedAction } from "./policy.js";
 import { buildCaseStatus } from "./status.js";
 import { buildDraftText, templateForAction } from "./templates.js";
@@ -153,7 +158,9 @@ export async function runCleanupAgentStep(input: {
       const discovered = await discoverExposureCandidates({
         caseId: input.caseRecord.id,
         scope: input.caseRecord.redactedScope,
-        existingUrls
+        existingUrls,
+        brokerSweep: presetUsesBrokerDiscovery(presetId),
+        contentTakedown: presetUsesContentDiscovery(presetId)
       });
       for (const exposure of discovered) {
         input.store.exposures.set(exposure.id, exposure);
@@ -217,9 +224,15 @@ export async function runCleanupAgentStep(input: {
       return buildAgentRunResponse(input.store, input.caseRecord.id, before, artifacts);
     }
   } else if (updatedPlan.currentStep === "verify-removal-path") {
-    const connector = updatedPlan.presetId === "california-drop"
-      ? createDropPlan(input.caseRecord)
-      : createGoogleRemovalPlan(input.caseRecord.id);
+    const confirmedCount = buildStatus(input.store, input.caseRecord.id).confirmedFindings.length;
+    const connector =
+      updatedPlan.presetId === "california-drop"
+        ? createDropPlan(input.caseRecord)
+        : presetUsesBrokerDiscovery(updatedPlan.presetId)
+          ? createBrokerRemovalPathPlan(input.caseRecord.id, confirmedCount)
+          : updatedPlan.presetId === "content-takedown"
+            ? createScoutFindings(input.caseRecord.id, "content-takedown")
+            : createGoogleRemovalPlan(input.caseRecord.id);
     input.store.connectorResults.set(connector.id, connector);
     const timeline = createTimelineEvent(
       input.caseRecord.id,
@@ -230,7 +243,7 @@ export async function runCleanupAgentStep(input: {
     input.store.agentTimeline.set(timeline.id, timeline);
     artifacts.push({ connector, timeline });
   } else if (updatedPlan.currentStep === "draft-actions") {
-    if (isVeniceConfigured()) {
+    if (isVeniceAvailable()) {
       const confirmedNotes = buildStatus(input.store, input.caseRecord.id)
         .confirmedFindings.map((item) => `${item.brokerLabel || "broker"}: ${item.sourceUrl}`)
         .join("; ");
@@ -239,14 +252,7 @@ export async function runCleanupAgentStep(input: {
         kind: "draft-request",
         notes: confirmedNotes || preset.summary,
         destination: preset.title,
-        actionType:
-          updatedPlan.presetId === "search-result-suppression"
-            ? "search-result-removal"
-            : updatedPlan.presetId === "gdpr-erasure"
-              ? input.caseRecord.jurisdiction === "UK"
-                ? "uk-gdpr-erasure"
-                : "gdpr-erasure"
-              : "broker-opt-out"
+        actionType: actionTypeForPreset(updatedPlan.presetId, input.caseRecord.jurisdiction)
       });
       input.store.veniceAnalyses.set(analysis.id, analysis);
       const readyAction = input.store.actionsForCase(input.caseRecord.id).find((item) => item.executionStatus === "awaiting-approval");
@@ -273,23 +279,28 @@ export async function runCleanupAgentStep(input: {
   } else if (updatedPlan.currentStep === "request-approval") {
     const caseStatus = buildStatus(input.store, input.caseRecord.id);
     if (caseStatus.approvalsNeeded.length === 0 && caseStatus.actionsReady.length === 0 && caseStatus.submittedActions.length === 0) {
-      const proposed = createPresetApproval(input.store, input.caseRecord, updatedPlan.presetId);
+      const proposedList = createPresetApprovals(input.store, input.caseRecord, updatedPlan);
       const timeline = createTimelineEvent(
         input.caseRecord.id,
         "OblivionRoot",
         "Approval required",
-        "An exact disclosure card is ready. The agent cannot submit without approval."
+        proposedList.length > 1
+          ? `${proposedList.length} per-broker disclosure cards are ready. Approve each before submission.`
+          : "An exact disclosure card is ready. The agent cannot submit without approval."
       );
       input.store.agentTimeline.set(timeline.id, timeline);
       updatedPlan = {
         ...updatedPlan,
-        pendingApprovals: [proposed.approval.id],
+        pendingApprovals: proposedList.map((item) => item.approval.id),
         blockedReasons: ["approval-required"],
-        nextUserDecision: "Approve or reject the exact disclosure card.",
+        nextUserDecision:
+          proposedList.length > 1
+            ? `Approve ${proposedList.length} disclosure cards (one per confirmed listing).`
+            : "Approve or reject the exact disclosure card.",
         updatedAt: new Date().toISOString()
       };
       input.store.agentPlans.set(updatedPlan.id, updatedPlan);
-      artifacts.push({ ...proposed, timeline });
+      artifacts.push({ approvals: proposedList, timeline });
       return buildAgentRunResponse(input.store, input.caseRecord.id, before, artifacts);
     }
   } else if (updatedPlan.currentStep === "execute-approved-action") {
@@ -321,16 +332,28 @@ export async function runCleanupAgentStep(input: {
       artifacts.push({ action, approval, timeline, connectorResult: executed.connectorResult });
     }
   } else if (updatedPlan.currentStep === "schedule-recheck") {
-    const followUp = createPlanFollowUp(input.caseRecord.id, updatedPlan.presetId);
-    input.store.followUps.set(followUp.id, followUp);
+    const confirmed = buildStatus(input.store, input.caseRecord.id).confirmedFindings;
+    const brokerFollowUps =
+      presetUsesBrokerDiscovery(updatedPlan.presetId) && confirmed.length
+        ? createBrokerFollowUps(input.caseRecord.id, confirmed)
+        : [];
+    const followUps =
+      brokerFollowUps.length > 0
+        ? brokerFollowUps
+        : [createPlanFollowUp(input.caseRecord.id, updatedPlan.presetId)];
+    for (const followUp of followUps) {
+      input.store.followUps.set(followUp.id, followUp);
+    }
     const timeline = createTimelineEvent(
       input.caseRecord.id,
       "SchedulerAgent",
       "Recheck scheduled",
-      followUp.expectedResponseWindow
+      brokerFollowUps.length
+        ? `${brokerFollowUps.length} broker recheck(s) scheduled from catalog windows.`
+        : followUps[0].expectedResponseWindow
     );
     input.store.agentTimeline.set(timeline.id, timeline);
-    artifacts.push({ followUp, timeline });
+    artifacts.push({ followUps, timeline });
   }
 
   const caseStatus = buildStatus(input.store, input.caseRecord.id);
@@ -361,16 +384,32 @@ export function buildAgentRunResponse(store: MemoryStore, caseId: string, before
   };
 }
 
+export function actionTypeForPreset(presetId: PresetId, jurisdiction: Jurisdiction): ActionType {
+  if (presetId === "search-result-suppression") return "search-result-removal";
+  if (presetId === "gdpr-erasure") return jurisdiction === "UK" ? "uk-gdpr-erasure" : "gdpr-erasure";
+  if (presetId === "breach-exposure") return "hibp-email-check";
+  if (presetId === "content-takedown") return "dmca-takedown";
+  return "broker-opt-out";
+}
+
+export function createPresetApprovals(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  plan: AgentPlan
+): Array<{ approval: Approval; action: ActionRequest }> {
+  if (presetUsesBrokerDiscovery(plan.presetId) || plan.presetId === "high-risk-safety") {
+    return createBrokerOptOutApprovals(store, caseRecord, plan);
+  }
+  if (plan.presetId === "content-takedown") {
+    return createContentTakedownApprovals(store, caseRecord, plan);
+  }
+  return [createPresetApproval(store, caseRecord, plan.presetId)];
+}
+
+/** @deprecated use createPresetApprovals */
 export function createPresetApproval(store: MemoryStore, caseRecord: CaseRecord, presetId: PresetId): { approval: Approval; action: ActionRequest } {
   const preset = getPreset(presetId);
-  const actionType: ActionType =
-    presetId === "search-result-suppression"
-      ? "search-result-removal"
-      : presetId === "gdpr-erasure"
-        ? caseRecord.jurisdiction === "UK" ? "uk-gdpr-erasure" : "gdpr-erasure"
-        : presetId === "breach-exposure"
-          ? "hibp-email-check"
-          : "broker-opt-out";
+  const actionType = actionTypeForPreset(presetId, caseRecord.jurisdiction);
   const confirmed = store.exposuresForCase(caseRecord.id).filter((item) => item.matchStatus === "confirmed");
   const primaryConfirmed = confirmed[0];
   const destination =
@@ -400,7 +439,98 @@ export function createPresetApproval(store: MemoryStore, caseRecord: CaseRecord,
     expectedConfirmationStep:
       "User reviews destination, data categories, purpose, disclosure risk, and expiration before execution."
   };
-  return proposeApprovedAction({ store, caseRecord, body });
+  const proposed = proposeApprovedAction({ store, caseRecord, body });
+  if (primaryConfirmed) {
+    proposed.action.exposureId = primaryConfirmed.id;
+    proposed.action.brokerId = primaryConfirmed.brokerId;
+  }
+  return proposed;
+}
+
+export function createBrokerOptOutApprovals(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  plan: AgentPlan
+): Array<{ approval: Approval; action: ActionRequest }> {
+  const preset = getPreset(plan.presetId);
+  const confirmed = store.exposuresForCase(caseRecord.id).filter((item) => item.matchStatus === "confirmed");
+  const limit = plan.batchApprovalPolicy?.maxDestinations ?? confirmed.length;
+  const targets = confirmed.slice(0, limit);
+  const allowedIdentifiers = preset.requiredIdentifierCategories.filter((category) => category !== "password");
+  const results: Array<{ approval: Approval; action: ActionRequest }> = [];
+  for (const exposure of targets) {
+    const catalog = exposure.brokerId ? brokerCatalogEntryById(exposure.brokerId) : undefined;
+    const destination = catalog?.officialOptOutUrl ?? exposure.officialOptOutUrl ?? exposure.sourceUrl;
+    const dataToDisclose = catalog
+      ? dataToDiscloseForBroker(catalog, allowedIdentifiers)
+      : allowedIdentifiers.slice(0, 3);
+    const body: ProposedActionInput = {
+      caseId: caseRecord.id,
+      actionType: "broker-opt-out",
+      destination,
+      purpose: `Opt out of ${catalog?.brokerLabel ?? exposure.brokerLabel ?? "people-search"} listing at approved profile URL.`,
+      identifiers: allowedIdentifiers,
+      dataToDisclose: dataToDisclose.length ? dataToDisclose : ["legal-name", "email"],
+      sourceVerified: true,
+      expectedConfirmationStep: "User reviews broker destination, approved identifiers, and profile URL before submission."
+    };
+    const proposed = proposeApprovedAction({ store, caseRecord, body });
+    proposed.action.brokerId = exposure.brokerId ?? catalog?.brokerId;
+    proposed.action.exposureId = exposure.id;
+    if (catalog && !catalog.teeAutomatable) {
+      proposed.action.draftText = [
+        proposed.action.draftText,
+        "",
+        `Submission method: ${catalog.submissionMethod}. User-held steps may be required.`
+      ].join("\n");
+    }
+    results.push(proposed);
+  }
+  return results.length ? results : [createPresetApproval(store, caseRecord, plan.presetId)];
+}
+
+export function createContentTakedownApprovals(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  plan: AgentPlan
+): Array<{ approval: Approval; action: ActionRequest }> {
+  const confirmed = store.exposuresForCase(caseRecord.id).filter((item) => item.matchStatus === "confirmed");
+  const limit = plan.batchApprovalPolicy?.maxDestinations ?? confirmed.length;
+  const targets = confirmed.slice(0, limit || 1);
+  if (!targets.length) {
+    const body: ProposedActionInput = {
+      caseId: caseRecord.id,
+      actionType: "dmca-takedown",
+      destination: "Infringing host abuse contact",
+      purpose: "Remove unauthorized copies of approved original work at pasted URLs.",
+      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      sourceVerified: true,
+      expectedConfirmationStep: "User confirms rights-holder authority and infringing URLs before host contact."
+    };
+    return [proposeApprovedAction({ store, caseRecord, body })];
+  }
+  return targets.map((exposure) => {
+    let host = "Infringing host";
+    try {
+      host = new URL(exposure.sourceUrl).hostname;
+    } catch {
+      host = exposure.sourceUrl;
+    }
+    const body: ProposedActionInput = {
+      caseId: caseRecord.id,
+      actionType: "dmca-takedown",
+      destination: host,
+      purpose: `Takedown unauthorized copy at ${exposure.sourceUrl}. Rights-holder authority confirmed in intake.`,
+      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      sourceVerified: true,
+      expectedConfirmationStep: "User confirms they are the rights holder or authorized agent before submission."
+    };
+    const proposed = proposeApprovedAction({ store, caseRecord, body });
+    proposed.action.exposureId = exposure.id;
+    return proposed;
+  });
 }
 
 export function exposureFromConnector(result: ConnectorResult): Exposure {

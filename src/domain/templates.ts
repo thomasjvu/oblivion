@@ -8,6 +8,8 @@ export function templateForAction(actionType: ActionType, jurisdiction: Jurisdic
   if (actionType === "hibp-email-check") return "hibp-email-check-approval";
   if (actionType === "follow-up") return "follow-up-request.md";
   if (actionType === "escalation-draft") return "escalation-notes.md";
+  if (actionType === "dmca-takedown") return "dmca-takedown-notice.md";
+  if (actionType === "platform-abuse-report") return "platform-abuse-report.md";
   if (jurisdiction === "EU" || jurisdiction === "UK") return "gdpr-uk-erasure-request.md";
   return "broker-opt-out-request.md";
 }
@@ -45,6 +47,30 @@ export function buildDraftText(input: {
 
   if (input.actionType === "hibp-email-check") {
     return "Approved email exposure check using Have I Been Pwned. Store only the checked source, date, and result category needed for mitigation.";
+  }
+
+  if (input.actionType === "dmca-takedown") {
+    return [
+      `To: ${input.destination}`,
+      "Subject: DMCA takedown notice",
+      "",
+      "I am the rights holder or authorized agent for the copyrighted work described in the approved case intake.",
+      `Infringing material: ${input.purpose}`,
+      "",
+      "I have a good-faith belief the use is not authorized. I attest the information is accurate and I am authorized to act.",
+      "Contact details in the approved disclosure card may be shared with the host for this notice only."
+    ].join("\n");
+  }
+
+  if (input.actionType === "platform-abuse-report") {
+    return [
+      `To: ${input.destination}`,
+      "Subject: Unauthorized content report",
+      "",
+      "Please remove or disable access to the unauthorized copy of my work at the approved URL.",
+      `Details: ${input.purpose}`,
+      "Only the minimum contact and URL data approved by the user should be disclosed."
+    ].join("\n");
   }
 
   return [

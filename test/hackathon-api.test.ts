@@ -113,7 +113,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and 1Shot demo sta
       productId: "weekly-monitor",
       smartAccountAddress: smart.smartAccountAddress
     }, 201);
-    assert.equal(subscription.session.cadence, "weekly");
+    assert.equal(subscription.session.cadence, "monthly");
 
     const premium = await post(base, "/api/agent/premium-task", {
       caseId,
@@ -155,6 +155,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and 1Shot demo sta
       a2aRedelegationVisible: true,
       oneShotRelayerVisible: true
     });
+    assert.deepEqual(checklist.pending, []);
   } finally {
     server.close();
     globalThis.fetch = originalFetch;
@@ -166,6 +167,55 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and 1Shot demo sta
     else process.env.ONESHOT_API_KEY = originalOneShotKey;
     if (originalOneShotDemo === undefined) delete process.env.ONESHOT_DEMO_FALLBACK;
     else process.env.ONESHOT_DEMO_FALLBACK = originalOneShotDemo;
+  }
+});
+
+test("complete-pending finishes x402, Venice, A2A, and 1Shot tracks from wallet-ready state", async () => {
+  const { server } = createApp();
+  server.listen(0);
+  await once(server, "listening");
+  const address = server.address();
+  assert.equal(typeof address, "object");
+  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+
+  try {
+    const created = await post(base, "/api/cases", {
+      jurisdiction: "US",
+      authorityBasis: "self"
+    }, 201);
+    const caseId = created.case.id;
+
+    const smart = await post(base, "/api/metamask/demo-session", {
+      caseId,
+      walletAddress: "0x3333333333333333333333333333333333333333"
+    }, 201);
+
+    await post(base, "/api/x402/subscription", {
+      caseId,
+      productId: "weekly-monitor",
+      smartAccountAddress: smart.smartAccountAddress
+    }, 201);
+
+    const before = await get(base, `/api/hackathon/status?caseId=${caseId}`);
+    assert.deepEqual(before.pending, ["x402", "venice", "a2a", "1shot"]);
+
+    const finished = await post(base, "/api/hackathon/complete-pending", {
+      caseId,
+      walletAddress: "0x3333333333333333333333333333333333333333",
+      smartAccountAddress: smart.smartAccountAddress,
+      notes: "Remove person@example.com from people-search."
+    }, 201);
+    assert.deepEqual(finished.completed, ["x402", "venice", "a2a", "1shot"]);
+    assert.equal(finished.status.x402OneOffReady, true);
+    assert.equal(finished.status.veniceOutputReady, true);
+    assert.equal(finished.status.a2aRedelegationVisible, true);
+    assert.equal(finished.status.oneShotRelayerVisible, true);
+    assert.doesNotMatch(JSON.stringify(finished), /person@example\.com/);
+
+    const after = await get(base, `/api/hackathon/status?caseId=${caseId}`);
+    assert.deepEqual(after.pending, []);
+  } finally {
+    server.close();
   }
 });
 

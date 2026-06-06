@@ -5,7 +5,8 @@ import {
   isLiveExecutorEnabled,
   isOneShotConfigured,
   isX402Configured,
-  oneShotDemoFallbackEnabled
+  oneShotDemoFallbackEnabled,
+  veniceDemoFallbackEnabled
 } from "../src/domain/integrations.js";
 
 test("integration env helpers reflect executor and adapter flags", () => {
@@ -42,6 +43,26 @@ test("integration env helpers reflect executor and adapter flags", () => {
     else process.env.X402_ENABLED = priorEnabled;
     if (priorBase === undefined) delete process.env.ONESHOT_BASE_URL;
     else process.env.ONESHOT_BASE_URL = priorBase;
+  }
+});
+
+test("venice demo fallback defaults on outside production", () => {
+  const prior = process.env.VENICE_DEMO_FALLBACK;
+  const priorNode = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    delete process.env.VENICE_DEMO_FALLBACK;
+    assert.equal(veniceDemoFallbackEnabled(), false);
+    process.env.VENICE_DEMO_FALLBACK = "true";
+    assert.equal(veniceDemoFallbackEnabled(), true);
+    delete process.env.VENICE_DEMO_FALLBACK;
+    process.env.NODE_ENV = "development";
+    assert.equal(veniceDemoFallbackEnabled(), true);
+  } finally {
+    if (prior === undefined) delete process.env.VENICE_DEMO_FALLBACK;
+    else process.env.VENICE_DEMO_FALLBACK = prior;
+    if (priorNode === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = priorNode;
   }
 });
 

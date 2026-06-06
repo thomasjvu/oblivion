@@ -32,6 +32,14 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /cinematic-hero/);  // new cinematic landing
   assert.match(html, /id="app-workspace"/);
   assert.match(html, /id="app-chrome"/);
+  assert.match(html, /data-testid="app-sidebar"/);
+  assert.match(html, /data-testid="sidebar-new-case"/);
+  assert.match(html, /app-sidebar-wallet/);
+  assert.match(html, /data-testid="sidebar-collapse"/);
+  assert.match(html, /sidebar-collapsed/);
+  assert.match(html, /toggleSidebar/);
+  assert.match(html, /sidebarOpen/);
+  assert.doesNotMatch(html, /app-sidebar-footer/);
   assert.match(html, /app-agent-column/);
   assert.match(html, /id="onboarding-region"/);
   assert.match(html, /id="start-cleanup"/);
@@ -49,8 +57,10 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /toggleWalletModal/);
   assert.match(html, /connect-wallet-primary/);
   assert.match(html, /site-footer/);
-  assert.match(html, /\/fonts\/Compass\.ttf/);
-  assert.match(html, /font-family: "Compass"/);
+  assert.match(html, /\/fonts\/GeistPixel-Square\.woff2/);
+  assert.match(html, /font-family: "Geist Pixel Square"/);
+  assert.match(html, /data-testid="delete-case-modal"/);
+  assert.match(html, /openDeleteCaseModal/);
   assert.match(html, /id="wallet-feedback-primary"/);
   assert.match(html, /wallet-command-strip/);
   assert.match(html, /startSimpleCleanup/);
@@ -90,8 +100,16 @@ test("landing page links legal docs and skill install", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /id="install-skill"/);
+  assert.match(html, /href="\/help"/);
   assert.match(html, /href="\/privacy"/);
   assert.match(html, /href="\/terms"/);
+
+  const privacyHtml = await readFile(new URL("../public/privacy.html", import.meta.url), "utf8");
+  assert.match(privacyHtml, /Privacy Policy/);
+  assert.match(privacyHtml, /do not collect, sell, or profile your personal data/i);
+  const termsHtml = await readFile(new URL("../public/terms.html", import.meta.url), "utf8");
+  assert.match(termsHtml, /Terms of Service/);
+  assert.match(termsHtml, /No data harvesting/i);
   assert.doesNotMatch(html, /id="how-it-works"/);
   assert.doesNotMatch(html, /landing-flow/);
 });
@@ -101,18 +119,17 @@ test("landing page includes cinematic hero and proof visuals", async () => {
 
   // New cinematic landing (high cinematic per redesign)
   assert.match(html, /cinematic-hero/);
-  assert.match(html, /workflow-canvas/);
+  assert.match(html, /cleanup-progress/);
   assert.match(html, /data-testid="case-command-bar"/);
   assert.match(html, /data-testid="console-stage"/);
   assert.match(html, /tabs-horizontal/);
   assert.match(html, /onboarding-grid/);
   assert.match(html, /data-testid="user-guide"/);
-  assert.match(html, /data-testid="guide-primary-action"/);
+  assert.doesNotMatch(html, /data-testid="guide-primary-action"/);
   assert.match(html, /performGuidePrimaryAction/);
   assert.match(html, /href="\/help"/);
   assert.match(html, /docs\/grok-visual-prompts\.md/);
 
-  assert.match(html, /\/assets\/workflow-nodes\.webp/);
   assert.match(html, /\/assets\/approval-ceremony\.webp/);
   assert.match(html, /\/assets\/attestation-constellation\.webp/);
   assert.match(html, /\/assets\/clean-slate\.webp/);
@@ -136,17 +153,22 @@ test("app keeps hackathon sponsor-track details in settings", async () => {
   assert.match(html, /A2A redelegation/);
   assert.match(html, /1Shot relayer status/);
   assert.match(html, /id="hackathon-checklist"/);
+  assert.match(html, /finish-pending-tracks/);
+  assert.match(html, /finishPendingDeveloperActions/);
 });
 
 test("dashboard uses visual preset-led cleanup command center", async () => {
   const html = await readUiBundle();
 
-  assert.match(html, /id="workflow-canvas"/);
-  assert.match(html, /workflow-nodes\.webp/);
+  assert.match(html, /id="cleanup-progress"/);
+  assert.match(html, /renderCleanupProgress/);
   assert.match(html, /data-tab="tasks"[^>]*hidden/);
   assert.match(html, /revealRouteTab/);
   assert.match(html, /id="preset-grid"/);
   assert.match(html, /onboarding-agent-panel/);
+  assert.match(html, /data-testid="run-preview-search"/);
+  assert.match(html, /runPreliminarySearch/);
+  assert.doesNotMatch(html, /Your cleanup/);
   assert.match(html, /preset-chip/);
   assert.match(html, /startSimpleCleanup/);
   assert.match(html, /Choose cleanup preset/);
@@ -168,7 +190,7 @@ test("dashboard uses visual preset-led cleanup command center", async () => {
   assert.match(html, /id="agent-chat-log"/);
   assert.match(html, /id="agent-chat-messages"/);
   assert.match(html, /guide-checkpoints/);
-  assert.match(html, /guide-phase-strip/);
+  assert.doesNotMatch(html, /id="guide-phase-strip"/);
   assert.match(html, /WORKFLOW_PHASES/);
   assert.match(html, /chat-avatar/);
   assert.match(html, /agent-preset-starters/);
@@ -250,6 +272,13 @@ test("top navigation becomes wallet connect inside the app", async () => {
   assert.match(html, /tab-label">Overview/);
   assert.match(html, /tab-label">Approvals/);
   assert.match(html, /tab-label">Settings/);
+  assert.match(html, /tab-label">Trust/);
+  assert.match(html, /id="tab-trust"/);
+  assert.match(html, /tab-label">History/);
+  assert.match(html, /buildTeeVerificationBrief/);
+  assert.match(html, /runChatTypewriters/);
+  assert.match(html, /payment-rails/);
+  assert.match(html, /data-testid="payment-rails"/);
   assert.doesNotMatch(html, /id="open-app-nav"/);
   assert.doesNotMatch(html, /disconnect-wallet-strip/);
   assert.match(html, /\/api\/agent\/chat/);

@@ -93,7 +93,9 @@ export function requiresSourceVerification(actionType: ActionType): boolean {
     "uk-gdpr-erasure",
     "hibp-email-check",
     "follow-up",
-    "escalation-draft"
+    "escalation-draft",
+    "dmca-takedown",
+    "platform-abuse-report"
   ].includes(actionType);
 }
 
