@@ -84,6 +84,15 @@ const FONT_CONTENT_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
   ".otf": "font/otf"
 };
+
+const SKILL_CONTENT_TYPES: Record<string, string> = {
+  ".md": "text/markdown; charset=utf-8",
+  ".yaml": "text/yaml; charset=utf-8",
+  ".yml": "text/yaml; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".py": "text/x-python; charset=utf-8",
+  ".sh": "application/x-sh; charset=utf-8"
+};
 import { handleConnectorRoutes } from "./routes/connectors.js";
 
 export interface AppOptions {
@@ -288,6 +297,7 @@ function helpPageFromMarkdown(markdown: string): string {
 export function createApp(options: AppOptions = {}) {
   const store = options.store ?? new MemoryStore();
   const publicDir = options.publicDir ?? join(process.cwd(), "public");
+  const skillsDir = join(process.cwd(), "skills");
   const trustCenterPath =
     options.trustCenterPath ?? process.env.TRUST_CENTER_PATH ?? join(process.cwd(), "config", "trust-center.json");
 
@@ -365,6 +375,58 @@ export function createApp(options: AppOptions = {}) {
         } catch {
           sendJson(response, 404, { error: "font-not-found" });
         }
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/skill.sh") {
+        try {
+          const script = await readFile(join(process.cwd(), "skill.sh"), "utf8");
+          sendText(response, 200, script, "application/x-sh");
+        } catch {
+          sendJson(response, 404, { error: "skill-installer-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/skills/")) {
+        const skillPath = url.pathname.slice("/skills/".length);
+        if (!skillPath || skillPath.includes("..")) {
+          sendJson(response, 400, { error: "invalid-skill-path" });
+          return;
+        }
+        const contentType = SKILL_CONTENT_TYPES[extname(skillPath).toLowerCase()];
+        if (!contentType) {
+          sendJson(response, 404, { error: "skill-not-found" });
+          return;
+        }
+        try {
+          const bytes = await readFile(join(skillsDir, skillPath));
+          sendBytes(response, 200, bytes, contentType, "public, max-age=3600");
+        } catch {
+          sendJson(response, 404, { error: "skill-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/skills") {
+        sendJson(response, 200, {
+          skills: [
+            {
+              id: "clean-online-identity",
+              name: "Clean Online Identity",
+              description:
+                "Supervised personal data removal across brokers, search results, and privacy rights workflows.",
+              repository: "thomasjvu/oblivion",
+              skillPath: "skills/clean-online-identity",
+              install: {
+                npx: "npx skills add thomasjvu/oblivion --skill clean-online-identity",
+                curl: "curl -fsSL {origin}/skill.sh | bash",
+                skillMd: "/skills/clean-online-identity/SKILL.md",
+                manifest: "/skills/clean-online-identity/manifest.json"
+              }
+            }
+          ]
+        });
         return;
       }
 

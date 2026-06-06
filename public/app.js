@@ -7433,7 +7433,9 @@ var state = {
   dockPinned: true,
   showRouteTab: false,
   showAdvancedUI: false,
-  autopilotBusy: false
+  autopilotBusy: false,
+  casesPanelOpen: false,
+  walletModalOpen: false
 };
 var $ = (selector) => document.querySelector(selector);
 var output = $("#output");
@@ -7444,9 +7446,20 @@ function renderWalletDebugLog(entries) {
 }
 var walletLog = createWalletLogger(renderWalletDebugLog);
 var GUIDE_STEPS = [
-  { num: 1, title: "Start", hint: "Enter your name and tap Start cleanup." },
-  { num: 2, title: "Review", hint: "Confirm which listings are yours." },
-  { num: 3, title: "Approve", hint: "Approve before anything is sent." }
+  { num: 1, title: "Start", hint: "Enter your name and tap Start cleanup.", icon: "play" },
+  { num: 2, title: "Review", hint: "Confirm which listings are yours.", icon: "search" },
+  { num: 3, title: "Approve", hint: "Approve before anything is sent.", icon: "check" }
+];
+var WORKFLOW_PHASES = [
+  { id: "collect-minimum-identifiers", label: "Vault" },
+  { id: "verify-trust", label: "Trust" },
+  { id: "discover-candidates", label: "Find" },
+  { id: "confirm-matches", label: "Confirm" },
+  { id: "verify-removal-path", label: "Paths" },
+  { id: "draft-actions", label: "Draft" },
+  { id: "request-approval", label: "Approve" },
+  { id: "execute-approved-action", label: "Submit" },
+  { id: "complete", label: "Done" }
 ];
 var SIMPLE_PRESET_DEFAULTS = {
   "people-search-cleanup": { jurisdiction: "US", riskLevel: "standard" },
@@ -7502,6 +7515,29 @@ function guidePrimaryLabel(step) {
   if (step === 3) return "Review approval";
   return "Continue";
 }
+function setupLandingSkillInstall() {
+  const origin = window.location.origin;
+  const curl = $("#skill-install-curl");
+  if (curl) {
+    const code = curl.querySelector("code");
+    if (code) code.textContent = `curl -fsSL ${origin}/skill.sh | bash`;
+  }
+}
+async function copySkillInstallCommand(targetId, button) {
+  const node = document.getElementById(targetId);
+  const text = node?.querySelector("code")?.textContent?.trim() || node?.textContent?.trim();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    if (button) {
+      const prior = button.querySelector(".btn-label")?.textContent;
+      setButtonLabel(button, "Copied");
+      window.setTimeout(() => setButtonLabel(button, prior || "Copy"), 1400);
+    }
+  } catch {
+    write({ error: "copy-failed", message: "Could not copy install command." });
+  }
+}
 function fillAgentInput(text) {
   const input = $("#agent-input");
   if (!input) return;
@@ -7509,6 +7545,7 @@ function fillAgentInput(text) {
   input.focus();
   const end = input.value.length;
   input.setSelectionRange(end, end);
+  updateAgentSendState();
 }
 function applyAdvancedUiVisibility() {
   document.querySelectorAll(".advanced-only").forEach((node) => {
@@ -7743,9 +7780,22 @@ function renderUserGuide() {
   if (stepsEl) {
     stepsEl.innerHTML = GUIDE_STEPS.map((item) => {
       const status = item.num < step ? "done" : item.num === step ? "active" : "pending";
-      return `<li class="guide-dot ${status}" data-guide-step="${item.num}" title="${escapeHtml(item.title)}"><span>${item.num}</span></li>`;
+      return `<li class="guide-checkpoint ${status}" role="listitem" data-guide-step="${item.num}" title="${escapeHtml(item.hint)}">
+        <span class="guide-checkpoint-icon" data-icon="${item.icon}" aria-hidden="true"></span>
+        <span class="guide-checkpoint-label">${escapeHtml(item.title)}</span>
+      </li>`;
     }).join("");
+    bindIcons(stepsEl);
   }
+  const progressTrack = $("#guide-progress-track");
+  const progressFill = $("#guide-progress-fill");
+  const pct = GUIDE_STEPS.length > 1 ? (step - 1) / (GUIDE_STEPS.length - 1) * 100 : 0;
+  if (progressTrack) {
+    progressTrack.setAttribute("aria-valuenow", String(step));
+    progressTrack.setAttribute("aria-valuetext", GUIDE_STEPS[step - 1]?.title || "Working");
+  }
+  if (progressFill) progressFill.style.width = `${pct}%`;
+  renderWorkflowProgress($("#guide-phase-strip"), $("#guide-phase-status"));
   const toggle = $("#toggle-advanced-tabs");
   if (toggle) {
     toggle.textContent = state.showAdvancedTabs ? "Fewer tabs" : "More tabs";
@@ -8116,25 +8166,103 @@ function renderTrust() {
   `;
   $("#trust-output").textContent = JSON.stringify({ proof, privacy }, null, 2);
 }
+function formatCaseDate(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleDateString(void 0, { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
+function toggleCasesPanel(open) {
+  if (typeof open === "boolean") state.casesPanelOpen = open;
+  else state.casesPanelOpen = !state.casesPanelOpen;
+  renderCases();
+}
+function openNewCaseFlow() {
+  state.appOpen = true;
+  state.currentCaseId = "";
+  state.currentStatus = null;
+  state.agentPlan = null;
+  state.connectorResults = [];
+  state.recommendedPresetId = "people-search-cleanup";
+  state.selectedPresetId = "people-search-cleanup";
+  state.showRouteTab = false;
+  state.casesPanelOpen = false;
+  localStorage.removeItem("oblivion.currentCaseId");
+  ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
+    const field = $(`#${id}`);
+    if (field) field.value = "";
+  });
+  const statusEl = $("#simple-start-status");
+  if (statusEl) statusEl.textContent = "";
+  focusIntake();
+  render();
+}
 function renderCases() {
   const list = $("#case-list");
+  const panel = $("#case-manager");
+  const countLabel = $("#case-count-label");
+  const toggleBtn = $("#toolbar-cases-toggle");
+  if (!list) return;
+  if (toggleBtn) {
+    toggleBtn.hidden = !state.appOpen;
+    toggleBtn.setAttribute("aria-expanded", state.casesPanelOpen ? "true" : "false");
+    toggleBtn.classList.toggle("active", state.casesPanelOpen);
+    setButtonLabel(toggleBtn, state.cases.length ? `Cases (${state.cases.length})` : "Cases");
+  }
+  if (panel) panel.hidden = !state.appOpen || !state.casesPanelOpen;
+  if (countLabel) {
+    countLabel.textContent = state.cases.length ? `${state.cases.length} saved` : "No saved cases";
+  }
   if (state.cases.length === 0) {
-    list.innerHTML = `<div class="empty">No local case summaries yet.</div>`;
+    list.innerHTML = `<div class="empty case-empty">No cases yet. Tap New case to start a cleanup.</div>`;
     return;
   }
   list.innerHTML = state.cases.map((item) => {
     const label = item.redactedScope?.personLabel || item.id.slice(0, 14);
     const active = item.id === state.currentCaseId ? " active" : "";
+    const updated = formatCaseDate(item.updatedAt);
+    const meta = [item.jurisdiction, item.riskLevel, updated].filter(Boolean).join(" \xB7 ");
     return `
-      <button class="case-button${active}" data-case-id="${item.id}">
-        <strong>${escapeHtml(label)}</strong><br />
-        <span class="muted small">${item.jurisdiction} \xB7 ${item.riskLevel}</span>
-      </button>
+      <div class="case-row${active}" data-case-row="${item.id}">
+        <button type="button" class="case-button${active}" data-case-id="${item.id}">
+          <strong>${escapeHtml(label)}</strong>
+          <span class="muted small">${escapeHtml(meta)}</span>
+        </button>
+        <button type="button" class="ghost compact icon-only case-delete-btn" data-delete-case="${item.id}" data-icon="delete" aria-label="Delete ${escapeHtml(label)}"><span class="btn-label">Delete</span></button>
+      </div>
     `;
   }).join("");
-  document.querySelectorAll("[data-case-id]").forEach((button) => {
-    button.addEventListener("click", () => loadCase(button.dataset.caseId));
-  });
+  bindIcons(list);
+}
+function workflowStatusLine() {
+  const pending = state.currentStatus?.pendingFindings?.length || 0;
+  const approvals = state.currentStatus?.approvalsNeeded?.length || 0;
+  let statusLine = state.agentNext?.message || state.agentPlan?.nextUserDecision || "";
+  if (pending > 0) statusLine = `${pending} listing(s) need your answer.`;
+  if (approvals > 0) statusLine = "Approval required before anything is sent.";
+  if (state.autopilotBusy) statusLine = "Running cleanup\u2026";
+  return statusLine;
+}
+function renderWorkflowProgress(phasesTarget, statusTarget) {
+  if (!state.agentPlan) {
+    if (phasesTarget) phasesTarget.innerHTML = "";
+    if (statusTarget) statusTarget.textContent = "";
+    return;
+  }
+  const step = state.agentPlan.currentStep;
+  const order = WORKFLOW_PHASES.map((phase) => phase.id);
+  const index = Math.max(0, order.indexOf(step));
+  const statusLine = workflowStatusLine();
+  if (phasesTarget) {
+    phasesTarget.innerHTML = WORKFLOW_PHASES.slice(0, 7).map((phase, i) => {
+      const done = i < index;
+      const active = phase.id === step;
+      return `<span class="progress-phase ${done ? "done" : ""} ${active ? "active" : ""}">${escapeHtml(phase.label)}</span>`;
+    }).join("");
+  }
+  if (statusTarget) statusTarget.textContent = statusLine;
 }
 function renderShell() {
   const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
@@ -8211,33 +8339,18 @@ function renderDashboard() {
 }
 function renderCleanupProgress() {
   const bar = $("#cleanup-progress");
-  if (!bar || !state.agentPlan) {
-    if (bar) bar.innerHTML = "";
+  if (!bar) return;
+  if (!state.agentPlan) {
+    bar.innerHTML = "";
     return;
   }
+  const statusLine = workflowStatusLine();
   const step = state.agentPlan.currentStep;
-  const phases = [
-    { id: "collect-minimum-identifiers", label: "Vault" },
-    { id: "verify-trust", label: "Trust" },
-    { id: "discover-candidates", label: "Find" },
-    { id: "confirm-matches", label: "Confirm" },
-    { id: "verify-removal-path", label: "Paths" },
-    { id: "draft-actions", label: "Draft" },
-    { id: "request-approval", label: "Approve" },
-    { id: "execute-approved-action", label: "Submit" },
-    { id: "complete", label: "Done" }
-  ];
-  const order = phases.map((p) => p.id);
+  const order = WORKFLOW_PHASES.map((phase) => phase.id);
   const index = Math.max(0, order.indexOf(step));
-  const pending = state.currentStatus?.pendingFindings?.length || 0;
-  const approvals = state.currentStatus?.approvalsNeeded?.length || 0;
-  let statusLine = state.agentNext?.message || state.agentPlan.nextUserDecision || "";
-  if (pending > 0) statusLine = `${pending} listing(s) need your answer.`;
-  if (approvals > 0) statusLine = "Approval required before anything is sent.";
-  if (state.autopilotBusy) statusLine = "Running cleanup\u2026";
   bar.innerHTML = `
     <div class="progress-phases">
-      ${phases.slice(0, 7).map((phase, i) => {
+      ${WORKFLOW_PHASES.slice(0, 7).map((phase, i) => {
     const done = i < index;
     const active = phase.id === step;
     return `<span class="progress-phase ${done ? "done" : ""} ${active ? "active" : ""}">${escapeHtml(phase.label)}</span>`;
@@ -8669,7 +8782,8 @@ function renderAgentChat() {
   const live = $("#agent-live");
   if (live) live.textContent = `${prompt.state}. ${prompt.message}`;
   renderAgentPresetStarters();
-  const log = $("#agent-chat-log");
+  const log = $("#agent-chat-messages");
+  const logShell = $("#agent-chat-log");
   if (log) {
     const transcript = [...state.chatMessages];
     if (state.appOpen && !currentCase() && transcript.length <= 2) {
@@ -8685,7 +8799,7 @@ function renderAgentChat() {
     }
     log.innerHTML = transcript.slice(-40).map(renderChatBubble).join("");
     bindIcons(log);
-    log.scrollTop = log.scrollHeight;
+    if (logShell) logShell.scrollTop = logShell.scrollHeight;
   }
   renderAgentQuickActions(prompt.actions);
   renderAgentActionCards();
@@ -8777,7 +8891,9 @@ function renderAgentActionCards() {
       </div>
     `)
   ];
-  $("#agent-action-cards").innerHTML = cards.join("");
+  const container = $("#agent-action-cards");
+  if (!container) return;
+  container.innerHTML = cards.join("");
 }
 function hasActiveCase() {
   return Boolean(state.currentCaseId && currentCase() && state.currentStatus);
@@ -8866,11 +8982,43 @@ function walletButtonLabel() {
 }
 function walletButtonTitle() {
   if (state.walletConnectError) return state.walletConnectError;
-  if (state.smartAccountAddress) return `Smart Account \xB7 ${state.smartAccountAddress}`;
-  if (state.walletAddress) {
-    return state.currentCaseId ? `${state.walletAddress} \xB7 tap to enable Smart Account` : `${state.walletAddress} \xB7 start a cleanup to enable Smart Account`;
-  }
+  if (state.smartAccountAddress) return `Smart Account \xB7 ${state.smartAccountAddress} \xB7 click for wallet details`;
+  if (state.walletAddress) return `${state.walletAddress} \xB7 click for wallet details`;
   return "Connect MetaMask";
+}
+function toggleWalletModal(open) {
+  const dialog = $("#wallet-modal");
+  if (!dialog) return;
+  const shouldOpen = typeof open === "boolean" ? open : !dialog.open;
+  if (shouldOpen && state.walletAddress) {
+    renderWalletModal();
+    if (!dialog.open) dialog.showModal();
+    state.walletModalOpen = true;
+    bindIcons(dialog);
+    return;
+  }
+  if (dialog.open) dialog.close();
+  state.walletModalOpen = false;
+}
+function renderWalletModal() {
+  const body = $("#wallet-modal-body");
+  if (!body) return;
+  const wallet = state.walletAddress || "Not connected";
+  const smart = state.smartAccountAddress || "Not created";
+  const mode = state.walletMode || "\u2014";
+  body.innerHTML = `
+    <div class="status-list wallet-modal-status">
+      <div class="status-row"><span>Wallet</span><strong title="${escapeHtml(wallet)}">${escapeHtml(shortenAddress(wallet))}</strong></div>
+      <div class="status-row"><span>Smart Account</span><strong title="${escapeHtml(smart)}">${escapeHtml(shortenAddress(smart))}</strong></div>
+      <div class="status-row"><span>Mode</span><strong>${escapeHtml(mode)}</strong></div>
+    </div>
+    ${state.walletConnectNote ? `<p class="muted small">${escapeHtml(state.walletConnectNote)}</p>` : ""}
+    ${state.walletConnectError ? `<p class="wallet-connect-feedback fail">${escapeHtml(state.walletConnectError)}</p>` : ""}
+  `;
+  const smartBtn = $("#wallet-modal-smart-account");
+  if (smartBtn) {
+    smartBtn.hidden = !state.currentCaseId || Boolean(state.smartAccountAddress);
+  }
 }
 function renderWalletFeedback() {
   const errorText = state.walletConnectError || "";
@@ -8913,13 +9061,10 @@ function renderWalletCommandStrip() {
     setButtonLabel(primary, walletButtonLabel());
     primary.title = walletButtonTitle();
     primary.classList.toggle("connected", Boolean(state.walletAddress));
-    if (state.smartAccountAddress) {
-      primary.disabled = true;
-    } else if (state.walletAddress) {
-      primary.disabled = false;
-    } else {
-      primary.disabled = false;
-    }
+    primary.disabled = false;
+    primary.removeAttribute("data-connect-wallet");
+    if (!state.walletAddress) primary.setAttribute("data-connect-wallet", "");
+    else primary.setAttribute("data-wallet-modal", "");
   }
   const liveBtn = $("#upgrade-metamask-live");
   if (liveBtn) {
@@ -8929,8 +9074,7 @@ function renderWalletCommandStrip() {
   if (hint) {
     hint.textContent = state.walletConfig?.liveEnabled ? "Sepolia Smart Account upgrade uses MetaMask wallet_sendCalls (EIP-5792)." : "Smart Account records EIP-7702 + ERC-7715 permissions for your case. Enable WALLET_LIVE_MODE for Sepolia on-chain upgrade.";
   }
-  const stripDisconnect = $("#disconnect-wallet-strip");
-  if (stripDisconnect) stripDisconnect.hidden = !state.walletAddress;
+  if (state.walletModalOpen && state.walletAddress) renderWalletModal();
 }
 function renderWalletPanels() {
   const wallet = state.walletAddress || "Not connected";
@@ -8943,6 +9087,10 @@ function renderWalletPanels() {
   const settingsWallet = $("#wallet-status");
   if (onboardingWallet) onboardingWallet.innerHTML = rows;
   if (settingsWallet) settingsWallet.innerHTML = rows;
+  const settingsConnect = $("#connect-wallet");
+  const settingsDisconnect = $("#disconnect-wallet");
+  if (settingsConnect) settingsConnect.hidden = Boolean(state.walletAddress);
+  if (settingsDisconnect) settingsDisconnect.hidden = true;
   renderWalletFeedback();
   renderWalletCommandStrip();
 }
@@ -9055,15 +9203,7 @@ function renderTabs() {
     panel.classList.toggle("active", panel.id === `tab-${state.tab}`);
   });
 }
-function renderTopNav() {
-  const navAction = $("#open-app-nav");
-  if (navAction) {
-    setButtonLabel(navAction, "Open");
-    navAction.title = "Open the Oblivion app";
-  }
-}
 function render() {
-  renderTopNav();
   renderTrust();
   renderCases();
   renderShell();
@@ -9082,7 +9222,17 @@ function render() {
   renderApprovals();
   renderActions();
   renderTabs();
+  updateAgentSendState();
   bindIcons();
+}
+function updateAgentSendState() {
+  const input = $("#agent-input");
+  const send2 = $("#agent-send");
+  if (!input || !send2) return;
+  const hasText = Boolean(input.value.trim());
+  send2.disabled = !hasText;
+  send2.classList.toggle("send-ready", hasText);
+  send2.setAttribute("aria-disabled", hasText ? "false" : "true");
 }
 async function request(path, options = {}) {
   const response = await fetch(path, {
@@ -9292,21 +9442,33 @@ async function exportCase() {
     payload: exported
   });
 }
-async function deleteCase() {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
+async function deleteCaseById(caseId, options = {}) {
+  if (!caseId) throw { error: "case-required", message: "Select a case." };
+  if (!options.skipConfirm) {
+    const label = state.cases.find((item) => item.id === caseId)?.redactedScope?.personLabel || "this case";
+    if (!confirm(`Delete ${label}? Server data will be purged and cannot be recovered.`)) return;
+  }
   const deleted = await request("/api/delete", {
     method: "POST",
-    body: { caseId: state.currentCaseId }
+    body: { caseId }
   });
-  state.cases = state.cases.filter((item) => item.id !== state.currentCaseId);
-  state.currentCaseId = "";
-  state.currentStatus = null;
-  state.vaultKey = null;
-  state.tab = "overview";
-  localStorage.removeItem("oblivion.currentCaseId");
+  state.cases = state.cases.filter((item) => item.id !== caseId);
+  if (state.currentCaseId === caseId) {
+    state.currentCaseId = "";
+    state.currentStatus = null;
+    state.vaultKey = null;
+    state.agentPlan = null;
+    state.connectorResults = [];
+    state.tab = "overview";
+    localStorage.removeItem("oblivion.currentCaseId");
+  }
   saveLocalCases();
   render();
   write(deleted);
+}
+async function deleteCase() {
+  if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
+  await deleteCaseById(state.currentCaseId, { skipConfirm: false });
 }
 async function refreshWalletConfig() {
   try {
@@ -9343,8 +9505,8 @@ async function disconnectWallet() {
   state.walletConnectNote = "";
   state.walletPickAccount = true;
   walletLog.info("disconnectWallet");
+  toggleWalletModal(false);
   renderWalletPanels();
-  renderTopNav();
   render();
 }
 async function connectWallet(options = {}) {
@@ -9469,28 +9631,6 @@ async function enableSmartAccount(options = {}) {
     addChat("agent", "Smart Account ready (EIP-7702 + ERC-7715). Open Payments for x402.");
   }
 }
-async function connectWalletFlow(options = {}) {
-  state.walletConnectError = "";
-  try {
-    if (!state.walletAddress) {
-      state.walletConnectNote = "Connecting MetaMask\u2026";
-      renderWalletPanels();
-      await connectWallet({ quiet: true, openHub: false });
-    }
-    if (state.currentCaseId && !state.smartAccountAddress) {
-      await enableSmartAccount({ quiet: options.quiet, openHub: options.openHub ?? false });
-    } else if (!state.currentCaseId) {
-      state.walletConnectNote = `Wallet connected \xB7 ${shortenAddress(state.walletAddress)}. Start a cleanup to enable Smart Account.`;
-      renderWalletPanels();
-    } else if (!options.quiet) {
-      addChat("agent", "Wallet and Smart Account are ready.");
-    }
-    render();
-  } catch (error) {
-    write(error);
-    throw error;
-  }
-}
 async function upgradeMetaMaskLive() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create a case first." };
   if (!state.walletAddress) await connectWallet({ quiet: true });
@@ -9579,8 +9719,13 @@ async function relayDemo() {
 }
 async function askAgent() {
   const text = $("#agent-input").value.trim();
-  if (text) addChat("user", text);
+  if (!text) {
+    updateAgentSendState();
+    return;
+  }
+  addChat("user", text);
   $("#agent-input").value = "";
+  updateAgentSendState();
   if (!state.currentCaseId) {
     if (!text) {
       addChat("agent", "Describe what to clean up in one sentence \u2014 here or in the intake box.");
@@ -9768,17 +9913,6 @@ function backToLanding() {
   render();
   $("#landing-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
-$("#open-app-nav").addEventListener("click", () => {
-  if (!state.appOpen) {
-    openApp();
-    return;
-  }
-  if (state.walletAddress) {
-    disconnectWallet().catch(write);
-    return;
-  }
-  connectWalletFlow().catch(write);
-});
 $("#guide-primary-action")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
 $("#agent-do-next")?.addEventListener("click", () => {
   const label = guidePrimaryLabel(currentGuideStep());
@@ -9811,32 +9945,30 @@ $("#local-safe-mode").addEventListener("click", () => {
   $("#require-trust").checked = false;
   revealRouteTab();
 });
-$("#new-case").addEventListener("click", () => {
-  state.appOpen = true;
-  state.currentCaseId = "";
-  state.currentStatus = null;
-  state.agentPlan = null;
-  state.connectorResults = [];
-  state.recommendedPresetId = "people-search-cleanup";
-  state.selectedPresetId = "people-search-cleanup";
-  state.showRouteTab = false;
-  localStorage.removeItem("oblivion.currentCaseId");
-  ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
-    const field = $(`#${id}`);
-    if (field) field.value = "";
-  });
-  const statusEl = $("#simple-start-status");
-  if (statusEl) statusEl.textContent = "";
-  focusIntake();
-  render();
-});
+$("#new-case").addEventListener("click", () => openNewCaseFlow());
+$("#case-manager-new")?.addEventListener("click", () => openNewCaseFlow());
+$("#toolbar-cases-toggle")?.addEventListener("click", () => toggleCasesPanel());
+$("#case-manager-close")?.addEventListener("click", () => toggleCasesPanel(false));
 $("#start-preset").addEventListener("click", () => startPreset().catch(write));
 $("#propose-action").addEventListener("click", () => proposeAction().catch(write));
+$("#wallet-modal-close")?.addEventListener("click", () => toggleWalletModal(false));
+$("#wallet-modal-disconnect")?.addEventListener("click", () => disconnectWallet().catch(write));
+$("#wallet-modal-settings")?.addEventListener("click", () => {
+  toggleWalletModal(false);
+  openWalletHub();
+});
+$("#wallet-modal-smart-account")?.addEventListener("click", () => {
+  enableSmartAccount({ quiet: false, openHub: false }).then(() => renderWalletModal()).catch(write);
+});
+$("#wallet-modal")?.addEventListener("close", () => {
+  state.walletModalOpen = false;
+});
 document.addEventListener("click", (event) => {
-  const disconnectBtn = event.target.closest("#disconnect-wallet, #disconnect-wallet-strip");
-  if (disconnectBtn) {
+  const modalWalletBtn = event.target.closest("[data-wallet-modal]");
+  if (modalWalletBtn) {
     event.preventDefault();
-    disconnectWallet().catch(write);
+    event.stopPropagation();
+    toggleWalletModal(true);
     return;
   }
   const walletBtn = event.target.closest("[data-connect-wallet]");
@@ -9844,7 +9976,7 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     walletLog.info("connect button clicked", { id: walletBtn.id || "delegated" });
-    connectWalletFlow({ openHub: Boolean(hasActiveCase()) }).catch(write);
+    connectWallet({ openHub: walletBtn.id === "connect-wallet" && hasActiveCase() }).catch(write);
   }
 });
 $("#upgrade-metamask-live")?.addEventListener("click", () => upgradeMetaMaskLive().catch(write));
@@ -9857,6 +9989,7 @@ $("#review-approval").addEventListener("click", () => runVenice("review-approval
 $("#delegate-agents").addEventListener("click", () => delegateAgents().catch(write));
 $("#relay-demo").addEventListener("click", () => relayDemo().catch(write));
 $("#agent-send").addEventListener("click", () => askAgent().catch(write));
+$("#agent-input").addEventListener("input", updateAgentSendState);
 $("#agent-input").addEventListener("keydown", (event) => {
   if (event.key === "Enter") askAgent().catch(write);
 });
@@ -9981,8 +10114,17 @@ function setupDelegates() {
   const caseList = $("#case-list");
   if (caseList) {
     caseList.addEventListener("click", (e) => {
+      const deleteBtn = e.target.closest("[data-delete-case]");
+      if (deleteBtn) {
+        e.preventDefault();
+        deleteCaseById(deleteBtn.dataset.deleteCase).catch(write);
+        return;
+      }
       const btn = e.target.closest("[data-case-id]");
-      if (btn) loadCase(btn.dataset.caseId);
+      if (btn) {
+        state.casesPanelOpen = false;
+        loadCase(btn.dataset.caseId);
+      }
     });
   }
   const findingsList = $("#findings-list");
@@ -10003,8 +10145,15 @@ function setupDelegates() {
       discoverFindings().catch(write);
     }
   });
+  document.addEventListener("click", (e) => {
+    const copyBtn = e.target.closest("[data-copy-target]");
+    if (!copyBtn) return;
+    e.preventDefault();
+    copySkillInstallCommand(copyBtn.dataset.copyTarget, copyBtn).catch(write);
+  });
 }
 setupDelegates();
+setupLandingSkillInstall();
 syncAppRoute();
 await refreshPresets().catch(write);
 await refreshTrust().catch(write);

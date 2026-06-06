@@ -136,12 +136,38 @@ No acid green, blue proof, amber, or coral in the UI. Status is communicated wit
 - **Command bar** — case title + 4 metric icons + wallet chip.
 - **Guide rail** — five pixel dots (no per-step paragraphs).
 - **Agent dock** — icon header, one-line brief, primary CTA, wallet row, 3-line chat, icon composer.
-- **Tabs** — icon + 3-letter label (OVR, RTE, APR, VLT, LOG, SET).
+- **Tabs** — icon + short full-word label (Overview, Route, Approvals, Vault, History, Settings).
 
 ## Motion
 
 - Stepped transitions only (no ease curves): `steps(2)` or instant.
 - Respect `prefers-reduced-motion`.
+
+## Focus & active states (GBA rings)
+
+- **Focus ring:** `outline: 2px solid var(--gb-3)` with `outline-offset: 1px` on buttons, links, inputs, and horizontal chips. No rgba glows — use palette tokens only (`--gb-2` for inset field rings via `box-shadow: 0 0 0 2px var(--gb-2)`).
+- **Primary active:** filled `--gb-3` background, `--gb-0` text, `--gb-0` border, `2px 2px 0 var(--gb-1)` pixel shadow (preset chips, case rows, template starters).
+- **Toolbar toggle active:** `--gb-2` fill when a panel (e.g. Cases) is open.
+- **Send button:** disabled at `opacity: 0.38` until composer has non-whitespace text; enabled state uses dark green (`--gb-0`) fill and light icon (`--gb-3`).
+- **Horizontal scroll rows** (templates, suggestion chips): `scrollbar-width: none` + `::-webkit-scrollbar { display: none }` — scrollable without visible scrollbar.
+
+## Wallet modal
+
+- Toolbar shows one wallet control: **Connect wallet** when disconnected, truncated address when connected.
+- Connected click opens a `<dialog>` with wallet / Smart Account / mode rows, optional **Enable Smart Account**, **Payment settings**, and **Disconnect**.
+- No persistent logout icon beside the wallet button.
+
+## Case manager
+
+- Toolbar **Cases** button (`data-icon="briefcase"`) toggles a panel below the header.
+- Lists saved cases with open + per-row delete (confirm before purge).
+- **New case** clears intake and returns to onboarding without deleting other cases.
+
+## Agent dock layout
+
+- Dock is a three-row grid: header · chat body (`minmax(0,1fr)`) · footer (suggestions + composer).
+- `#agent-chat-log` uses `flex: 1 1 0; min-height: 0` so messages fill space above the fixed footer.
+- Template row stays above the log; action cards collapse when empty (`:empty { display: none }`).
 
 ## Do / Don't
 

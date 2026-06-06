@@ -14,7 +14,13 @@
         <div class="landing-hero landing-hero-minimal">
           <div class="cinematic-hero" aria-label="Oblivion cleanup agent">
             <div class="landing-copy">
-              <div class="eyebrow">OBLIVION</div>
+              <pre class="landing-ascii-title" aria-label="OBLIVION"> ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓██████▓▒░░▒▓███████▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
+ ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
               <h2>ERASE TRAIL</h2>
               <div class="landing-actions">
                 <button id="open-app-hero" data-icon="play"><span class="btn-label">Start</span></button>
@@ -29,6 +35,35 @@
             </div>
           </div>
         </div>
+        <section class="landing-skill" id="install-skill" aria-labelledby="landing-skill-title">
+          <div class="landing-skill-inner">
+            <div class="landing-skill-copy">
+              <h3 id="landing-skill-title">Install the agent skill</h3>
+              <p class="muted">Portable cleanup workflow for Cursor, Claude, Codex, Grok, and other agents. Same supervised rules as the managed app — install it into your own agent when you want the playbook without the UI.</p>
+            </div>
+            <div class="skill-install-grid">
+              <div class="skill-install-card">
+                <div class="skill-install-head">
+                  <span class="skill-install-label">skills.sh</span>
+                  <button type="button" class="ghost compact skill-copy-btn" data-copy-target="skill-install-npx" data-icon="copy" aria-label="Copy npx install command"><span class="btn-label">Copy</span></button>
+                </div>
+                <pre class="skill-install-command" id="skill-install-npx"><code>npx skills add thomasjvu/oblivion --skill clean-online-identity</code></pre>
+              </div>
+              <div class="skill-install-card">
+                <div class="skill-install-head">
+                  <span class="skill-install-label">curl installer</span>
+                  <button type="button" class="ghost compact skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="btn-label">Copy</span></button>
+                </div>
+                <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code></pre>
+              </div>
+            </div>
+            <div class="skill-install-actions">
+              <a class="secondary compact" href="/skills/clean-online-identity/SKILL.md" download data-icon="download"><span class="btn-label">Download SKILL.md</span></a>
+              <a class="ghost compact" href="/skills/clean-online-identity/manifest.json" data-icon="list"><span class="btn-label">Manifest</span></a>
+              <a class="ghost compact" href="https://github.com/thomasjvu/oblivion/tree/main/skills/clean-online-identity" target="_blank" rel="noopener noreferrer" data-icon="github"><span class="btn-label">View source</span></a>
+            </div>
+          </div>
+        </section>
         <div class="landing-flow" id="how-it-works" aria-label="How it works">
           <div class="proof-card">
             <span class="proof-icon-host" data-icon="lock" aria-hidden="true"></span>
@@ -64,17 +99,44 @@
           <header class="app-toolbar workspace-header" id="workspace-header">
             <div class="app-toolbar-group app-toolbar-start">
               <button type="button" class="app-toolbar-brand" id="toolbar-home" data-testid="toolbar-home" aria-label="Back to home">OBLIVION</button>
+              <button type="button" class="ghost compact" id="toolbar-cases-toggle" data-testid="toolbar-cases-toggle" data-icon="briefcase" aria-expanded="false" aria-controls="case-manager" hidden><span class="btn-label">Cases</span></button>
             </div>
             <div class="app-toolbar-group app-toolbar-center" id="toolbar-case-meta" hidden>
               <span class="app-toolbar-step" id="toolbar-step-label"></span>
             </div>
             <div class="app-toolbar-group app-toolbar-end wallet-command-strip workspace-wallet-bar" id="wallet-command-strip" data-testid="wallet-command-strip">
               <button type="button" class="secondary compact wallet-connect-btn" id="connect-wallet-primary" data-testid="connect-wallet-primary" data-connect-wallet data-icon="wallet"><span class="btn-label">Connect wallet</span></button>
-              <button type="button" class="ghost compact icon-only" id="disconnect-wallet-strip" data-testid="disconnect-wallet-strip" data-icon="close" aria-label="Disconnect wallet" hidden><span class="btn-label">Logout</span></button>
             </div>
             <p class="visually-hidden wallet-connect-feedback" id="wallet-feedback-primary" data-wallet-feedback role="status" aria-live="polite"></p>
-            <button type="button" id="open-app-nav" hidden aria-hidden="true"><span class="btn-label">Open</span></button>
           </header>
+
+          <dialog class="wallet-modal" id="wallet-modal" data-testid="wallet-modal" aria-labelledby="wallet-modal-title">
+            <div class="wallet-modal-panel">
+              <header class="wallet-modal-head">
+                <h3 id="wallet-modal-title" data-icon="wallet">Wallet</h3>
+                <button type="button" class="ghost compact icon-only" id="wallet-modal-close" data-testid="wallet-modal-close" data-icon="close" aria-label="Close wallet"><span class="btn-label">Close</span></button>
+              </header>
+              <div class="wallet-modal-body" id="wallet-modal-body"></div>
+              <footer class="wallet-modal-actions">
+                <button type="button" class="secondary compact" id="wallet-modal-smart-account" data-testid="wallet-modal-smart-account" data-icon="cast" hidden><span class="btn-label">Enable Smart Account</span></button>
+                <button type="button" class="ghost compact" id="wallet-modal-settings" data-testid="wallet-modal-settings" data-icon="sliders"><span class="btn-label">Payment settings</span></button>
+                <button type="button" class="danger compact" id="wallet-modal-disconnect" data-testid="wallet-modal-disconnect" data-icon="close"><span class="btn-label">Disconnect</span></button>
+              </footer>
+            </div>
+          </dialog>
+
+          <section class="case-manager" id="case-manager" data-testid="case-manager" hidden aria-label="Case manager">
+            <div class="case-manager-head">
+              <h3 data-icon="briefcase">Cases</h3>
+              <span class="muted small" id="case-count-label"></span>
+              <button type="button" class="ghost compact icon-only" id="case-manager-close" data-testid="case-manager-close" data-icon="close" aria-label="Close cases"><span class="btn-label">Close</span></button>
+            </div>
+            <p class="muted small case-manager-hint">Open a saved case or start fresh. Deleting purges encrypted server data.</p>
+            <div class="case-manager-toolbar">
+              <button type="button" class="secondary compact" id="case-manager-new" data-testid="case-manager-new" data-icon="plus"><span class="btn-label">New case</span></button>
+            </div>
+            <div class="case-list" id="case-list"></div>
+          </section>
 
           <main class="workspace-shell" id="app-workspace">
         <section class="hero" id="onboarding-region" data-view="onboarding">
@@ -145,9 +207,8 @@
                 </div>
                 <label class="checkbox-row"><input type="checkbox" id="show-advanced-ui" /> Show technical panels</label>
                 <label class="checkbox-row"><input type="checkbox" id="high-autonomy-toggle" /> High autonomy (batch approvals)</label>
-                <p class="muted small">Wallet connection lives in the header bar.</p>
+                <p class="muted small">Wallet connection lives in the header bar. Use <strong>Cases</strong> in the toolbar to switch or delete saved cases.</p>
                 <p class="wallet-connect-feedback muted visually-hidden" id="wallet-feedback-onboarding" aria-live="polite"></p>
-                <div class="case-list" id="case-list"></div>
               </details>
             </div>
             <div class="status-list visually-hidden" id="onboarding-wallet-status" aria-hidden="true"></div>
@@ -170,21 +231,30 @@
           </header>
 
           <section class="guide-rail guide-rail-minimal" id="user-guide" data-testid="user-guide" aria-label="Progress">
-            <p class="guide-rail-hint" id="guide-lead"></p>
-            <div class="guide-rail-actions">
-              <button type="button" id="guide-primary-action" data-testid="guide-primary-action" data-icon="arrow-right"><span class="btn-label">Continue</span></button>
-              <button type="button" class="ghost compact icon-only advanced-only" id="toggle-advanced-tabs" data-icon="menu" aria-label="More tabs" hidden><span class="btn-label">Tabs</span></button>
+            <div class="guide-progress-block">
+              <ol class="guide-checkpoints" id="guide-steps" role="list" aria-label="Cleanup milestones"></ol>
+              <div class="guide-progress-track" id="guide-progress-track" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
+                <div class="guide-progress-fill" id="guide-progress-fill"></div>
+              </div>
+              <div class="guide-phase-strip" id="guide-phase-strip" aria-label="Workflow checkpoints"></div>
+              <p class="guide-phase-status muted small" id="guide-phase-status"></p>
             </div>
-            <ol class="guide-dots visually-hidden" id="guide-steps" aria-hidden="true"></ol>
+            <div class="guide-rail-main">
+              <p class="guide-rail-hint" id="guide-lead"></p>
+              <div class="guide-rail-actions">
+                <button type="button" id="guide-primary-action" data-testid="guide-primary-action" data-icon="arrow-right"><span class="btn-label">Continue</span></button>
+                <button type="button" class="ghost compact icon-only advanced-only" id="toggle-advanced-tabs" data-icon="menu" aria-label="More tabs" hidden><span class="btn-label">Tabs</span></button>
+              </div>
+            </div>
           </section>
 
           <nav class="tabs tabs-horizontal" role="tablist" aria-label="Case workspace">
-            <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">OVR</span></button>
-            <button class="tab tab-essential tab-route" type="button" role="tab" data-tab="tasks" hidden data-icon="pin"><span class="tab-label">RTE</span></button>
-            <button class="tab tab-essential" type="button" role="tab" data-tab="approvals" data-icon="check"><span class="tab-label">APR</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="vault" hidden data-icon="archive"><span class="tab-label">VLT</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="history" hidden data-icon="list"><span class="tab-label">LOG</span></button>
-            <button class="tab tab-advanced" type="button" role="tab" data-tab="settings" hidden data-icon="sliders"><span class="tab-label">SET</span></button>
+            <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">Overview</span></button>
+            <button class="tab tab-essential tab-route" type="button" role="tab" data-tab="tasks" hidden data-icon="pin"><span class="tab-label">Route</span></button>
+            <button class="tab tab-essential" type="button" role="tab" data-tab="approvals" data-icon="check"><span class="tab-label">Approvals</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="vault" hidden data-icon="archive"><span class="tab-label">Vault</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="history" hidden data-icon="list"><span class="tab-label">History</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="settings" hidden data-icon="sliders"><span class="tab-label">Settings</span></button>
           </nav>
 
           <div class="console-stage" data-testid="console-stage">
@@ -448,8 +518,10 @@
                 <p class="agent-template-label muted small">Templates</p>
                 <div class="agent-preset-starters" id="agent-preset-starters" role="group" aria-label="Cleanup templates"></div>
               </div>
-              <div class="agent-chat-log chat-window" id="agent-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div>
-              <div class="agent-cards" id="agent-action-cards"></div>
+              <div class="agent-chat-log" id="agent-chat-log" role="log" aria-live="polite" aria-relevant="additions">
+                <div class="agent-chat-messages" id="agent-chat-messages"></div>
+                <div class="agent-cards" id="agent-action-cards"></div>
+              </div>
             </div>
 
             <footer class="agent-chat-footer">
@@ -468,7 +540,7 @@
               <button type="button" class="visually-hidden" id="agent-do-next" data-testid="agent-do-next" tabindex="-1" aria-hidden="true"><span class="btn-label">Next</span></button>
               <div class="composer agent-composer">
                 <input id="agent-input" placeholder="Message the agent…" aria-label="Agent message" />
-                <button id="agent-send" class="icon-only" data-icon="arrow-right" aria-label="Send"><span class="btn-label">Send</span></button>
+                <button id="agent-send" class="icon-only" data-icon="arrow-right" aria-label="Send" disabled><span class="btn-label">Send</span></button>
               </div>
             </footer>
           </aside>

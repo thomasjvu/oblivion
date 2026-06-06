@@ -19,6 +19,11 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /id="landing-region"/);
+  assert.match(html, /landing-ascii-title/);
+  assert.match(html, /id="install-skill"/);
+  assert.match(html, /clean-online-identity/);
+  assert.match(html, /skill\.sh/);
+  assert.match(html, /setupLandingSkillInstall/);
   assert.match(html, /ERASE TRAIL/);
   assert.match(html, /id="open-app-hero"/);
   assert.match(html, /id="jump-how-it-works"/);
@@ -41,7 +46,7 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /walletLog/);
   assert.match(html, /guide-rail/);
   assert.match(html, /agent-dock-brief/);
-  assert.match(html, /connectWalletFlow/);
+  assert.match(html, /toggleWalletModal/);
   assert.match(html, /connect-wallet-primary/);
   assert.match(html, /site-footer/);
   assert.match(html, /\/fonts\/Compass\.ttf/);
@@ -119,8 +124,8 @@ test("app keeps hackathon sponsor-track details in settings", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /Connect wallet/);
-  assert.match(html, /connectWalletFlow/);
-  assert.match(html, /disconnect-wallet/);
+  assert.match(html, /toggleWalletModal/);
+  assert.match(html, /wallet-modal-disconnect/);
   assert.match(html, /x402/);
   assert.match(html, /ERC-7710/);
   assert.match(html, /ERC-7715/);
@@ -159,7 +164,10 @@ test("dashboard uses visual preset-led cleanup command center", async () => {
   assert.match(html, /agent-dock-brief/);
   assert.match(html, /id="agent-explain-disclosure"/);
   assert.match(html, /id="agent-chat-log"/);
-  assert.match(html, /agent-chat-log/);
+  assert.match(html, /id="agent-chat-messages"/);
+  assert.match(html, /guide-checkpoints/);
+  assert.match(html, /guide-phase-strip/);
+  assert.match(html, /WORKFLOW_PHASES/);
   assert.match(html, /chat-avatar/);
   assert.match(html, /agent-preset-starters/);
   assert.match(html, /applyAgentIntakeTemplate/);
@@ -227,16 +235,22 @@ test("setup recommends cleanup presets from intake keywords", async () => {
 test("top navigation becomes wallet connect inside the app", async () => {
   const html = await readUiBundle();
 
-  assert.match(html, /id="open-app-nav"[\s\S]*btn-label">Open/);
-  assert.match(html, /function renderTopNav/);
+  assert.match(html, /id="wallet-modal"/);
+  assert.match(html, /function toggleWalletModal/);
+  assert.match(html, /function renderWalletModal/);
   assert.match(html, /state\.appOpen/);
   assert.match(html, /Connect MetaMask/);
   assert.match(html, /Wallet connected/);
   assert.match(html, /connectWallet\(\)/);
   assert.match(html, /disconnectWallet\(\)/);
-  assert.match(html, /disconnect-wallet-strip/);
+  assert.match(html, /wallet-modal-disconnect/);
   assert.match(html, /data-connect-wallet/);
-  assert.match(html, /disconnect-wallet/);
+  assert.match(html, /data-wallet-modal/);
+  assert.match(html, /tab-label">Overview/);
+  assert.match(html, /tab-label">Approvals/);
+  assert.match(html, /tab-label">Settings/);
+  assert.doesNotMatch(html, /id="open-app-nav"/);
+  assert.doesNotMatch(html, /disconnect-wallet-strip/);
   assert.match(html, /\/api\/agent\/chat/);
   assert.match(html, /data-wallet-feedback/);
   assert.match(html, /id="onboarding-wallet-status"/);

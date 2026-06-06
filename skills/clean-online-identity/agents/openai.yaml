@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clean Online Identity"
+  short_description: "Supervised personal data removal"
+  default_prompt: "Use $clean-online-identity to find exposed personal data, prepare supervised opt-out requests, and track identity cleanup safely."

@@ -18,7 +18,7 @@ Managed Oblivion adds controls that a portable skill cannot guarantee on its own
 
 ## Installable Skill
 
-The installable skill at `/Users/area/Desktop/custom-skills/clean-online-identity/SKILL.md` is a portable workflow for other agents. It defines safety rules, output contracts, approval standards, and data-minimization guidance. It does not by itself prove that the host agent, logs, plugins, or model provider are private.
+The installable skill at `skills/clean-online-identity/SKILL.md` (also served at `/skills/clean-online-identity/SKILL.md`) is a portable workflow for other agents. It defines safety rules, output contracts, approval standards, and data-minimization guidance. It does not by itself prove that the host agent, logs, plugins, or model provider are private.
 
 ## Never Store
 

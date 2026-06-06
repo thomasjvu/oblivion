@@ -1,0 +1,30 @@
+{
+  "name": "clean-online-identity",
+  "displayName": "Clean Online Identity",
+  "description": "Supervised personal data removal across brokers, search results, and privacy rights workflows.",
+  "repository": "thomasjvu/oblivion",
+  "skillPath": "skills/clean-online-identity",
+  "files": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/breach-response.md",
+    "references/jurisdiction-rights.md",
+    "references/playbook.md",
+    "references/source-directory.md",
+    "references/vendor-selection.md",
+    "assets/templates/access-request.md",
+    "assets/templates/approval-record.md",
+    "assets/templates/australia-app-access-correction.md",
+    "assets/templates/broker-opt-out-request.md",
+    "assets/templates/california-drop-ccpa-deletion.md",
+    "assets/templates/correction-request.md",
+    "assets/templates/deletion-request.md",
+    "assets/templates/direct-marketing-objection.md",
+    "assets/templates/escalation-notes.md",
+    "assets/templates/follow-up-request.md",
+    "assets/templates/gdpr-uk-erasure-request.md",
+    "assets/templates/pipeda-access-correction.md",
+    "assets/templates/source-check-record.md",
+    "scripts/make_case_workspace.py"
+  ]
+}

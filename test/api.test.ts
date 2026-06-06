@@ -41,6 +41,25 @@ test("serves split frontend assets with restrictive security headers", async () 
     assert.match(heroVideo.headers.get("content-type") ?? "", /video\/mp4/);
     assert.match(html.headers.get("content-security-policy") ?? "", /media-src 'self'/);
 
+    const skillScript = await fetch(`${base}/skill.sh`);
+    assert.equal(skillScript.status, 200);
+    assert.match(skillScript.headers.get("content-type") ?? "", /application\/x-sh|text\/plain/);
+    assert.match(await skillScript.text(), /clean-online-identity/);
+
+    const skillMd = await fetch(`${base}/skills/clean-online-identity/SKILL.md`);
+    assert.equal(skillMd.status, 200);
+    assert.match(skillMd.headers.get("content-type") ?? "", /text\/markdown/);
+
+    const skillManifest = await fetch(`${base}/skills/clean-online-identity/manifest.json`);
+    assert.equal(skillManifest.status, 200);
+    const manifest = (await skillManifest.json()) as { files: string[] };
+    assert.ok(manifest.files.includes("SKILL.md"));
+
+    const skillsApi = await fetch(`${base}/api/skills`);
+    assert.equal(skillsApi.status, 200);
+    const skillsPayload = (await skillsApi.json()) as { skills: Array<{ id: string }> };
+    assert.equal(skillsPayload.skills[0]?.id, "clean-online-identity");
+
     const walletConfig = await fetch(`${base}/api/integrations/wallet-config`);
     assert.equal(walletConfig.status, 200);
     const wc = (await walletConfig.json()) as { chainId: number; mode: string };
