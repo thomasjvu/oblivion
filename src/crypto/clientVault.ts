@@ -49,9 +49,9 @@ export async function encryptVaultPayload(
 ): Promise<VaultCiphertext> {
   const cryptoKey = await importAesKey(key.rawKeyBase64);
   const nonce = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  const additionalData = aad ? new TextEncoder().encode(aad) : undefined;
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce, additionalData }, cryptoKey, encoded);
+  const encoded = textBytes(JSON.stringify(payload));
+  const additionalData = aad ? textBytes(aad) : undefined;
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv: cryptoBytes(nonce), additionalData }, cryptoKey, encoded);
   return {
     alg: "AES-256-GCM",
     keyId: key.keyId,
@@ -66,7 +66,7 @@ export async function decryptVaultPayload<T>(
   blob: VaultCiphertext
 ): Promise<T> {
   const cryptoKey = await importAesKey(key.rawKeyBase64);
-  const additionalData = blob.aad ? new TextEncoder().encode(blob.aad) : undefined;
+  const additionalData = blob.aad ? textBytes(blob.aad) : undefined;
   const plaintext = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv: base64ToBytes(blob.nonce), additionalData },
     cryptoKey,
@@ -85,7 +85,7 @@ export async function wrapVaultKey(
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   const wrappingKey = await deriveWrappingKey(passphrase, salt, iterations);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv: nonce, additionalData: new TextEncoder().encode(key.keyId) },
+    { name: "AES-GCM", iv: cryptoBytes(nonce), additionalData: textBytes(key.keyId) },
     wrappingKey,
     base64ToBytes(key.rawKeyBase64)
   );
@@ -109,7 +109,7 @@ export async function unwrapVaultKey(wrapped: WrappedVaultKey, passphrase: strin
     {
       name: "AES-GCM",
       iv: base64ToBytes(wrapped.nonce),
-      additionalData: new TextEncoder().encode(wrapped.keyId)
+      additionalData: textBytes(wrapped.keyId)
     },
     wrappingKey,
     base64ToBytes(wrapped.wrappedKey)
@@ -146,7 +146,7 @@ async function deriveWrappingKey(
 ): Promise<CryptoKey> {
   const passphraseKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(passphrase),
+    textBytes(passphrase),
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -154,7 +154,7 @@ async function deriveWrappingKey(
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt,
+      salt: cryptoBytes(salt),
       iterations,
       hash: "SHA-256"
     },
@@ -169,6 +169,16 @@ function bytesToBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
 }
 
-function base64ToBytes(value: string): Uint8Array {
-  return new Uint8Array(Buffer.from(value, "base64"));
+function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
+  return cryptoBytes(new Uint8Array(Buffer.from(value, "base64")));
+}
+
+function textBytes(value: string): Uint8Array<ArrayBuffer> {
+  return cryptoBytes(new TextEncoder().encode(value));
+}
+
+function cryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }

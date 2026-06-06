@@ -4,1073 +4,124 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oblivion</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        font-family:
-          "SF Mono", "IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
-        --bg: #030402;
-        --panel: #0b0d0a;
-        --panel-2: #11130f;
-        --line: #242820;
-        --muted: #8c9388;
-        --text: #f3f5ee;
-        --green: #b9ff68;
-        --blue: #b8d7ff;
-        --amber: #ffd37a;
-        --red: #ff8a7a;
-        --ink: #151911;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        background: var(--bg);
-        color: var(--text);
-      }
-
-      button,
-      input,
-      select,
-      textarea {
-        font: inherit;
-      }
-
-      button {
-        border: 0;
-        border-radius: 4px;
-        min-height: 38px;
-        padding: 9px 14px;
-        background: var(--green);
-        color: #080a06;
-        font-weight: 700;
-        cursor: pointer;
-      }
-
-      button.secondary {
-        background: #151911;
-        color: var(--text);
-      }
-
-      button.ghost {
-        background: transparent;
-        color: var(--text);
-        border: 1px solid var(--line);
-      }
-
-      button.danger {
-        background: var(--red);
-        color: #1c0706;
-      }
-
-      input,
-      select,
-      textarea {
-        width: 100%;
-        min-height: 38px;
-        border: 0;
-        border-bottom: 1px solid var(--line);
-        border-radius: 4px;
-        background: #050604;
-        color: var(--text);
-        padding: 10px 11px;
-      }
-
-      textarea {
-        min-height: 112px;
-        resize: vertical;
-      }
-
-      label {
-        display: block;
-        margin: 14px 0 7px;
-        color: #c7d3ce;
-        font-size: 0.8rem;
-        font-weight: 750;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin: 0;
-      }
-
-      .app {
-        width: min(1180px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 18px 0 44px;
-      }
-
-      .topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 18px;
-        min-height: 52px;
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-
-      .brand h1 {
-        font-size: 1rem;
-        letter-spacing: 0;
-        text-transform: uppercase;
-      }
-
-      .mark {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        display: grid;
-        place-items: center;
-        background: transparent;
-        border: 1px solid var(--green);
-        color: var(--green);
-        font-weight: 950;
-      }
-
-      .trust-strip {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
-      .nav-actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
-      .chip,
-      .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 5px 8px;
-        color: var(--muted);
-        font-size: 0.72rem;
-        font-weight: 760;
-      }
-
-      .pill.pass,
-      .chip.pass {
-        background: #0f1709;
-        border-color: #496b2c;
-        color: var(--green);
-      }
-
-      .pill.warn,
-      .chip.warn {
-        background: #171408;
-        border-color: #6b5628;
-        color: var(--amber);
-      }
-
-      .pill.fail,
-      .chip.fail {
-        background: #1a0d0b;
-        border-color: #744036;
-        color: var(--red);
-      }
-
-      .hero {
-        min-height: calc(100vh - 130px);
-        display: none;
-        place-items: center;
-        padding: 34px 0;
-      }
-
-      .hero.active {
-        display: grid;
-      }
-
-      .landing {
-        min-height: calc(100vh - 88px);
-        display: grid;
-        gap: 16px;
-        padding: 24px 0 38px;
-      }
-
-      .landing.hidden {
-        display: none;
-      }
-
-      .landing-hero {
-        min-height: calc(100vh - 130px);
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-bottom: 1px solid var(--line);
-        border-radius: 0;
-        overflow: hidden;
-        position: relative;
-        display: grid;
-        align-items: end;
-        background: #050604;
-      }
-
-      .landing-hero::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(90deg, rgba(3, 4, 2, 0.96) 0%, rgba(3, 4, 2, 0.82) 46%, rgba(3, 4, 2, 0.2) 100%);
-        z-index: 1;
-      }
-
-      .landing-copy {
-        position: relative;
-        z-index: 3;
-        max-width: 760px;
-        padding: clamp(28px, 6vw, 70px);
-      }
-
-      .landing-copy h2 {
-        max-width: 760px;
-        font-size: clamp(3.2rem, 8vw, 7.8rem);
-        line-height: 0.86;
-        letter-spacing: 0;
-      }
-
-      .landing-copy p {
-        max-width: 560px;
-        color: #d7ddd0;
-        font-size: 1rem;
-        line-height: 1.5;
-        margin-top: 18px;
-      }
-
-      .landing-actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 24px;
-      }
-
-      .landing-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-      }
-
-      .hero-image {
-        position: absolute;
-        inset: 36px 34px 36px auto;
-        width: min(48%, 560px);
-        z-index: 2;
-        opacity: 0.92;
-      }
-
-      .product-frame {
-        border: 1px solid var(--line);
-        border-radius: 2px;
-        overflow: hidden;
-        background: rgba(7, 8, 6, 0.96);
-        box-shadow: none;
-        min-height: 410px;
-      }
-
-      .frame-top {
-        display: flex;
-        gap: 7px;
-        padding: 12px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 999px;
-        background: #3e4438;
-      }
-
-      .mock-body {
-        padding: 16px;
-        display: grid;
-        gap: 12px;
-      }
-
-      .mock-row,
-      .mock-card {
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        background: #080a07;
-        padding: 12px;
-      }
-
-      .mock-row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 10px;
-        align-items: center;
-      }
-
-      .mock-title {
-        height: 12px;
-        width: 58%;
-        border-radius: 999px;
-        background: var(--text);
-        opacity: 0.75;
-      }
-
-      .mock-line {
-        height: 8px;
-        width: 76%;
-        border-radius: 999px;
-        background: #4f5748;
-        margin-top: 8px;
-      }
-
-      .mock-pill {
-        min-width: 68px;
-        height: 24px;
-        border-radius: 999px;
-        background: #111a0b;
-        border: 1px solid #496b2c;
-      }
-
-      .visual-grid {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 10px;
-      }
-
-      .visual-placeholder {
-        min-height: 150px;
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        background:
-          linear-gradient(#151911 1px, transparent 1px),
-          linear-gradient(90deg, #151911 1px, transparent 1px),
-          #060705;
-        background-size: 22px 22px;
-      }
-
-      .proof-card {
-        background: var(--panel);
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        overflow: hidden;
-      }
-
-      .proof-card h3 {
-        font-size: 0.95rem;
-        margin: 14px 14px 6px;
-      }
-
-      .proof-card p {
-        color: var(--muted);
-        line-height: 1.5;
-        margin: 0 14px 14px;
-      }
-
-      .proof-image {
-        min-height: 150px;
-        border-bottom: 1px solid var(--line);
-        background:
-          linear-gradient(#171a14 1px, transparent 1px),
-          linear-gradient(90deg, #171a14 1px, transparent 1px),
-          #070806;
-        background-size: 18px 18px;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .proof-image::after {
-        content: "";
-        position: absolute;
-        inset: 32px;
-        border: 1px solid rgba(185, 255, 104, 0.28);
-        border-radius: 999px;
-        background: transparent;
-      }
-
-      .workspace-shell {
-        display: none;
-      }
-
-      .workspace-shell.active {
-        display: block;
-      }
-
-      .flow-card {
-        width: min(720px, 100%);
-        background: transparent;
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        padding: 24px;
-        box-shadow: none;
-      }
-
-      .eyebrow {
-        color: var(--green);
-        font-weight: 850;
-        font-size: 0.78rem;
-        margin-bottom: 10px;
-      }
-
-      .flow-card h2 {
-        font-size: clamp(2rem, 5vw, 3.9rem);
-        line-height: 1;
-        letter-spacing: 0;
-        max-width: 680px;
-      }
-
-      .flow-card p {
-        color: var(--muted);
-        line-height: 1.55;
-        margin-top: 14px;
-        max-width: 620px;
-      }
-
-      .stepper {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 8px;
-        margin: 22px 0;
-      }
-
-      .step {
-        min-height: 5px;
-        border-radius: 999px;
-        background: #20241d;
-      }
-
-      .step.active,
-      .step.done {
-        background: var(--green);
-      }
-
-      .panel {
-        background: transparent;
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        padding: 16px 0;
-      }
-
-      .panel + .panel {
-        margin-top: 14px;
-      }
-
-      .panel-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 10px;
-      }
-
-      .panel h3 {
-        font-size: 1rem;
-      }
-
-      .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0 12px;
-      }
-
-      .span-2 {
-        grid-column: 1 / -1;
-      }
-
-      details {
-        margin-top: 14px;
-        border-top: 1px solid var(--line);
-        padding-top: 12px;
-      }
-
-      summary {
-        color: var(--muted);
-        cursor: pointer;
-        font-weight: 750;
-      }
-
-      .actions {
-        display: flex;
-        justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
-        margin-top: 18px;
-      }
-
-      .view {
-        display: none;
-      }
-
-      .view.active {
-        display: block;
-      }
-
-      .dashboard {
-        display: none;
-        padding: 22px 0 0;
-      }
-
-      .dashboard.active {
-        display: grid;
-        grid-template-columns: 220px minmax(0, 1fr);
-        gap: 34px;
-        align-items: start;
-      }
-
-      .case-summary {
-        display: block;
-        grid-column: 1;
-        grid-row: 1;
-        position: sticky;
-        top: 18px;
-        margin: 0;
-        padding: 4px 0 16px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .case-summary h2 {
-        font-size: 1.08rem;
-        line-height: 1.15;
-        letter-spacing: 0;
-        margin-bottom: 8px;
-      }
-
-      .case-summary p,
-      .muted {
-        color: var(--muted);
-      }
-
-      .tabs {
-        display: grid;
-        gap: 6px;
-        margin: 18px 0 0;
-        grid-column: 1;
-        grid-row: 2;
-        position: sticky;
-        top: 240px;
-      }
-
-      .tab {
-        color: var(--text);
-        background: transparent;
-        border: 0;
-        border-left: 1px solid var(--line);
-        border-radius: 0;
-        min-height: 34px;
-        padding: 8px 12px;
-        text-align: left;
-      }
-
-      .tab.active {
-        background: transparent;
-        color: var(--green);
-        border-left-color: var(--green);
-      }
-
-      .tab-panel {
-        display: none;
-      }
-
-      .tab-panel.active {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 244px;
-        gap: 26px;
-        align-items: start;
-      }
-
-      .next-action {
-        display: grid;
-        gap: 14px;
-      }
-
-      .choice-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 12px;
-      }
-
-      .choice {
-        border: 0;
-        border-top: 1px solid var(--line);
-        background: transparent;
-        color: var(--text);
-        text-align: left;
-        min-height: 82px;
-      }
-
-      .choice.active {
-        border-top-color: var(--green);
-        background: #080c05;
-      }
-
-      .status-list,
-      .table {
-        display: grid;
-        gap: 8px;
-      }
-
-      .stack-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 10px;
-      }
-
-      .stack-card {
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        background: transparent;
-        padding: 12px;
-      }
-
-      .stack-card strong {
-        display: block;
-        margin-bottom: 5px;
-      }
-
-      .timeline {
-        display: grid;
-        gap: 9px;
-      }
-
-      .timeline-item {
-        border-left: 1px solid rgba(185, 255, 104, 0.55);
-        padding: 8px 0 8px 12px;
-      }
-
-      .toolbar {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-top: 12px;
-      }
-
-      .agent-chat {
-        min-height: 500px;
-        background:
-          linear-gradient(#0b0d09 1px, transparent 1px),
-          linear-gradient(90deg, rgba(185, 255, 104, 0.045) 1px, transparent 1px),
-          transparent;
-        background-size: 100% 52px;
-        border-top-color: var(--green);
-      }
-
-      .chat-window {
-        display: grid;
-        gap: 8px;
-        max-height: 430px;
-        overflow: auto;
-        padding-right: 4px;
-      }
-
-      .chat-bubble {
-        width: min(74%, 600px);
-        border: 0;
-        border-left: 1px solid var(--line);
-        border-radius: 0;
-        padding: 7px 0 7px 12px;
-        background: transparent;
-        line-height: 1.35;
-        color: #dfe7d8;
-      }
-
-      .chat-bubble.user {
-        justify-self: end;
-        background: transparent;
-        border-left: 0;
-        border-right: 1px solid var(--line);
-        padding: 7px 12px 7px 0;
-      }
-
-      .chat-bubble.agent {
-        justify-self: start;
-        border-color: rgba(185, 255, 104, 0.48);
-      }
-
-      .composer {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .agent-cards {
-        display: grid;
-        gap: 8px;
-        margin-top: 12px;
-      }
-
-      .ops-strip,
-      .sidebar-metrics,
-      .agent-context {
-        display: grid;
-        gap: 0;
-      }
-
-      .ops-strip {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        border-top: 1px solid var(--line);
-        border-bottom: 1px solid var(--line);
-      }
-
-      .metric {
-        min-height: 62px;
-        padding: 12px 10px;
-        border-right: 1px solid var(--line);
-      }
-
-      .metric:last-child {
-        border-right: 0;
-      }
-
-      .metric span {
-        display: block;
-        color: var(--muted);
-        font-size: 0.7rem;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-
-      .metric strong {
-        display: block;
-        margin-top: 5px;
-        font-size: 1.15rem;
-      }
-
-      .sidebar-metrics {
-        margin-top: 16px;
-        border-top: 1px solid var(--line);
-      }
-
-      .sidebar-metrics .status-row {
-        padding-left: 0;
-        padding-right: 0;
-      }
-
-      .agent-context {
-        border-top: 1px solid var(--line);
-      }
-
-      .agent-line {
-        display: grid;
-        grid-template-columns: 92px 1fr;
-        gap: 12px;
-        padding: 11px 0;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .agent-line span {
-        color: var(--muted);
-        font-size: 0.74rem;
-        font-weight: 800;
-        text-transform: uppercase;
-      }
-
-      .proof-details {
-        margin-top: 0;
-      }
-
-      .status-row,
-      .row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 12px;
-        align-items: center;
-        border: 0;
-        border-top: 1px solid var(--line);
-        border-radius: 0;
-        padding: 10px;
-        background: transparent;
-      }
-
-      .row strong {
-        display: block;
-        margin-bottom: 4px;
-      }
-
-      .small {
-        font-size: 0.8rem;
-      }
-
-      .empty {
-        border: 0;
-        border-top: 1px dashed var(--line);
-        border-radius: 0;
-        padding: 20px;
-        color: var(--muted);
-        background: transparent;
-      }
-
-      .side {
-        display: grid;
-        gap: 14px;
-      }
-
-      .case-drawer {
-        margin-top: 14px;
-      }
-
-      .case-list {
-        display: grid;
-        gap: 8px;
-        margin-top: 10px;
-      }
-
-      .case-button {
-        width: 100%;
-        text-align: left;
-        color: var(--text);
-        background: transparent;
-        border: 0;
-        border-top: 1px solid var(--line);
-      }
-
-      .case-button.active {
-        color: var(--green);
-      }
-
-      pre {
-        margin: 12px 0 0;
-        max-height: 260px;
-        overflow: auto;
-        white-space: pre-wrap;
-        word-break: break-word;
-        border: 1px solid var(--line);
-        border-radius: 4px;
-        padding: 12px;
-        background: #030402;
-        color: #bdf6d3;
-      }
-
-      @media (max-width: 900px) {
-        .topbar,
-        .case-summary {
-          align-items: flex-start;
-          flex-direction: column;
-        }
-
-        .tab-panel.active {
-          grid-template-columns: 1fr;
-        }
-
-        .landing-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .landing-hero {
-          min-height: auto;
-        }
-
-        .hero-image {
-          position: relative;
-          inset: auto;
-          width: auto;
-          margin: 0 18px 18px;
-        }
-
-        .landing-hero::before {
-          background: linear-gradient(180deg, rgba(7, 10, 13, 0.9), rgba(7, 10, 13, 0.45));
-        }
-
-        .choice-grid,
-        .form-grid,
-        .ops-strip,
-        .stack-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .metric {
-          border-right: 0;
-          border-bottom: 1px solid var(--line);
-        }
-      }
-
-      @media (max-width: 760px) {
-        .dashboard.active {
-          grid-template-columns: 1fr;
-          gap: 12px;
-        }
-
-        .case-summary,
-        .tabs,
-        .tab-panel.active {
-          grid-column: 1;
-          grid-row: auto;
-          position: static;
-        }
-
-        .tabs {
-          display: flex;
-          margin: 0 0 12px;
-          overflow-x: auto;
-        }
-
-        .sidebar-metrics {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          margin-top: 12px;
-        }
-
-        .sidebar-metrics .status-row {
-          display: block;
-          min-height: 54px;
-          padding: 9px 8px;
-          border-right: 1px solid var(--line);
-        }
-
-        .sidebar-metrics .status-row:last-child {
-          border-right: 0;
-        }
-
-        .sidebar-metrics .status-row span {
-          display: block;
-          font-size: 0.68rem;
-        }
-
-        .sidebar-metrics .status-row strong {
-          display: block;
-          margin-top: 5px;
-        }
-
-        .tab {
-          border-left: 0;
-          border-bottom: 1px solid var(--line);
-          white-space: nowrap;
-        }
-
-        .tab.active {
-          border-bottom-color: var(--green);
-        }
-      }
-    </style>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/Compass.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="app">
-      <header class="topbar">
-        <div class="brand">
-          <div class="mark">O</div>
-          <h1>Oblivion</h1>
-        </div>
-        <div class="nav-actions">
-          <div class="trust-strip" id="trust-strip">
-            <span class="chip warn">Vault encrypted</span>
-            <span class="chip warn">Server cannot decrypt</span>
-            <span class="chip warn">TEE checking</span>
-          </div>
-          <button class="secondary" id="open-app-nav">Open app</button>
-        </div>
-      </header>
-
+    <div class="app" id="app-root">
       <section class="landing" id="landing-region">
-        <div class="landing-hero">
-          <div class="hero-image" aria-label="Placeholder product image showing an encrypted case dashboard">
-            <div class="product-frame">
-              <div class="frame-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
-              <div class="mock-body">
-                <div class="mock-card">
-                  <div class="mock-title"></div>
-                  <div class="mock-line"></div>
-                </div>
-                <div class="visual-grid">
-                  <div class="visual-placeholder"></div>
-                  <div class="mock-card">
-                    <div class="mock-title" style="width: 72%"></div>
-                    <div class="mock-line" style="width: 92%"></div>
-                    <div class="mock-line" style="width: 62%"></div>
-                  </div>
-                </div>
-                <div class="mock-row">
-                  <div><div class="mock-title"></div><div class="mock-line"></div></div>
-                  <div class="mock-pill"></div>
-                </div>
-                <div class="mock-row">
-                  <div><div class="mock-title" style="width: 44%"></div><div class="mock-line" style="width: 84%"></div></div>
-                  <div class="mock-pill"></div>
-                </div>
+        <div class="landing-hero landing-hero-minimal">
+          <div class="cinematic-hero" aria-label="Oblivion cleanup agent">
+            <div class="landing-copy">
+              <div class="eyebrow">OBLIVION</div>
+              <h2>ERASE TRAIL</h2>
+              <div class="landing-actions">
+                <button id="open-app-hero" data-icon="play"><span class="btn-label">Start</span></button>
+                <button class="secondary icon-only" id="jump-how-it-works" data-icon="info-box" aria-label="How it works"><span class="btn-label">Info</span></button>
+                <a class="ghost landing-help-link" href="/help" data-icon="book" aria-label="User guide"><span class="btn-label">Guide</span></a>
+              </div>
+              <div class="trust-strip trust-strip-icons" id="trust-strip" aria-label="Status">
+                <span class="chip pass" data-icon="lock" title="Vault locked">Vault</span>
+                <span class="chip pass" data-icon="eye-closed" title="Server blind">Blind</span>
+                <span class="chip warn" data-icon="cast" title="Runtime">Local</span>
               </div>
             </div>
           </div>
-          <div class="landing-copy">
-            <div class="eyebrow">Private online identity cleanup</div>
-            <h2>Clean up your online identity privately.</h2>
-            <p>
-              Oblivion prepares removals, approvals, and follow-ups from an encrypted case workspace.
-            </p>
-            <div class="landing-actions">
-              <button id="open-app-hero">Start a secure cleanup</button>
-              <button class="secondary" id="jump-how-it-works">See how it works</button>
-            </div>
+        </div>
+        <div class="landing-flow" id="how-it-works" aria-label="How it works">
+          <div class="proof-card">
+            <span class="proof-icon-host" data-icon="lock" aria-hidden="true"></span>
+            <span class="proof-label">Vault</span>
+          </div>
+          <span class="flow-arrow" aria-hidden="true">›</span>
+          <div class="proof-card">
+            <span class="proof-icon-host" data-icon="search" aria-hidden="true"></span>
+            <span class="proof-label">Scout</span>
+          </div>
+          <span class="flow-arrow" aria-hidden="true">›</span>
+          <div class="proof-card">
+            <span class="proof-icon-host" data-icon="check" aria-hidden="true"></span>
+            <span class="proof-label">OK</span>
+          </div>
+          <span class="flow-arrow" aria-hidden="true">›</span>
+          <div class="proof-card">
+            <span class="proof-icon-host" data-icon="save" aria-hidden="true"></span>
+            <span class="proof-label">Log</span>
           </div>
         </div>
-
-        <div class="landing-grid" id="how-it-works">
-          <div class="proof-card">
-            <div class="proof-image" aria-label="Placeholder image for encrypted case setup"></div>
-            <h3>Encrypted case</h3>
-            <p>Start with a private workspace. Stored case data stays ciphertext.</p>
-          </div>
-          <div class="proof-card">
-            <div class="proof-image" aria-label="Placeholder image for verifiable runtime proof"></div>
-            <h3>Verifiable runtime</h3>
-            <p>Gate sensitive work on TEE attestation and pinned builds.</p>
-          </div>
-          <div class="proof-card">
-            <div class="proof-image" aria-label="Placeholder image for approval queue"></div>
-            <h3>Approval queue</h3>
-            <p>Review every disclosure before the agent takes action.</p>
-          </div>
-        </div>
+        <footer class="site-footer landing-footer" id="landing-footer">
+          <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
+          <nav class="site-footer-social" aria-label="Social links">
+            <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
+            <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
+          </nav>
+        </footer>
       </section>
 
-      <main class="workspace-shell" id="app-workspace">
-        <section class="hero active" id="onboarding-region" data-view="onboarding">
-          <div class="flow-card">
-            <div class="eyebrow">Supervised identity cleanup</div>
-            <h2>One private case.</h2>
-            <p>
-              A quiet workspace for cleanup, approvals, and rechecks.
-            </p>
-
-            <div class="stepper" aria-hidden="true">
-              <div class="step active"></div>
-              <div class="step"></div>
-              <div class="step"></div>
-              <div class="step"></div>
-              <div class="step"></div>
+      <div class="app-chrome" id="app-chrome" hidden>
+        <div class="app-main-column">
+          <header class="app-toolbar workspace-header" id="workspace-header">
+            <div class="app-toolbar-group app-toolbar-start">
+              <button type="button" class="app-toolbar-brand" id="toolbar-home" data-testid="toolbar-home" aria-label="Back to home">OBLIVION</button>
             </div>
+            <div class="app-toolbar-group app-toolbar-center" id="toolbar-case-meta" hidden>
+              <span class="app-toolbar-step" id="toolbar-step-label"></span>
+            </div>
+            <div class="app-toolbar-group app-toolbar-end wallet-command-strip workspace-wallet-bar" id="wallet-command-strip" data-testid="wallet-command-strip">
+              <button type="button" class="secondary compact wallet-connect-btn" id="connect-wallet-primary" data-testid="connect-wallet-primary" data-connect-wallet data-icon="wallet"><span class="btn-label">Connect wallet</span></button>
+              <button type="button" class="ghost compact icon-only" id="disconnect-wallet-strip" data-testid="disconnect-wallet-strip" data-icon="close" aria-label="Disconnect wallet" hidden><span class="btn-label">Logout</span></button>
+            </div>
+            <p class="visually-hidden wallet-connect-feedback" id="wallet-feedback-primary" data-wallet-feedback role="status" aria-live="polite"></p>
+            <button type="button" id="open-app-nav" hidden aria-hidden="true"><span class="btn-label">Open</span></button>
+          </header>
 
-            <div class="panel">
-              <div class="panel-header">
-                <h3>Create encrypted case</h3>
-                <span class="pill">Step 1 of 5</span>
+          <main class="workspace-shell" id="app-workspace">
+        <section class="hero" id="onboarding-region" data-view="onboarding">
+          <div class="flow-card onboarding-grid onboarding-compact">
+            <div class="onboarding-forms">
+            <div class="panel console-panel simple-intake-panel" data-testid="onboarding-agent-panel">
+              <div class="panel-header panel-header-minimal">
+                <h3 data-icon="user" data-icon-pos="start">Your cleanup</h3>
               </div>
-              <label for="person-label">Case label</label>
-              <input id="person-label" placeholder="Initials or pseudonym" />
-              <label for="jurisdiction">Jurisdiction</label>
-              <select id="jurisdiction">
-                <option>US</option>
-                <option>EU</option>
-                <option>UK</option>
-              </select>
-              <label for="intake">Private intake</label>
-              <textarea id="intake" placeholder="What do you want cleaned up? Keep it brief; this is encrypted before upload."></textarea>
-              <details>
-                <summary>Advanced case settings</summary>
+              <p class="simple-intake-lead muted">Name and template — we handle the rest until you approve.</p>
+              <div class="simple-intake-grid">
+                <label class="simple-field">
+                  <span>Your name</span>
+                  <input id="simple-name" data-testid="simple-name" type="text" autocomplete="name" placeholder="John Smith" />
+                </label>
+                <label class="simple-field">
+                  <span>Also known as <em class="muted">(optional)</em></span>
+                  <input id="simple-alias" data-testid="simple-alias" type="text" placeholder="J. Smith" />
+                </label>
+                <label class="simple-field">
+                  <span>State or region <em class="muted">(optional)</em></span>
+                  <input id="simple-region" data-testid="simple-region" type="text" placeholder="New York" />
+                </label>
+              </div>
+              <div class="simple-preset-row" id="simple-preset-row" aria-label="Cleanup template">
+                <button type="button" class="preset-chip active" data-preset-id="people-search-cleanup" data-testid="preset-people">People-search</button>
+                <button type="button" class="preset-chip" data-preset-id="search-result-suppression" data-testid="preset-google">Google</button>
+                <button type="button" class="preset-chip" data-preset-id="gdpr-erasure" data-testid="preset-gdpr">GDPR</button>
+                <button type="button" class="preset-chip" data-preset-id="high-risk-safety" data-testid="preset-safety">Safety</button>
+              </div>
+              <label class="simple-field simple-field-optional">
+                <span>Profile links you already have <em class="muted">(optional)</em></span>
+                <textarea id="simple-urls" data-testid="simple-urls" rows="2" placeholder="Paste one broker URL per line"></textarea>
+              </label>
+              <button type="button" id="start-cleanup" data-testid="start-cleanup" data-icon="play"><span class="btn-label">Start cleanup</span></button>
+              <p class="muted small simple-status" id="simple-start-status" aria-live="polite"></p>
+              <textarea id="agent-intake" hidden aria-hidden="true"></textarea>
+              <textarea id="intake" hidden aria-hidden="true"></textarea>
+              <input id="person-label" type="hidden" aria-hidden="true" />
+              <details class="unlock-advanced" id="unlock-advanced">
+                <summary data-icon="sliders">Advanced settings</summary>
+                <label for="jurisdiction">Jurisdiction</label>
+                <select id="jurisdiction">
+                  <option>US</option>
+                  <option>EU</option>
+                  <option>UK</option>
+                </select>
                 <div class="form-grid">
                   <div>
                     <label for="authority">Authority</label>
@@ -1092,88 +143,101 @@
                     </select>
                   </div>
                 </div>
+                <label class="checkbox-row"><input type="checkbox" id="show-advanced-ui" /> Show technical panels</label>
+                <label class="checkbox-row"><input type="checkbox" id="high-autonomy-toggle" /> High autonomy (batch approvals)</label>
+                <p class="muted small">Wallet connection lives in the header bar.</p>
+                <p class="wallet-connect-feedback muted visually-hidden" id="wallet-feedback-onboarding" aria-live="polite"></p>
+                <div class="case-list" id="case-list"></div>
               </details>
-              <div class="actions">
-                <button id="create-case">Start encrypted case</button>
-                <button class="secondary" id="refresh-dashboard">Refresh</button>
-              </div>
             </div>
-
-            <details class="case-drawer" id="existing-cases-drawer">
-              <summary>Existing local cases</summary>
-              <div class="case-list" id="case-list"></div>
-            </details>
+            <div class="status-list visually-hidden" id="onboarding-wallet-status" aria-hidden="true"></div>
+            </div>
           </div>
         </section>
 
         <section class="dashboard" id="dashboard-region">
-          <div class="case-summary">
-            <div>
+          <header class="case-command-bar" data-testid="case-command-bar">
+            <div class="case-command-primary">
               <div class="eyebrow" id="current-step-label">Step 2 of 5</div>
-              <h2 id="case-heading">Case workspace</h2>
-              <p id="case-subtitle">Agent-controlled cleanup queue.</p>
+              <h2 id="case-heading">Case</h2>
+              <p class="case-subtitle muted small" id="case-subtitle" hidden></p>
             </div>
-            <div class="sidebar-metrics" id="case-glance"></div>
-            <button class="secondary" id="new-case">New case</button>
-          </div>
+            <div class="case-command-metrics sidebar-metrics" id="case-glance"></div>
+            <div class="case-command-actions">
+              <span class="pill" id="command-tee-status">Local mode</span>
+              <button class="secondary" id="new-case">New case</button>
+            </div>
+          </header>
 
-          <div class="tabs">
-            <button class="tab active" data-tab="overview">Overview</button>
-            <button class="tab" data-tab="tasks">Tasks</button>
-            <button class="tab" data-tab="payments">Pay</button>
-            <button class="tab" data-tab="network">Network</button>
-            <button class="tab" data-tab="approvals">Approvals</button>
-            <button class="tab" data-tab="relayer">Relay</button>
-            <button class="tab" data-tab="vault">Vault</button>
-            <button class="tab" data-tab="history">Log</button>
-          </div>
+          <section class="guide-rail guide-rail-minimal" id="user-guide" data-testid="user-guide" aria-label="Progress">
+            <p class="guide-rail-hint" id="guide-lead"></p>
+            <div class="guide-rail-actions">
+              <button type="button" id="guide-primary-action" data-testid="guide-primary-action" data-icon="arrow-right"><span class="btn-label">Continue</span></button>
+              <button type="button" class="ghost compact icon-only advanced-only" id="toggle-advanced-tabs" data-icon="menu" aria-label="More tabs" hidden><span class="btn-label">Tabs</span></button>
+            </div>
+            <ol class="guide-dots visually-hidden" id="guide-steps" aria-hidden="true"></ol>
+          </section>
 
-          <div class="tab-panel active" id="tab-overview">
-            <div class="next-action">
-              <div class="panel agent-chat">
+          <nav class="tabs tabs-horizontal" role="tablist" aria-label="Case workspace">
+            <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">OVR</span></button>
+            <button class="tab tab-essential tab-route" type="button" role="tab" data-tab="tasks" hidden data-icon="pin"><span class="tab-label">RTE</span></button>
+            <button class="tab tab-essential" type="button" role="tab" data-tab="approvals" data-icon="check"><span class="tab-label">APR</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="vault" hidden data-icon="archive"><span class="tab-label">VLT</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="history" hidden data-icon="list"><span class="tab-label">LOG</span></button>
+            <button class="tab tab-advanced" type="button" role="tab" data-tab="settings" hidden data-icon="sliders"><span class="tab-label">SET</span></button>
+          </nav>
+
+          <div class="console-stage" data-testid="console-stage">
+          <div class="tab-panel active" id="tab-overview" role="tabpanel">
+            <div class="tab-panel-main">
+              <div class="console-panel cleanup-progress-panel">
+                <div class="cleanup-progress" id="cleanup-progress" aria-live="polite"></div>
+              </div>
+              <div class="console-panel workflow-panel" id="workflow-panel" hidden>
+                <div class="panel-header panel-header-minimal">
+                  <h3 data-icon="cast" data-icon-pos="start">Workflow</h3>
+                </div>
+                <div class="workflow-canvas workflow-stage" id="workflow-canvas" data-visual="/assets/workflow-nodes.webp" aria-label="Cleanup workflow steps"></div>
+                <div class="plan-summary advanced-only" id="plan-summary" hidden></div>
+              </div>
+              <div class="console-panel findings-panel" id="findings-panel" data-testid="findings-panel">
                 <div class="panel-header">
-                  <h3>Oblivion</h3>
-                  <span class="pill" id="agent-mode-pill">Supervised</span>
+                  <h3>Is this you?</h3>
+                  <span class="pill" id="findings-count-pill">0</span>
                 </div>
-                <div class="chat-window" id="agent-chat-log"></div>
-                <div class="agent-cards" id="agent-action-cards"></div>
-                <div class="composer">
-                  <input id="agent-input" placeholder="Message Oblivion" />
-                  <button id="agent-send">Ask</button>
-                </div>
-                <div class="toolbar">
-                  <button id="agent-autopilot">Run cleanup</button>
-                  <button class="secondary" id="agent-run-next">Next</button>
-                  <button class="ghost" id="agent-open-proof">Proof</button>
+                <p class="muted small findings-hint" id="findings-hint">Yes = yours · Not me = skip</p>
+                <details class="findings-paste" id="findings-paste-details">
+                  <summary data-icon="link">Add more links</summary>
+                  <textarea id="findings-paste-input" rows="2" placeholder="One URL per line"></textarea>
+                  <div class="toolbar">
+                    <button type="button" id="findings-discover" data-icon="search" data-testid="findings-discover">Search again</button>
+                  </div>
+                </details>
+                <div class="findings-list" id="findings-list" data-testid="findings-list"></div>
+                <div class="findings-queue" id="removal-queue" hidden>
+                  <h4 class="findings-queue-title">Removal queue</h4>
+                  <div id="removal-queue-list"></div>
                 </div>
               </div>
-              <div class="ops-strip" id="ops-strip"></div>
-              <div class="agent-context" id="agent-context"></div>
-              <details class="proof-details">
-                <summary>Proof matrix</summary>
-                <div class="status-list" id="hackathon-checklist"></div>
-              </details>
+              <div class="console-band console-band-split advanced-only" id="console-band-advanced" hidden>
+                <div class="ops-strip" id="ops-strip"></div>
+                <div class="agent-context" id="agent-context"></div>
+              </div>
             </div>
-            <aside class="side">
+            <aside class="side inspector-stack advanced-only" id="inspector-stack" hidden>
               <div class="panel">
                 <div class="panel-header">
                   <h3>Runtime</h3>
-                  <span class="pill" id="tee-status">checking</span>
+                  <span class="pill" id="tee-status">Local mode</span>
                 </div>
-                <div class="status-list" id="trust-details"></div>
-                <details data-advanced="trust">
-                  <summary>Attestation details</summary>
-                  <pre id="trust-output">Checking...</pre>
-                </details>
+                <div class="status-list" id="runtime-summary"></div>
               </div>
               <div class="panel">
                 <div class="panel-header">
                   <h3>Mode</h3>
                   <span class="pill" id="next-action-pill">Trust</span>
                 </div>
-                <p class="muted small" id="next-action-copy">
-                  Managed execution waits for TEE pass.
-                </p>
+                <p class="muted small" id="next-action-copy">Local mode by default.</p>
                 <div class="toolbar">
                   <button class="secondary" id="continue-flow">Task setup</button>
                   <button class="ghost" id="local-safe-mode">Local</button>
@@ -1182,32 +246,41 @@
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-tasks">
-            <div class="panel">
+          <div class="tab-panel" id="tab-tasks" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel console-panel">
               <div class="panel-header">
-                <h3>Choose one task</h3>
-                <span class="pill">Step 3</span>
+                <h3>Choose cleanup preset</h3>
+                <span class="pill">Autopilot route</span>
               </div>
-              <div class="choice-grid">
-                <button class="choice active" data-action-choice="broker-opt-out">Broker opt-out<br /><span class="muted small">Remove a people-search profile.</span></button>
-                <button class="choice" data-action-choice="search-result-removal">Search result<br /><span class="muted small">Suppress eligible search results.</span></button>
-                <button class="choice" data-action-choice="gdpr-erasure">GDPR/UK request<br /><span class="muted small">Prepare erasure request.</span></button>
-              </div>
-              <label for="destination">Destination</label>
-              <input id="destination" placeholder="Broker, controller, or search engine" />
-              <label for="purpose">Purpose</label>
-              <input id="purpose" placeholder="Remove exposed profile or suppress result" />
+              <div class="preset-grid" id="preset-grid"></div>
               <details>
-                <summary>Approval guards</summary>
-                <label><input id="source-verified" type="checkbox" checked style="width:auto;min-height:0" /> Official source checked</label>
-                <label><input id="require-trust" type="checkbox" checked style="width:auto;min-height:0" /> Require passing TEE attestation</label>
+                <summary>Route details</summary>
+                <div class="status-list" id="route-details"></div>
+              </details>
+              <p class="muted small autonomy-row">High autonomy is in Advanced settings on the start form.</p>
+              <details>
+                <summary>Manual approval builder</summary>
+                <div class="choice-grid">
+                  <button class="choice active" data-action-choice="broker-opt-out">Broker opt-out<br /><span class="muted small">Remove a people-search profile.</span></button>
+                  <button class="choice" data-action-choice="search-result-removal">Search result<br /><span class="muted small">Suppress eligible search results.</span></button>
+                  <button class="choice" data-action-choice="gdpr-erasure">GDPR/UK request<br /><span class="muted small">Prepare erasure request.</span></button>
+                </div>
+                <label for="destination">Destination</label>
+                <input id="destination" placeholder="Broker, controller, or search engine" />
+                <label for="purpose">Purpose</label>
+                <input id="purpose" placeholder="Remove exposed profile or suppress result" />
+                <label class="inline-toggle"><input id="source-verified" type="checkbox" checked /> Official source checked</label>
+                <label class="inline-toggle"><input id="require-trust" type="checkbox" checked /> Require passing TEE attestation</label>
               </details>
               <div class="actions">
-                <button id="propose-action">Prepare approval</button>
+                <button id="start-preset">Start recommended route</button>
+                <button class="secondary" id="propose-action">Prepare manual approval</button>
               </div>
             </div>
-            <aside class="side">
-              <div class="panel">
+            </div>
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
                 <h3>Local-safe path</h3>
                 <p class="muted small">
                   If TEE is not passing, Oblivion can still organize drafts locally, but sensitive identifiers should not be sent to the managed runtime.
@@ -1216,92 +289,99 @@
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-payments">
-            <div class="panel">
+          <div class="tab-panel" id="tab-settings" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel console-panel settings-wide">
               <div class="panel-header">
-                <h3>MetaMask and x402 payments</h3>
-                <span class="pill">ERC-7710 / ERC-7715</span>
+                <h3>Settings</h3>
+                <span class="pill">Advanced</span>
               </div>
-              <div class="status-list" id="wallet-status"></div>
-              <div class="toolbar">
-                <button id="connect-wallet">Connect MetaMask</button>
-                <button class="secondary" id="create-smart-account">Create Smart Account</button>
+              <div class="settings-block trust-proof-block">
+                <h4>Privacy</h4>
+                <div
+                  class="attestation-visual"
+                  role="img"
+                  aria-label="Abstract constellation of attestation checks: TEE quote, compose hash, pinned digests, fresh attestation"
+                ></div>
+                <div class="status-list" id="trust-details"></div>
               </div>
-              <div class="stack-grid" id="product-list"></div>
-              <div class="toolbar">
-                <button id="one-off-pay">Prepare one-off x402</button>
-                <button class="secondary" id="subscription-pay">Prepare weekly subscription</button>
+              <div class="settings-block">
+                <h4>Runtime proof</h4>
+                <details data-advanced="trust">
+                  <summary>Show attestation details</summary>
+                  <pre id="trust-output">Checking...</pre>
+                </details>
               </div>
-              <div class="table" id="payments-table"></div>
+              <div class="settings-block" id="wallet-hub" data-testid="wallet-hub">
+                <h4>Payments &amp; MetaMask Smart Account</h4>
+                <p class="wallet-connect-feedback fail" data-wallet-feedback-secondary role="status" aria-live="polite" hidden></p>
+                <div class="status-list" id="wallet-status"></div>
+                <div class="toolbar wallet-hub-toolbar">
+                  <button type="button" id="connect-wallet" data-connect-wallet data-icon="wallet">Connect wallet</button>
+                  <button type="button" id="disconnect-wallet" data-testid="disconnect-wallet" class="secondary" data-icon="close">Disconnect</button>
+                  <button type="button" class="secondary" id="upgrade-metamask-live" hidden>Upgrade (Sepolia)</button>
+                </div>
+                <p class="muted small" id="wallet-live-hint"></p>
+                <details class="wallet-debug-panel advanced-only">
+                  <summary>Wallet log</summary>
+                  <pre id="wallet-debug-log" class="wallet-debug-log"></pre>
+                </details>
+                <div class="stack-grid" id="product-list"></div>
+                <div class="toolbar">
+                  <button id="one-off-pay">Prepare one-off x402</button>
+                  <button class="secondary" id="subscription-pay">Prepare weekly subscription</button>
+                </div>
+                <div class="table" id="payments-table"></div>
+              </div>
+              <div class="settings-block">
+                <h4>Developer details</h4>
+                <div class="status-list" id="hackathon-checklist"></div>
+                <div class="toolbar">
+                  <button id="classify-case">Venice classify</button>
+                  <button class="secondary" id="draft-request">Venice draft</button>
+                  <button class="secondary" id="review-approval">Review approval</button>
+                  <button class="secondary" id="delegate-agents">Delegate sub-agents</button>
+                  <button class="secondary" id="relay-demo">Relay latest payment</button>
+                </div>
+                <div class="timeline" id="agent-timeline"></div>
+                <div class="table" id="relayer-table"></div>
+              </div>
             </div>
-            <aside class="side">
-              <div class="panel">
-                <h3>Permission rule</h3>
-                <p class="muted small">Payment permissions are case-bound, capped, expiring, and scoped to x402 endpoints. Demo adapters are used until live sponsor credentials are configured.</p>
+            </div>
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
+                <h3>Advanced proof</h3>
+                <p class="muted small">Normal cleanup stays focused on presets and approvals. Runtime proof, A2A redelegation, 1Shot relayer status, payment demos, and developer instrumentation remain here for auditability.</p>
               </div>
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-network">
-            <div class="panel">
-              <div class="panel-header">
-                <h3>Agent coordination</h3>
-                <span class="pill">A2A redelegation</span>
+          <div class="tab-panel" id="tab-approvals" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel panel-with-visual approval-panel console-panel">
+              <div class="panel-visual approval-visual" aria-hidden="true"></div>
+              <div class="panel-body">
+                <div class="panel-header">
+                  <h3>Review approval</h3>
+                  <span class="pill">Step 4</span>
+                </div>
+                <div class="table" id="approval-table"></div>
               </div>
-              <div class="toolbar">
-                <button id="classify-case">Venice classify</button>
-                <button class="secondary" id="draft-request">Venice draft</button>
-                <button class="secondary" id="review-approval">Review approval</button>
-                <button class="secondary" id="delegate-agents">Delegate sub-agents</button>
-              </div>
-              <div class="timeline" id="agent-timeline"></div>
             </div>
-            <aside class="side">
-              <div class="panel">
-                <h3>Minimum data</h3>
-                <p class="muted small">Scout, Draft, Verifier, and Payment agents receive only the categories required for their delegated task. Raw case data stays encrypted or inside an approved TEE payload.</p>
-              </div>
-            </aside>
-          </div>
-
-          <div class="tab-panel" id="tab-relayer">
-            <div class="panel">
-              <div class="panel-header">
-                <h3>1Shot relayer status</h3>
-                <span class="pill">7702 / 7710</span>
-              </div>
-              <p class="muted small">Use this panel in the demo to show transaction relay state. Production mode should replace the demo relay with signed 1Shot API calls and webhook verification.</p>
-              <div class="toolbar">
-                <button id="relay-demo">Relay latest payment</button>
-              </div>
-              <div class="table" id="relayer-table"></div>
             </div>
-            <aside class="side">
-              <div class="panel">
-                <h3>Status source</h3>
-                <p class="muted small">Webhook events are stored as case timeline records and can be cross-checked with transaction hashes.</p>
-              </div>
-            </aside>
-          </div>
-
-          <div class="tab-panel" id="tab-approvals">
-            <div class="panel">
-              <div class="panel-header">
-                <h3>Review approval</h3>
-                <span class="pill">Step 4</span>
-              </div>
-              <div class="table" id="approval-table"></div>
-            </div>
-            <aside class="side">
-              <div class="panel">
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
                 <h3>Before approval</h3>
                 <p class="muted small">Confirm destination, data categories, purpose, and third-party disclosure risk.</p>
               </div>
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-vault">
-            <div class="panel">
+          <div class="tab-panel" id="tab-vault" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel panel-with-visual vault-panel console-panel">
+              <div class="panel-visual clean-slate-visual" aria-hidden="true"></div>
+              <div class="panel-body">
               <div class="panel-header">
                 <h3>Vault</h3>
                 <span class="pill">Advanced</span>
@@ -1312,25 +392,29 @@
                 <button id="export">Export encrypted case</button>
                 <button class="danger" id="delete">Delete case</button>
               </div>
+              </div>
             </div>
-            <aside class="side">
-              <div class="panel">
+            </div>
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
                 <h3>Storage rule</h3>
                 <p class="muted small">Only redacted summaries and selected case ID are kept in browser storage. The raw vault key stays in memory.</p>
               </div>
             </aside>
           </div>
 
-          <div class="tab-panel" id="tab-history">
-            <div class="panel">
+          <div class="tab-panel" id="tab-history" role="tabpanel">
+            <div class="tab-panel-main">
+            <div class="panel console-panel">
               <div class="panel-header">
                 <h3>Tracking</h3>
                 <span class="pill">Step 5</span>
               </div>
               <div class="table" id="action-table"></div>
             </div>
-            <aside class="side">
-              <div class="panel">
+            </div>
+            <aside class="side inspector-stack">
+              <div class="panel console-panel">
                 <h3>Event log</h3>
                 <details data-advanced="log">
                   <summary>Show raw event output</summary>
@@ -1339,959 +423,60 @@
               </div>
             </aside>
           </div>
+          </div>
         </section>
-      </main>
+          </main>
+          <footer class="site-footer workspace-footer" id="workspace-footer">
+            <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
+            <nav class="site-footer-social" aria-label="Social links">
+              <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
+              <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
+            </nav>
+          </footer>
+        </div>
+
+        <aside class="app-agent-column" id="app-agent-column" aria-label="Agent chat">
+          <aside class="agent-dock" id="agent-dock" role="complementary">
+            <header class="agent-dock-head agent-dock-header">
+              <strong class="agent-dock-title">Agent</strong>
+              <button type="button" class="ghost icon-only agent-dock-collapse" id="agent-dock-collapse" data-icon="minus" data-testid="dock-collapse" aria-label="Hide agent panel" aria-expanded="true"><span class="btn-label">Hide</span></button>
+            </header>
+
+            <div class="agent-chat-body">
+              <p class="agent-dock-brief" id="agent-dock-brief" role="status"></p>
+              <div class="agent-template-panel" id="agent-template-panel">
+                <p class="agent-template-label muted small">Templates</p>
+                <div class="agent-preset-starters" id="agent-preset-starters" role="group" aria-label="Cleanup templates"></div>
+              </div>
+              <div class="agent-chat-log chat-window" id="agent-chat-log" role="log" aria-live="polite" aria-relevant="additions"></div>
+              <div class="agent-cards" id="agent-action-cards"></div>
+            </div>
+
+            <footer class="agent-chat-footer">
+              <div class="agent-suggestion-strip" id="agent-suggestion-strip" data-testid="agent-suggestion-strip" aria-label="Quick phrases"></div>
+              <div id="agent-live" aria-live="polite" class="visually-hidden"></div>
+              <details class="agent-more advanced-only">
+                <summary>More controls</summary>
+                <div class="agent-quick-actions" id="agent-quick-actions">
+                  <button id="agent-start-recommended" hidden>Start</button>
+                  <button class="secondary" id="agent-run-next" hidden>Run</button>
+                  <button class="secondary" id="agent-review-approval" hidden>Approve</button>
+                  <button class="ghost" id="agent-explain-disclosure" hidden>Explain</button>
+                </div>
+                <div class="agent-suggestions" id="agent-suggestions"></div>
+              </details>
+              <button type="button" class="visually-hidden" id="agent-do-next" data-testid="agent-do-next" tabindex="-1" aria-hidden="true"><span class="btn-label">Next</span></button>
+              <div class="composer agent-composer">
+                <input id="agent-input" placeholder="Message the agent…" aria-label="Agent message" />
+                <button id="agent-send" class="icon-only" data-icon="arrow-right" aria-label="Send"><span class="btn-label">Send</span></button>
+              </div>
+            </footer>
+          </aside>
+          <button type="button" class="agent-dock-toggle" id="agent-dock-toggle" data-testid="agent-dock-toggle" data-icon="message" hidden aria-label="Show agent panel"><span class="btn-label">Agent</span></button>
+        </aside>
+      </div>
     </div>
 
-    <script type="module">
-      const state = {
-        cases: [],
-        currentCaseId: localStorage.getItem("oblivion.currentCaseId") || "",
-        currentStatus: null,
-        vaultKey: null,
-        trustProof: null,
-        privacy: null,
-        products: [],
-        hackathon: null,
-        hackathonStatus: null,
-        agentNext: null,
-        chatMessages: [
-          {
-            role: "agent",
-            text: "Send a case. I run the cleanup stack and stop before disclosure."
-          }
-        ],
-        walletAddress: "",
-        smartAccountAddress: "",
-        appOpen: location.hash === "#app",
-        tab: "overview",
-        actionType: "broker-opt-out"
-      };
-
-      const $ = (selector) => document.querySelector(selector);
-      const output = $("#output");
-
-      function write(value) {
-        output.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-        if (value?.caseStatus) {
-          state.currentStatus = value.caseStatus;
-          renderDashboard();
-          renderAgentChat();
-          renderApprovals();
-          renderActions();
-        }
-      }
-
-      function bytesToBase64(bytes) {
-        let binary = "";
-        bytes.forEach((byte) => {
-          binary += String.fromCharCode(byte);
-        });
-        return btoa(binary);
-      }
-
-      async function request(path, options = {}) {
-        const response = await fetch(path, {
-          method: options.method || "GET",
-          headers: options.body ? { "content-type": "application/json" } : undefined,
-          body: options.body ? JSON.stringify(options.body) : undefined
-        });
-        const json = await response.json();
-        if (!response.ok) throw json;
-        return json;
-      }
-
-      async function createVaultKey() {
-        const raw = crypto.getRandomValues(new Uint8Array(32));
-        const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
-        return { id: crypto.randomUUID(), raw, key };
-      }
-
-      async function encryptPayload(payload, aad) {
-        if (!state.vaultKey) state.vaultKey = await createVaultKey();
-        const nonce = crypto.getRandomValues(new Uint8Array(12));
-        const encoded = new TextEncoder().encode(JSON.stringify(payload));
-        const ciphertext = await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv: nonce, additionalData: new TextEncoder().encode(aad) },
-          state.vaultKey.key,
-          encoded
-        );
-        return {
-          alg: "AES-256-GCM",
-          keyId: state.vaultKey.id,
-          nonce: bytesToBase64(nonce),
-          ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
-          aad
-        };
-      }
-
-      async function wrapVaultKey(passphrase) {
-        if (!state.vaultKey) throw { error: "vault-key-missing", message: "Open or create a case first." };
-        if (passphrase.length < 12) throw { error: "passphrase-too-short", message: "Use at least 12 characters." };
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const nonce = crypto.getRandomValues(new Uint8Array(12));
-        const passphraseKey = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(passphrase),
-          "PBKDF2",
-          false,
-          ["deriveKey"]
-        );
-        const wrappingKey = await crypto.subtle.deriveKey(
-          { name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" },
-          passphraseKey,
-          { name: "AES-GCM", length: 256 },
-          false,
-          ["encrypt"]
-        );
-        const wrapped = await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv: nonce, additionalData: new TextEncoder().encode(state.vaultKey.id) },
-          wrappingKey,
-          state.vaultKey.raw
-        );
-        return {
-          alg: "PBKDF2-SHA256+A256GCM",
-          keyId: state.vaultKey.id,
-          kdfSalt: bytesToBase64(salt),
-          kdfIterations: 310000,
-          nonce: bytesToBase64(nonce),
-          wrappedKey: bytesToBase64(new Uint8Array(wrapped))
-        };
-      }
-
-      function pillClass(value) {
-        if (value === true || value === "pass" || value === "used" || value === "ready") return "pill pass";
-        if (value === false || value === "fail" || value === "blocked") return "pill fail";
-        return "pill warn";
-      }
-
-      function chipClass(value) {
-        return pillClass(value).replace("pill", "chip");
-      }
-
-      function yesNo(value) {
-        if (value === true) return "yes";
-        if (value === false) return "no";
-        return "unknown";
-      }
-
-      function escapeHtml(value) {
-        return String(value)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function saveLocalCases() {
-        const summaries = state.cases.map((item) => ({
-          id: item.id,
-          jurisdiction: item.jurisdiction,
-          riskLevel: item.riskLevel,
-          authorityBasis: item.authorityBasis,
-          redactedScope: item.redactedScope,
-          updatedAt: item.updatedAt
-        }));
-        localStorage.setItem("oblivion.caseSummaries", JSON.stringify(summaries));
-        if (state.currentCaseId) localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
-      }
-
-      function loadLocalCases() {
-        try {
-          return JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
-        } catch {
-          return [];
-        }
-      }
-
-      async function refreshTrust() {
-        const [proof, privacy] = await Promise.all([
-          request("/api/trust/attestation"),
-          request("/api/trust/privacy")
-        ]);
-        state.trustProof = proof;
-        state.privacy = privacy;
-        renderTrust();
-        return proof;
-      }
-
-      async function refreshCases() {
-        const localCases = loadLocalCases();
-        try {
-          const remote = await request("/api/cases");
-          const byId = new Map(localCases.map((item) => [item.id, item]));
-          for (const item of remote.cases) byId.set(item.id, item);
-          state.cases = [...byId.values()];
-          if (!state.currentCaseId && state.appOpen && state.cases.length > 0) {
-            state.currentCaseId = state.cases[0].id;
-            localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
-          }
-          saveLocalCases();
-        } catch {
-          state.cases = localCases;
-        }
-        if (state.currentCaseId) await loadCase(state.currentCaseId, { silent: true });
-        await refreshHackathon({ silent: true }).catch(() => {});
-        render();
-      }
-
-      async function loadCase(caseId, options = {}) {
-        state.currentCaseId = caseId;
-        localStorage.setItem("oblivion.currentCaseId", caseId);
-        try {
-          const loaded = await request(`/api/cases/${caseId}`);
-          state.currentStatus = loaded.status;
-          const index = state.cases.findIndex((item) => item.id === caseId);
-          const summary = { ...loaded.case, status: loaded.status };
-          if (index >= 0) state.cases[index] = summary;
-          else state.cases.unshift(summary);
-          saveLocalCases();
-          if (!options.silent) write(loaded);
-          await refreshHackathon({ silent: true }).catch(() => {});
-        } catch (error) {
-          state.currentStatus = null;
-          if (error?.error === "case-not-found") {
-            state.cases = state.cases.filter((item) => item.id !== caseId);
-            state.currentCaseId = "";
-            localStorage.removeItem("oblivion.currentCaseId");
-            saveLocalCases();
-            const replacement = state.appOpen ? state.cases[0] : null;
-            if (replacement) {
-              await loadCase(replacement.id, { silent: options.silent });
-              return;
-            }
-          }
-          if (!options.silent) write(error);
-        }
-        render();
-      }
-
-      function currentCase() {
-        return state.cases.find((item) => item.id === state.currentCaseId) || null;
-      }
-
-      function renderTrust() {
-        const proof = state.trustProof;
-        const privacy = state.privacy;
-        if (!proof || !privacy) return;
-        $("#trust-strip").innerHTML = `
-          <span class="chip pass">Vault encrypted</span>
-          <span class="${chipClass(!privacy.serverCanDecryptCaseVault)}">Server cannot decrypt</span>
-          <span class="${chipClass(proof.verifierResult)}">TEE ${proof.verifierResult}</span>
-        `;
-        $("#tee-status").className = pillClass(proof.verifierResult);
-        $("#tee-status").textContent = proof.verifierResult;
-        $("#trust-details").innerHTML = `
-          <div class="status-row"><span>TEE quote</span><strong>${yesNo(proof.hardwareQuoteVerified)}</strong></div>
-          <div class="status-row"><span>Compose hash</span><strong>${yesNo(proof.composeHashMatches)}</strong></div>
-          <div class="status-row"><span>Image digests</span><strong>${yesNo(proof.imageDigestsPinned)}</strong></div>
-          <div class="status-row"><span>Server can decrypt vault</span><strong>${yesNo(privacy.serverCanDecryptCaseVault)}</strong></div>
-        `;
-        $("#trust-output").textContent = JSON.stringify({ proof, privacy }, null, 2);
-      }
-
-      function renderCases() {
-        const list = $("#case-list");
-        if (state.cases.length === 0) {
-          list.innerHTML = `<div class="empty">No local case summaries yet.</div>`;
-          return;
-        }
-        list.innerHTML = state.cases.map((item) => {
-          const label = item.redactedScope?.personLabel || item.id.slice(0, 14);
-          const active = item.id === state.currentCaseId ? " active" : "";
-          return `
-            <button class="case-button${active}" data-case-id="${item.id}">
-              <strong>${escapeHtml(label)}</strong><br />
-              <span class="muted small">${item.jurisdiction} · ${item.riskLevel}</span>
-            </button>
-          `;
-        }).join("");
-        document.querySelectorAll("[data-case-id]").forEach((button) => {
-          button.addEventListener("click", () => loadCase(button.dataset.caseId));
-        });
-      }
-
-      function renderShell() {
-        const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
-        $("#landing-region").classList.toggle("hidden", state.appOpen);
-        $("#app-workspace").classList.toggle("active", state.appOpen);
-        $("#onboarding-region").classList.toggle("active", state.appOpen && !hasCase);
-        $("#dashboard-region").classList.toggle("active", state.appOpen && hasCase);
-        $("#existing-cases-drawer").style.display = state.cases.length > 0 ? "block" : "none";
-      }
-
-      function renderDashboard() {
-        const caseRecord = currentCase();
-        const status = state.currentStatus;
-        if (!caseRecord) return;
-        const label = caseRecord.redactedScope?.personLabel || "Private case";
-        $("#case-heading").textContent = label;
-        $("#case-subtitle").textContent = `${caseRecord.jurisdiction} · ${caseRecord.riskLevel}`;
-
-        const approvals = status?.approvalsNeeded?.length || 0;
-        const ready = status?.actionsReady?.length || 0;
-        const submitted = status?.submittedActions?.length || 0;
-        const findings = status?.findings?.length || 0;
-        const trustPass = state.trustProof?.verifierResult === "pass";
-        const next = approvals > 0 ? "Approve" : ready > 0 ? "Record" : trustPass ? "Task" : "Runtime";
-        $("#current-step-label").textContent = approvals > 0 ? "Step 4 of 5" : ready > 0 || submitted > 0 ? "Step 5 of 5" : trustPass ? "Step 3 of 5" : "Step 2 of 5";
-        $("#next-action-pill").textContent = approvals > 0 ? "Approval" : ready > 0 ? "Tracking" : trustPass ? "Task" : "Trust";
-        $("#next-action-copy").textContent = trustPass
-          ? "Autopilot can prepare work. External disclosure still requires approval."
-          : "Managed execution waits for TEE pass.";
-        $("#case-glance").innerHTML = `
-          <div class="status-row"><span>Approvals</span><strong>${approvals}</strong></div>
-          <div class="status-row"><span>Ready</span><strong>${ready}</strong></div>
-          <div class="status-row"><span>Recorded</span><strong>${submitted}</strong></div>
-          <div class="status-row"><span>Findings</span><strong>${findings}</strong></div>
-        `;
-        $("#ops-strip").innerHTML = `
-          <div class="metric"><span>Next</span><strong>${next}</strong></div>
-          <div class="metric"><span>TEE</span><strong>${state.trustProof?.verifierResult || "checking"}</strong></div>
-          <div class="metric"><span>Agent</span><strong>${state.agentNext ? shortStepTitle(state.agentNext.title) : "queue"}</strong></div>
-          <div class="metric"><span>Disclosure</span><strong>${approvals > 0 ? "blocked" : "locked"}</strong></div>
-        `;
-        $("#agent-context").innerHTML = `
-          <div class="agent-line"><span>Scope</span><strong>${caseRecord.jurisdiction} / ${caseRecord.riskLevel}</strong></div>
-          <div class="agent-line"><span>Vault</span><strong>client encrypted, memory key</strong></div>
-          <div class="agent-line"><span>Payments</span><strong>${state.hackathon?.payments?.length || 0} prepared</strong></div>
-          <div class="agent-line"><span>Network</span><strong>${state.hackathon?.delegations?.length || 0} delegated agents</strong></div>
-        `;
-      }
-
-      async function refreshHackathon(options = {}) {
-        const products = await request("/api/x402/products");
-        state.products = products.products || [];
-        if (!state.currentCaseId) {
-          state.hackathon = null;
-          state.hackathonStatus = null;
-          return;
-        }
-        const [timeline, checklist] = await Promise.all([
-          request(`/api/agents/timeline?caseId=${state.currentCaseId}`),
-          request(`/api/hackathon/status?caseId=${state.currentCaseId}`)
-        ]);
-        const next = await request(`/api/agent/next?caseId=${state.currentCaseId}`);
-        state.hackathon = timeline;
-        state.hackathonStatus = checklist.status;
-        state.agentNext = next;
-        if (!options.silent) write({ products, timeline, checklist });
-      }
-
-      async function syncCurrentCaseStatus() {
-        if (!state.currentCaseId) return;
-        const loaded = await request(`/api/cases/${state.currentCaseId}`);
-        state.currentStatus = loaded.status;
-        const index = state.cases.findIndex((item) => item.id === state.currentCaseId);
-        const summary = { ...loaded.case, status: loaded.status };
-        if (index >= 0) state.cases[index] = summary;
-        else state.cases.unshift(summary);
-        saveLocalCases();
-      }
-
-      function addChat(role, text) {
-        state.chatMessages.push({ role, text });
-        state.chatMessages = state.chatMessages.slice(-6);
-      }
-
-      function shortStepTitle(title) {
-        return {
-          "Prepare wallet permissions": "Wallet ready",
-          "Prepare one-off cleanup payment": "One-off payment ready",
-          "Prepare monitoring subscription": "Monitor ready",
-          "Ask Venice for redacted analysis": "Analysis ready",
-          "Delegate specialist agents": "Agent network ready",
-          "Relay latest payment": "Relay confirmed",
-          "Prepare cleanup approval": "Approval drafted",
-          "Waiting for approval": "Approval required",
-          "Record approved action": "Action recorded",
-          "Full demo complete": "Demo complete"
-        }[title] || title;
-      }
-
-      function renderHackathonChecklist() {
-        const target = $("#hackathon-checklist");
-        if (!target) return;
-        const status = state.hackathonStatus;
-        const rows = [
-          ["MetaMask", status?.smartAccountVisible],
-          ["ERC-7715 permission", status?.erc7715PermissionGranted],
-          ["x402", status?.x402OneOffReady],
-          ["ERC-7710", status?.erc7710SubscriptionReady],
-          ["Venice", status?.veniceOutputReady],
-          ["A2A", status?.a2aRedelegationVisible],
-          ["1Shot", status?.oneShotRelayerVisible]
-        ];
-        target.innerHTML = rows.map(([label, value]) => `
-          <div class="status-row">
-            <span>${label}</span>
-            <strong class="${pillClass(value)}">${value ? "ready" : "pending"}</strong>
-          </div>
-        `).join("");
-      }
-
-      function renderAgentChat() {
-        const next = state.agentNext;
-        $("#agent-mode-pill").textContent = next?.action === "complete" ? "Ready" : "Supervised";
-        $("#agent-mode-pill").className = pillClass(next?.action === "complete" ? "pass" : "warn");
-        const transcript = [...state.chatMessages];
-        if (currentCase() && next) {
-          transcript.push({
-            role: "agent",
-            text: shortStepTitle(next.title)
-          });
-        }
-        $("#agent-chat-log").innerHTML = transcript.map((message) => `
-          <div class="chat-bubble ${message.role === "user" ? "user" : "agent"}">
-            ${escapeHtml(message.text)}
-          </div>
-        `).join("");
-        renderAgentActionCards();
-      }
-
-      function renderAgentActionCards() {
-        const approvals = state.currentStatus?.approvalsNeeded || [];
-        const readyActions = state.currentStatus?.actionsReady || [];
-        const cards = [
-          ...approvals.map((approval) => `
-            <div class="row">
-              <div>
-                <strong>Approval needed: ${escapeHtml(approval.destination)}</strong>
-                <div class="muted small">${approval.actionType} · disclose ${approval.dataToDisclose.join(", ")} · expires ${escapeHtml(approval.expiresAt.slice(0, 10))}</div>
-              </div>
-              <button data-chat-approve-id="${approval.id}">Approve exact action</button>
-            </div>
-          `),
-          ...readyActions.map((action) => `
-            <div class="row">
-              <div>
-                <strong>Ready: ${escapeHtml(action.destination)}</strong>
-                <div class="muted small">${action.actionType} · ${action.executionStatus}</div>
-              </div>
-              <button data-chat-execute-id="${action.id}">Record action</button>
-            </div>
-          `)
-        ];
-        $("#agent-action-cards").innerHTML = cards.join("");
-        document.querySelectorAll("[data-chat-approve-id]").forEach((button) => {
-          button.addEventListener("click", () => approve(button.dataset.chatApproveId).catch(write));
-        });
-        document.querySelectorAll("[data-chat-execute-id]").forEach((button) => {
-          button.addEventListener("click", () => executeAction(button.dataset.chatExecuteId).catch(write));
-        });
-      }
-
-      function renderPayments() {
-        const wallet = state.walletAddress || "Not connected";
-        const smart = state.smartAccountAddress || "Not created";
-        $("#wallet-status").innerHTML = `
-          <div class="status-row"><span>Wallet</span><strong>${escapeHtml(wallet)}</strong></div>
-          <div class="status-row"><span>Smart Account</span><strong>${escapeHtml(smart)}</strong></div>
-        `;
-        $("#product-list").innerHTML = state.products.length
-          ? state.products.map((product) => `
-              <div class="stack-card">
-                <strong>${escapeHtml(product.name)}</strong>
-                <div class="muted small">${escapeHtml(product.description)}</div>
-                <div class="toolbar">
-                  <span class="pill">${product.mode}</span>
-                  <span class="pill">${product.amountUsd} ${product.token}</span>
-                  <span class="pill">${product.cadence || "one time"}</span>
-                </div>
-              </div>
-            `).join("")
-          : `<div class="empty">Payment products are loading.</div>`;
-        const payments = state.hackathon?.payments || [];
-        $("#payments-table").innerHTML = payments.length
-          ? payments.map((session) => `
-              <div class="row">
-                <div>
-                  <strong>${escapeHtml(session.productId)}</strong>
-                  <div class="muted small">${session.mode} · ${session.amountUsd} ${session.token} · ${session.status}</div>
-                </div>
-                <span class="${pillClass(session.status === "payment-required")}">x402</span>
-              </div>
-            `).join("")
-          : `<div class="empty">No payment session yet. Prepare one-off or weekly monitor payment.</div>`;
-      }
-
-      function renderAgentNetwork() {
-        const timeline = state.hackathon?.timeline || [];
-        const delegations = state.hackathon?.delegations || [];
-        const venice = state.hackathon?.veniceAnalyses || [];
-        const items = [
-          ...venice.map((analysis) => ({
-            actor: "Venice",
-            title: analysis.output.title,
-            summary: analysis.output.summary
-          })),
-          ...delegations.map((delegation) => ({
-            actor: delegation.toAgent,
-            title: `Delegated ${delegation.toAgent}`,
-            summary: delegation.scope.join(", ")
-          })),
-          ...timeline.map((event) => ({
-            actor: event.actor,
-            title: event.title,
-            summary: event.summary
-          }))
-        ];
-        $("#agent-timeline").innerHTML = items.length
-          ? items.slice(-12).reverse().map((item) => `
-              <div class="timeline-item">
-                <strong>${escapeHtml(item.title)}</strong>
-                <div class="muted small">${escapeHtml(item.actor)} · ${escapeHtml(item.summary)}</div>
-              </div>
-            `).join("")
-          : `<div class="empty">No agent events yet. Run Venice or delegate sub-agents.</div>`;
-      }
-
-      function renderRelayer() {
-        const events = state.hackathon?.relayerEvents || [];
-        $("#relayer-table").innerHTML = events.length
-          ? events.map((event) => `
-              <div class="row">
-                <div>
-                  <strong>${escapeHtml(event.status)}</strong>
-                  <div class="muted small">${escapeHtml(event.txHash || "pending tx")} · ${escapeHtml(event.message)}</div>
-                </div>
-                <span class="${pillClass(event.status === "confirmed" ? "pass" : "warn")}">1Shot</span>
-              </div>
-            `).join("")
-          : `<div class="empty">No relayer events yet. Relay a prepared payment session.</div>`;
-      }
-
-      function renderApprovals() {
-        const approvals = state.currentStatus?.approvalsNeeded || [];
-        $("#approval-table").innerHTML = approvals.length
-          ? approvals.map((approval) => `
-              <div class="row">
-                <div>
-                  <strong>${escapeHtml(approval.destination)}</strong>
-                  <div class="muted small">${approval.actionType} · disclose ${approval.dataToDisclose.join(", ")}</div>
-                </div>
-                <button class="secondary" data-approve-id="${approval.id}">Approve</button>
-              </div>
-            `).join("")
-          : `<div class="empty">No approval waiting. Choose one agent task first.</div>`;
-        document.querySelectorAll("[data-approve-id]").forEach((button) => {
-          button.addEventListener("click", () => approve(button.dataset.approveId));
-        });
-      }
-
-      function renderActions() {
-        const actions = [
-          ...(state.currentStatus?.actionsReady || []),
-          ...(state.currentStatus?.submittedActions || [])
-        ];
-        $("#action-table").innerHTML = actions.length
-          ? actions.map((action) => `
-              <div class="row">
-                <div>
-                  <strong>${escapeHtml(action.destination)}</strong>
-                  <div class="muted small">${action.actionType} · ${action.executionStatus}</div>
-                </div>
-                ${action.executionStatus === "ready" ? `<button data-execute-id="${action.id}">Record</button>` : `<span class="${pillClass(action.executionStatus)}">${action.executionStatus}</span>`}
-              </div>
-            `).join("")
-          : `<div class="empty">No actions yet. Approved tasks will appear here.</div>`;
-        document.querySelectorAll("[data-execute-id]").forEach((button) => {
-          button.addEventListener("click", () => executeAction(button.dataset.executeId));
-        });
-      }
-
-      function renderTabs() {
-        document.querySelectorAll(".tab").forEach((button) => {
-          button.classList.toggle("active", button.dataset.tab === state.tab);
-        });
-        document.querySelectorAll(".tab-panel").forEach((panel) => {
-          panel.classList.toggle("active", panel.id === `tab-${state.tab}`);
-        });
-      }
-
-      function render() {
-        renderTrust();
-        renderCases();
-        renderShell();
-        renderDashboard();
-        renderAgentChat();
-        renderHackathonChecklist();
-        renderPayments();
-        renderAgentNetwork();
-        renderRelayer();
-        renderApprovals();
-        renderActions();
-        renderTabs();
-      }
-
-      async function createCase() {
-        state.appOpen = true;
-        const created = await request("/api/cases", {
-          method: "POST",
-          body: {
-            jurisdiction: $("#jurisdiction").value,
-            authorityBasis: $("#authority").value,
-            riskLevel: $("#risk-level").value
-          }
-        });
-        const caseId = created.case.id;
-        const encryptedIntake = await encryptPayload({ notes: $("#intake").value }, caseId);
-        const label = $("#person-label").value || "Private case";
-        const intake = await request(`/api/cases/${caseId}/intake`, {
-          method: "POST",
-          body: {
-            encryptedIntake,
-            redactedScope: {
-              personLabel: label,
-              aliases: [],
-              approvedIdentifierLabels: [],
-              sensitiveConstraints: []
-            }
-          }
-        });
-        state.currentCaseId = caseId;
-        state.currentStatus = intake.status;
-        state.cases.unshift({ ...intake.case, status: intake.status });
-        state.tab = "overview";
-        addChat("agent", "Case opened. Starting agent.");
-        saveLocalCases();
-        render();
-        write(intake);
-        await agentAutopilot({ silentUser: true });
-      }
-
-      async function requireTrustedRuntime() {
-        if (!$("#require-trust").checked) return;
-        const proof = state.trustProof || (await refreshTrust());
-        if (proof.verifierResult !== "pass") {
-          throw {
-            error: "attestation-required",
-            message: "Sensitive action blocked until Trust Center status is pass."
-          };
-        }
-      }
-
-      async function proposeAction() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        await requireTrustedRuntime();
-        const result = await request("/api/actions/propose", {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            actionType: state.actionType,
-            destination: $("#destination").value,
-            purpose: $("#purpose").value,
-            identifiers: ["email"],
-            dataToDisclose: ["email"],
-            sourceVerified: $("#source-verified").checked
-          }
-        });
-        state.currentStatus = result.status;
-        state.tab = "approvals";
-        render();
-        write(result);
-      }
-
-      async function approve(approvalId) {
-        const result = await request(`/api/approvals/${approvalId}/approve`, {
-          method: "POST",
-          body: { userConfirmation: "I approve this exact action" }
-        });
-        state.currentStatus = result.status;
-        await refreshHackathon({ silent: true });
-        addChat("agent", "Approved. I can record it without external submission.");
-        state.tab = "overview";
-        render();
-        write(result);
-      }
-
-      async function executeAction(actionId) {
-        const result = await request(`/api/actions/${actionId}/execute`, {
-          method: "POST",
-          body: {}
-        });
-        state.currentStatus = result.status;
-        await refreshHackathon({ silent: true });
-        addChat("agent", "Recorded. No third-party submission.");
-        state.tab = "overview";
-        render();
-        write(result);
-      }
-
-      async function exportCase() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
-        const exported = await request("/api/export", {
-          method: "POST",
-          body: { caseId: state.currentCaseId }
-        });
-        const passphrase = $("#export-passphrase").value;
-        write({
-          format: "oblivion-encrypted-case-v1",
-          exportedAt: new Date().toISOString(),
-          wrappedVaultKey: passphrase ? await wrapVaultKey(passphrase) : undefined,
-          payload: exported
-        });
-      }
-
-      async function deleteCase() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
-        const deleted = await request("/api/delete", {
-          method: "POST",
-          body: { caseId: state.currentCaseId }
-        });
-        state.cases = state.cases.filter((item) => item.id !== state.currentCaseId);
-        state.currentCaseId = "";
-        state.currentStatus = null;
-        state.vaultKey = null;
-        state.tab = "overview";
-        localStorage.removeItem("oblivion.currentCaseId");
-        saveLocalCases();
-        render();
-        write(deleted);
-      }
-
-      async function connectWallet() {
-        if (window.ethereum?.request) {
-          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-          state.walletAddress = accounts?.[0] || "";
-        }
-        if (!state.walletAddress) state.walletAddress = "0x1111111111111111111111111111111111111111";
-        state.tab = "payments";
-        render();
-        write({ walletAddress: state.walletAddress, mode: window.ethereum ? "metamask" : "demo" });
-      }
-
-      async function createSmartAccount() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        if (!state.walletAddress) await connectWallet();
-        const result = await request("/api/metamask/demo-session", {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            walletAddress: state.walletAddress
-          }
-        });
-        state.smartAccountAddress = result.smartAccountAddress;
-        await refreshHackathon({ silent: true });
-        state.tab = "payments";
-        render();
-        write(result);
-      }
-
-      async function preparePayment(mode) {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        if (!state.smartAccountAddress) await createSmartAccount();
-        const productId = mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet";
-        const result = await request(`/api/x402/${mode === "subscription" ? "subscription" : "one-off"}`, {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            productId,
-            walletAddress: state.walletAddress,
-            smartAccountAddress: state.smartAccountAddress
-          }
-        });
-        await refreshHackathon({ silent: true });
-        state.tab = "payments";
-        render();
-        write(result);
-      }
-
-      async function runVenice(kind) {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        const path = kind === "draft-request"
-          ? "/api/ai/draft-request"
-          : kind === "review-approval"
-            ? "/api/ai/review-approval"
-            : "/api/ai/classify-case";
-        const result = await request(path, {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            notes: $("#purpose").value || "Redacted people-search cleanup case.",
-            destination: $("#destination").value || "approved broker",
-            actionType: state.actionType
-          }
-        });
-        await refreshHackathon({ silent: true });
-        state.tab = "network";
-        render();
-        write(result);
-      }
-
-      async function delegateAgents() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        const result = await request("/api/agents/delegate", {
-          method: "POST",
-          body: { caseId: state.currentCaseId }
-        });
-        await refreshHackathon({ silent: true });
-        state.tab = "network";
-        render();
-        write(result);
-      }
-
-      async function relayDemo() {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        const latest = [...(state.hackathon?.payments || [])].at(-1);
-        if (!latest) await preparePayment("one-off");
-        const session = [...(state.hackathon?.payments || [])].at(-1);
-        const result = await request("/api/1shot/relay-demo", {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            sessionId: session?.id
-          }
-        });
-        await refreshHackathon({ silent: true });
-        state.tab = "relayer";
-        render();
-        write(result);
-      }
-
-      async function askAgent() {
-        const text = $("#agent-input").value.trim();
-        if (text) addChat("user", text);
-        $("#agent-input").value = "";
-        if (!state.currentCaseId) {
-          addChat("agent", "Start with one encrypted case.");
-          render();
-          return;
-        }
-        await refreshHackathon({ silent: true });
-        const next = state.agentNext;
-        const lower = text.toLowerCase();
-        if (lower.includes("run") || lower.includes("do it") || lower.includes("continue")) {
-          await agentRunNext();
-          return;
-        }
-        addChat("agent", next ? shortStepTitle(next.title) : "Checking.");
-        render();
-      }
-
-      async function agentRunNext(options = {}) {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        await refreshHackathon({ silent: true });
-        if (state.agentNext?.action === "await-user-approval") {
-          addChat("agent", "Approval required. Review the card.");
-          state.tab = "overview";
-          render();
-          return;
-        }
-        if (state.agentNext?.action === "complete") {
-          addChat("agent", "Complete. Proof is available.");
-          render();
-          return;
-        }
-        const result = await request("/api/agent/run-next", {
-          method: "POST",
-          body: {
-            caseId: state.currentCaseId,
-            walletAddress: state.walletAddress || "0x1111111111111111111111111111111111111111",
-            smartAccountAddress: state.smartAccountAddress
-          }
-        });
-        const smartArtifact = result.artifacts?.find((artifact) => artifact?.smartAccountAddress);
-        if (smartArtifact?.smartAccountAddress) {
-          state.walletAddress = state.walletAddress || "0x1111111111111111111111111111111111111111";
-          state.smartAccountAddress = smartArtifact.smartAccountAddress;
-        }
-        if (result.caseStatus) state.currentStatus = result.caseStatus;
-        await refreshHackathon({ silent: true });
-        await syncCurrentCaseStatus();
-        if (!options.quiet) addChat("agent", `${shortStepTitle(result.ran.title)}. Next: ${shortStepTitle(result.next.title)}.`);
-        render();
-        write(result);
-      }
-
-      async function agentAutopilot(options = {}) {
-        if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-        if (!options.silentUser) addChat("user", "Run cleanup.");
-        for (let index = 0; index < 8; index += 1) {
-          await refreshHackathon({ silent: true });
-          if (state.agentNext?.action === "complete" || state.agentNext?.action === "await-user-approval") break;
-          await agentRunNext({ quiet: true });
-        }
-        await refreshHackathon({ silent: true });
-        await syncCurrentCaseStatus();
-        addChat("agent", state.agentNext?.action === "await-user-approval"
-          ? "Stack ready. Approval required."
-          : state.agentNext?.action === "complete"
-            ? "Complete. No external submission."
-            : "Paused for review.");
-        state.tab = "overview";
-        render();
-      }
-
-      $("#create-case").addEventListener("click", () => createCase().catch(write));
-      function openApp() {
-        state.appOpen = true;
-        location.hash = "app";
-        render();
-        setTimeout(() => $("#person-label")?.focus(), 0);
-      }
-
-      $("#open-app-nav").addEventListener("click", openApp);
-      $("#open-app-hero").addEventListener("click", openApp);
-      $("#jump-how-it-works").addEventListener("click", () => {
-        $("#how-it-works").scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      $("#refresh-dashboard").addEventListener("click", () => refreshTrust().then(refreshCases).catch(write));
-      $("#continue-flow").addEventListener("click", () => {
-        state.tab = state.trustProof?.verifierResult === "pass" ? "tasks" : "overview";
-        render();
-      });
-      $("#local-safe-mode").addEventListener("click", () => {
-        $("#require-trust").checked = false;
-        state.tab = "tasks";
-        render();
-      });
-      $("#new-case").addEventListener("click", () => {
-        state.appOpen = true;
-        state.currentCaseId = "";
-        state.currentStatus = null;
-        localStorage.removeItem("oblivion.currentCaseId");
-        render();
-      });
-      $("#propose-action").addEventListener("click", () => proposeAction().catch(write));
-      $("#connect-wallet").addEventListener("click", () => connectWallet().catch(write));
-      $("#create-smart-account").addEventListener("click", () => createSmartAccount().catch(write));
-      $("#one-off-pay").addEventListener("click", () => preparePayment("one-off").catch(write));
-      $("#subscription-pay").addEventListener("click", () => preparePayment("subscription").catch(write));
-      $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));
-      $("#draft-request").addEventListener("click", () => runVenice("draft-request").catch(write));
-      $("#review-approval").addEventListener("click", () => runVenice("review-approval").catch(write));
-      $("#delegate-agents").addEventListener("click", () => delegateAgents().catch(write));
-      $("#relay-demo").addEventListener("click", () => relayDemo().catch(write));
-      $("#agent-send").addEventListener("click", () => askAgent().catch(write));
-      $("#agent-input").addEventListener("keydown", (event) => {
-        if (event.key === "Enter") askAgent().catch(write);
-      });
-      $("#agent-run-next").addEventListener("click", () => agentRunNext().catch(write));
-      $("#agent-autopilot").addEventListener("click", () => agentAutopilot().catch(write));
-      $("#agent-open-proof").addEventListener("click", () => {
-        state.tab = "payments";
-        render();
-      });
-      $("#export").addEventListener("click", () => exportCase().catch(write));
-      $("#delete").addEventListener("click", () => deleteCase().catch(write));
-      document.querySelectorAll(".tab").forEach((button) => {
-        button.addEventListener("click", () => {
-          state.tab = button.dataset.tab;
-          render();
-        });
-      });
-      document.querySelectorAll("[data-action-choice]").forEach((button) => {
-        button.addEventListener("click", () => {
-          state.actionType = button.dataset.actionChoice;
-          document.querySelectorAll("[data-action-choice]").forEach((choice) => choice.classList.remove("active"));
-          button.classList.add("active");
-        });
-      });
-
-      await refreshTrust().catch(write);
-      await refreshCases().catch(write);
-      render();
-    </script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>

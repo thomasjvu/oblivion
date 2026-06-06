@@ -7,9 +7,13 @@ export function buildCaseStatus(input: {
   actions: ActionRequest[];
   followUps: FollowUp[];
 }): CaseStatus {
+  const pendingFindings = input.exposures.filter((exposure) => (exposure.matchStatus ?? "pending") === "pending");
+  const confirmedFindings = input.exposures.filter((exposure) => exposure.matchStatus === "confirmed");
   return {
     scope: input.caseRecord.redactedScope ?? null,
     findings: input.exposures,
+    pendingFindings,
+    confirmedFindings,
     approvalsNeeded: input.approvals.filter((approval) => approval.status === "pending"),
     actionsReady: input.actions.filter((action) => action.executionStatus === "ready"),
     submittedActions: input.actions.filter((action) => action.executionStatus === "recorded"),

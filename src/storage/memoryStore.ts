@@ -2,9 +2,11 @@ import type {
   ActionRequest,
   AgentDelegation,
   AgentMessage,
+  AgentPlan,
   AgentTimelineEvent,
   Approval,
   CaseRecord,
+  ConnectorResult,
   Exposure,
   FollowUp,
   PaymentSession,
@@ -13,8 +15,9 @@ import type {
   VeniceAnalysis,
   SourceCheck
 } from "../domain/types.js";
+import type { OblivionRepository } from "./repository.js";
 
-export class MemoryStore {
+export class MemoryStore implements OblivionRepository {
   readonly cases = new Map<string, CaseRecord>();
   readonly approvals = new Map<string, Approval>();
   readonly actions = new Map<string, ActionRequest>();
@@ -28,6 +31,8 @@ export class MemoryStore {
   readonly agentDelegations = new Map<string, AgentDelegation>();
   readonly agentMessages = new Map<string, AgentMessage>();
   readonly agentTimeline = new Map<string, AgentTimelineEvent>();
+  readonly agentPlans = new Map<string, AgentPlan>();
+  readonly connectorResults = new Map<string, ConnectorResult>();
   readonly tombstones = new Map<string, string>();
 
   getCaseOrThrow(caseId: string): CaseRecord {
@@ -81,6 +86,18 @@ export class MemoryStore {
   agentTimelineForCase(caseId: string): AgentTimelineEvent[] {
     return [...this.agentTimeline.values()]
       .filter((event) => event.caseId === caseId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  agentPlanForCase(caseId: string): AgentPlan | undefined {
+    return [...this.agentPlans.values()]
+      .filter((plan) => plan.caseId === caseId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+  }
+
+  connectorResultsForCase(caseId: string): ConnectorResult[] {
+    return [...this.connectorResults.values()]
+      .filter((result) => result.caseId === caseId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 }

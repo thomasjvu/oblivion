@@ -1,0 +1,349 @@
+import { redactText } from "./redaction.js";
+import { sanitizeForLog } from "./safeLogging.js";
+import { braveSearchBaseUrl, braveSearchCount, isBraveSearchConfigured } from "./integrations.js";
+import type {
+  Exposure,
+  ExposureMatchScore,
+  ExposureMatchStatus,
+  RedactedScope
+} from "./types.js";
+import { veniceChatCompletion, isVeniceConfigured } from "./venice.js";
+
+export interface DiscoveryCandidate {
+  sourceUrl: string;
+  title?: string;
+  snippet?: string;
+  origin: "pasted" | "brave-search";
+}
+
+export interface BrokerRegistryEntry {
+  brokerId: string;
+  brokerLabel: string;
+  hostPattern: RegExp;
+  officialOptOutUrl: string;
+  officialRemovalPath: string;
+}
+
+export const BROKER_REGISTRY: BrokerRegistryEntry[] = [
+  {
+    brokerId: "fastbackgroundcheck",
+    brokerLabel: "FastBackgroundCheck",
+    hostPattern: /fastbackgroundcheck\.com/i,
+    officialOptOutUrl: "https://www.fastbackgroundcheck.com/optout",
+    officialRemovalPath: "https://www.fastbackgroundcheck.com/optout"
+  },
+  {
+    brokerId: "rocketreach",
+    brokerLabel: "RocketReach",
+    hostPattern: /rocketreach\.co/i,
+    officialOptOutUrl: "https://rocketreach.co/privacy",
+    officialRemovalPath: "https://rocketreach.co/privacy"
+  },
+  {
+    brokerId: "thatsthem",
+    brokerLabel: "ThatsThem",
+    hostPattern: /thatsthem\.com/i,
+    officialOptOutUrl: "https://thatsthem.com/optout",
+    officialRemovalPath: "https://thatsthem.com/optout"
+  },
+  {
+    brokerId: "anywho",
+    brokerLabel: "AnyWho",
+    hostPattern: /anywho\.com/i,
+    officialOptOutUrl: "https://www.anywho.com/contact",
+    officialRemovalPath: "https://www.anywho.com/contact"
+  },
+  {
+    brokerId: "whitepages",
+    brokerLabel: "Whitepages",
+    hostPattern: /whitepages\.com/i,
+    officialOptOutUrl: "https://www.whitepages.com/suppression-requests",
+    officialRemovalPath: "https://www.whitepages.com/suppression-requests"
+  },
+  {
+    brokerId: "spokeo",
+    brokerLabel: "Spokeo",
+    hostPattern: /spokeo\.com/i,
+    officialOptOutUrl: "https://www.spokeo.com/opt-out",
+    officialRemovalPath: "https://www.spokeo.com/opt-out"
+  },
+  {
+    brokerId: "beenverified",
+    brokerLabel: "BeenVerified",
+    hostPattern: /beenverified\.com/i,
+    officialOptOutUrl: "https://www.beenverified.com/app/optout/search",
+    officialRemovalPath: "https://www.beenverified.com/app/optout/search"
+  }
+];
+
+const PEOPLE_SEARCH_HINT =
+  /people-?search|background.?check|whitepages|spokeo|beenverified|rocketreach|thatsthem|anywho|fastbackgroundcheck|intelius|truthfinder|instantcheckmate/i;
+
+export function brokerForUrl(url: string): BrokerRegistryEntry | undefined {
+  try {
+    const host = new URL(url).hostname;
+    return BROKER_REGISTRY.find((entry) => entry.hostPattern.test(host));
+  } catch {
+    return undefined;
+  }
+}
+
+export function normalizeDiscoveryUrl(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(withProtocol);
+    if (!["http:", "https:"].includes(parsed.protocol)) return null;
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function buildBraveSearchQuery(scope: RedactedScope | undefined): string {
+  const parts = [scope?.personLabel, ...(scope?.aliases ?? []), ...(scope?.approvedIdentifierLabels ?? [])]
+    .map((item) => item?.trim())
+    .filter(Boolean);
+  const base = parts.length ? parts.join(" ") : "people search profile";
+  return redactText(`${base} people search background check listing`);
+}
+
+export async function fetchBraveSearchCandidates(query: string): Promise<DiscoveryCandidate[]> {
+  if (!isBraveSearchConfigured()) return [];
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
+  if (!apiKey) return [];
+  const url = new URL(braveSearchBaseUrl());
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", String(braveSearchCount()));
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": apiKey
+    }
+  });
+  if (!response.ok) {
+    throw Object.assign(new Error(`brave-search-${response.status}`), { statusCode: 502 });
+  }
+  const json = (await response.json()) as {
+    web?: { results?: Array<{ url?: string; title?: string; description?: string }> };
+  };
+  const results = json.web?.results ?? [];
+  const candidates: DiscoveryCandidate[] = [];
+  for (const item of results) {
+    const sourceUrl = item.url ? normalizeDiscoveryUrl(item.url) : null;
+    if (!sourceUrl) continue;
+    candidates.push({
+      sourceUrl,
+      title: item.title ? redactText(item.title) : undefined,
+      snippet: item.description ? redactText(item.description) : undefined,
+      origin: "brave-search"
+    });
+  }
+  return candidates;
+}
+
+function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope | undefined): ExposureMatchScore {
+  const haystack = `${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`.toLowerCase();
+  const needles = [scope?.personLabel, ...(scope?.aliases ?? [])]
+    .map((item) => item?.trim().toLowerCase())
+    .filter((item): item is string => Boolean(item && item.length > 2));
+  const locationHints = (scope?.approvedIdentifierLabels ?? [])
+    .concat(scope?.sensitiveConstraints ?? [])
+    .map((item) => item.toLowerCase());
+  const nameHit = needles.some((needle) => haystack.includes(needle.replace(/\s+/g, "-")) || haystack.includes(needle));
+  const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl)) || PEOPLE_SEARCH_HINT.test(haystack);
+  const locationHit = locationHints.some(
+    (hint) => hint.length > 2 && (haystack.includes(hint) || /massachusetts|\bma\b/.test(haystack))
+  );
+  if (nameHit && brokerHit) return "likely";
+  if (brokerHit && (nameHit || locationHit)) return "uncertain";
+  if (brokerHit) return "uncertain";
+  return "unlikely";
+}
+
+async function scoreWithVenice(
+  candidate: DiscoveryCandidate,
+  scope: RedactedScope | undefined
+): Promise<{ matchScore: ExposureMatchScore; matchReason: string }> {
+  const fallback = heuristicMatchScore(candidate, scope);
+  if (!isVeniceConfigured()) {
+    return {
+      matchScore: fallback,
+      matchReason: "Heuristic match from redacted labels and broker host."
+    };
+  }
+  const scopeSummary = redactText(
+    [
+      scope?.personLabel ? `personLabel: ${scope.personLabel}` : "",
+      scope?.aliases?.length ? `aliases: ${scope.aliases.join(", ")}` : "",
+      scope?.approvedIdentifierLabels?.length
+        ? `labels: ${scope.approvedIdentifierLabels.join(", ")}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join("; ")
+  );
+  const content = await veniceChatCompletion([
+    {
+      role: "system",
+      content: [
+        "Score whether a search result likely belongs to the subject described by redacted labels only.",
+        "Never request or infer raw phone, email, SSN, or street address.",
+        'Respond JSON only: {"matchScore":"likely|uncertain|unlikely","matchReason":"short reason"}'
+      ].join("\n")
+    },
+    {
+      role: "user",
+      content: [
+        `Redacted scope: ${scopeSummary || "unknown"}`,
+        `Candidate URL: ${redactText(candidate.sourceUrl)}`,
+        `Title: ${redactText(candidate.title || "n/a")}`,
+        `Snippet: ${redactText(candidate.snippet || "n/a")}`,
+        "Mark unlikely if name/location clearly refers to a different person."
+      ].join("\n")
+    }
+  ]);
+  try {
+    const start = content.indexOf("{");
+    const end = content.lastIndexOf("}");
+    const parsed = JSON.parse(content.slice(start, end + 1)) as { matchScore?: string; matchReason?: string };
+    const score = parsed.matchScore;
+    const matchScore: ExposureMatchScore =
+      score === "likely" || score === "uncertain" || score === "unlikely" ? score : fallback;
+    return {
+      matchScore,
+      matchReason: redactText(parsed.matchReason || "Venice scored the candidate.")
+    };
+  } catch {
+    return { matchScore: fallback, matchReason: "Venice parse failed; heuristic score used." };
+  }
+}
+
+export function confidenceFromMatchScore(score: ExposureMatchScore): Exposure["confidence"] {
+  if (score === "likely") return "high";
+  if (score === "uncertain") return "medium";
+  return "low";
+}
+
+export async function discoverExposureCandidates(input: {
+  caseId: string;
+  scope?: RedactedScope;
+  pastedUrls?: string[];
+  existingUrls?: string[];
+}): Promise<Exposure[]> {
+  const seen = new Set<string>();
+  const candidates: DiscoveryCandidate[] = [];
+
+  for (const raw of input.pastedUrls ?? []) {
+    const sourceUrl = normalizeDiscoveryUrl(raw);
+    if (!sourceUrl || seen.has(sourceUrl)) continue;
+    seen.add(sourceUrl);
+    candidates.push({ sourceUrl, origin: "pasted" });
+  }
+
+  if (isBraveSearchConfigured()) {
+    try {
+      const query = buildBraveSearchQuery(input.scope);
+      const braveResults = await fetchBraveSearchCandidates(query);
+      for (const item of braveResults) {
+        if (seen.has(item.sourceUrl)) continue;
+        seen.add(item.sourceUrl);
+        candidates.push(item);
+      }
+    } catch (error) {
+      if (!candidates.length) throw error;
+    }
+  }
+
+  const filtered = candidates.filter((candidate) => {
+    if ((input.existingUrls ?? []).includes(candidate.sourceUrl)) return false;
+    const broker = brokerForUrl(candidate.sourceUrl);
+    if (broker) return true;
+    return PEOPLE_SEARCH_HINT.test(`${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`);
+  });
+
+  const exposures: Exposure[] = [];
+  for (const candidate of filtered.slice(0, 25)) {
+    const scored = await scoreWithVenice(candidate, input.scope);
+    const broker = brokerForUrl(candidate.sourceUrl);
+    const now = new Date().toISOString();
+    exposures.push({
+      id: `exposure_${crypto.randomUUID()}`,
+      caseId: input.caseId,
+      sourceUrl: candidate.sourceUrl,
+      visibleDataCategories: ["legal-name", "city-state"],
+      confidence: confidenceFromMatchScore(scored.matchScore),
+      evidencePointer: `discovery://${candidate.origin}`,
+      officialRemovalPath: broker?.officialRemovalPath,
+      officialOptOutUrl: broker?.officialOptOutUrl,
+      createdAt: now,
+      matchStatus: "pending" satisfies ExposureMatchStatus,
+      brokerId: broker?.brokerId,
+      brokerLabel: broker?.brokerLabel,
+      redactedSnippet: candidate.snippet || candidate.title,
+      matchScore: scored.matchScore,
+      matchReason: scored.matchReason,
+      removalStatus: "not-started"
+    });
+  }
+
+  return exposures;
+}
+
+export function applyFindingDecision(
+  exposure: Exposure,
+  decision: "confirmed" | "rejected"
+): Exposure {
+  const now = new Date().toISOString();
+  if (decision === "rejected") {
+    return {
+      ...exposure,
+      matchStatus: "rejected",
+      matchReason: exposure.matchReason ?? "Marked as not the subject.",
+      removalStatus: "not-started"
+    };
+  }
+  const broker = exposure.brokerId ? BROKER_REGISTRY.find((b) => b.brokerId === exposure.brokerId) : brokerForUrl(exposure.sourceUrl);
+  return {
+    ...exposure,
+    matchStatus: "confirmed",
+    confidence: "high",
+    brokerId: broker?.brokerId ?? exposure.brokerId,
+    brokerLabel: broker?.brokerLabel ?? exposure.brokerLabel,
+    officialOptOutUrl: broker?.officialOptOutUrl ?? exposure.officialOptOutUrl,
+    officialRemovalPath: broker?.officialRemovalPath ?? exposure.officialRemovalPath,
+    removalStatus: exposure.removalStatus === "not-started" ? "drafted" : exposure.removalStatus,
+    matchReason: exposure.matchReason ?? "Confirmed by user."
+  };
+}
+
+export function countFindingsByStatus(exposures: Exposure[]): {
+  pending: number;
+  confirmed: number;
+  rejected: number;
+} {
+  let pending = 0;
+  let confirmed = 0;
+  let rejected = 0;
+  for (const exposure of exposures) {
+    const status = exposure.matchStatus ?? "pending";
+    if (status === "confirmed") confirmed += 1;
+    else if (status === "rejected") rejected += 1;
+    else pending += 1;
+  }
+  return { pending, confirmed, rejected };
+}
+
+export function discoveryReadinessMessage(): string {
+  const parts: string[] = [];
+  if (isBraveSearchConfigured()) parts.push("Brave search");
+  if (isVeniceConfigured()) parts.push("Venice match scoring");
+  if (!parts.length) return "Paste URLs to discover listings (configure BRAVE_SEARCH_API_KEY for automated search).";
+  return `${parts.join(" + ")} ready. Paste known links or run search.`;
+}
+
+export function logSafeDiscoveryError(error: unknown): Record<string, unknown> {
+  return sanitizeForLog(error) as Record<string, unknown>;
+}

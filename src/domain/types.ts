@@ -86,6 +86,16 @@ export interface Identifier {
   encryptedValue?: EncryptedBlob;
 }
 
+export type ExposureMatchStatus = "pending" | "confirmed" | "rejected";
+export type ExposureMatchScore = "likely" | "uncertain" | "unlikely";
+export type ExposureRemovalStatus =
+  | "not-started"
+  | "drafted"
+  | "submitted"
+  | "awaiting-response"
+  | "removed"
+  | "failed";
+
 export interface Exposure {
   id: string;
   caseId: string;
@@ -95,6 +105,14 @@ export interface Exposure {
   evidencePointer?: string;
   officialRemovalPath?: string;
   createdAt: string;
+  matchStatus?: ExposureMatchStatus;
+  brokerId?: string;
+  brokerLabel?: string;
+  redactedSnippet?: string;
+  matchScore?: ExposureMatchScore;
+  matchReason?: string;
+  removalStatus?: ExposureRemovalStatus;
+  officialOptOutUrl?: string;
 }
 
 export interface Approval {
@@ -146,6 +164,91 @@ export interface FollowUp {
   escalationPath: string;
 }
 
+export type PresetId =
+  | "people-search-cleanup"
+  | "search-result-suppression"
+  | "california-drop"
+  | "gdpr-erasure"
+  | "breach-exposure"
+  | "high-risk-safety";
+
+export type AutonomyMode = "approval-gated" | "high-autonomy";
+
+export type AgentPlanStep =
+  | "select-preset"
+  | "collect-minimum-identifiers"
+  | "verify-trust"
+  | "discover-candidates"
+  | "confirm-matches"
+  | "verify-removal-path"
+  | "draft-actions"
+  | "request-approval"
+  | "execute-approved-action"
+  | "await-confirmation"
+  | "schedule-recheck"
+  | "escalate-if-needed"
+  | "complete";
+
+export interface Preset {
+  id: PresetId;
+  title: string;
+  summary: string;
+  jurisdictions: Jurisdiction[];
+  riskLevel: RiskLevel;
+  requiredIdentifierCategories: IdentifierCategory[];
+  defaultAutonomy: AutonomyMode;
+  steps: AgentPlanStep[];
+  disclosurePoints: string[];
+  connectorIds: string[];
+  expectedWindow: string;
+}
+
+export interface VisualNode {
+  id: AgentPlanStep;
+  label: string;
+  actor: "Vault" | "Scout" | "Verifier" | "Draft" | "User" | "Connector" | "Scheduler";
+  status: "pending" | "active" | "blocked" | "done";
+  detail: string;
+}
+
+export interface BatchApprovalPolicy {
+  maxDestinations: number;
+  maxActions: number;
+  dataCategories: IdentifierCategory[];
+  expiresAt: string;
+}
+
+export interface AgentPlan {
+  id: string;
+  caseId: string;
+  presetId: PresetId;
+  autonomyMode: AutonomyMode;
+  currentStep: AgentPlanStep;
+  visualNodes: VisualNode[];
+  pendingApprovals: string[];
+  blockedReasons: string[];
+  nextUserDecision: string;
+  batchApprovalPolicy?: BatchApprovalPolicy;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ConnectorStatus = "planned" | "blocked" | "ready" | "submitted" | "recorded" | "failed";
+
+export interface ConnectorResult {
+  id: string;
+  caseId: string;
+  connectorId: string;
+  status: ConnectorStatus;
+  sourceUrl: string;
+  officialRemovalPath?: string;
+  confidence: "low" | "medium" | "high";
+  requiresUserHandoff: boolean;
+  nextCheckAt?: string;
+  summary: string;
+  createdAt: string;
+}
+
 export interface AttestationProof {
   deploymentVersion: string;
   sourceCommit: string;
@@ -166,6 +269,8 @@ export interface AttestationProof {
 export interface CaseStatus {
   scope: RedactedScope | null;
   findings: Exposure[];
+  pendingFindings: Exposure[];
+  confirmedFindings: Exposure[];
   approvalsNeeded: Approval[];
   actionsReady: ActionRequest[];
   submittedActions: ActionRequest[];
@@ -189,7 +294,7 @@ export interface PaymentProduct {
 }
 
 export interface X402PaymentRequest {
-  version: "x402-demo-v1";
+  version: "x402-demo-v1" | "x402-v2";
   endpoint: string;
   amountUsd: number;
   token: string;
@@ -284,7 +389,7 @@ export interface VeniceAnalysis {
   createdAt: string;
 }
 
-export type AgentName = "OblivionRoot" | "ScoutAgent" | "DraftAgent" | "VerifierAgent" | "PaymentAgent";
+export type AgentName = "OblivionRoot" | "ScoutAgent" | "DraftAgent" | "VerifierAgent" | "PaymentAgent" | "SchedulerAgent";
 
 export interface AgentDelegation {
   id: string;
@@ -312,7 +417,7 @@ export interface AgentTimelineEvent {
   id: string;
   caseId: string;
   title: string;
-  actor: AgentName | "MetaMask" | "1Shot" | "Venice" | "x402";
+  actor: AgentName | "MetaMask" | "1Shot" | "Venice" | "x402" | "Google" | "HIBP" | "DROP";
   summary: string;
   createdAt: string;
 }

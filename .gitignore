@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 coverage/
+test-results/
+playwright-report/
 .cache/
 .turbo/
 
@@ -25,4 +27,3 @@ tmp-*
 *.secrets
 phala-secrets*.json
 trust-center.local.json
-

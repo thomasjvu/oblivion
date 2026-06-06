@@ -1,103 +1,117 @@
 # Oblivion
 
-Oblivion is a private, supervised agent for online identity cleanup. It helps users organize exposure findings, removal requests, approvals, payments, agent coordination, and follow-ups without turning the product into another plaintext identity broker.
-
-Stored case contents are encrypted in the browser before persistence. The server stores ciphertext plus minimal redacted metadata. Any sensitive search, broker request, email, or external disclosure must be converted into a specific approval first.
+Private supervised agent for online identity cleanup. Encrypted in the browser. Server stores only ciphertext + redacted metadata. Every disclosure stops at an explicit approval gate.
 
 ## Quick Start
 
 ```sh
 npm install
+cp .env.example .env   # then fill in API keys and wallet addresses
 npm run dev
 ```
 
-Open `http://localhost:8080`.
+Open http://localhost:8080.
 
-Run tests:
+**New here?** Read the step-by-step walkthrough: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) or open [/help](http://localhost:8080/help) while the app is running.
 
 ```sh
+npm run verify   # build:client + test + typecheck + design:lint
 npm test
+npm run e2e
 ```
 
-Optional design-system validation:
+## Agent Lifecycle (record-only until TEE pass)
 
-```sh
-npm run design:lint
+```mermaid
+flowchart TD
+    A[POST /api/cases<br/>jurisdiction + authorityBasis] --> B[Encrypt intake in browser vault<br/>AES-256-GCM only]
+    B --> C[POST /preset<br/>e.g. people-search-cleanup]
+    C --> D[AgentPlan created<br/>visualNodes + currentStep]
+    D --> E{verify-trust<br/>TEE attestation pass?}
+    E -->|no| F[Local/record-only only<br/>runtimeGuard blocks hibp-email etc]
+    E -->|yes| G[discover-candidates<br/>approved connectors]
+    G --> H[confirm-matches<br/>user decision or blocked]
+    H --> I[verify-removal-path<br/>Google / DROP / GDPR template]
+    I --> J[draft-actions]
+    J --> K[request-approval<br/>proposeApprovedAction]
+    K --> L{explicit approve?<br/>userConfirmation + canExecute}
+    L -->|no| M[Blocked. No disclosure.]
+    L -->|yes| N[execute-approved-action<br/>record-only stub OR live in TEE]
+    N --> O[schedule-recheck + followUps]
+    O --> P[complete or escalate]
+    style F fill:#ffd37a
+    style M fill:#ff8a7a
+    style L fill:#b9ff68
 ```
+
+Record-only executor by default. Live paths gated behind policy + attestation + approval.
+
+## Trust Model
+
+- Vault: client-side only. Server cannot decrypt.
+- Actions: propose → policy check → Approval record (dest, identifiers, dataToDisclose, purpose, risk, expiry) → explicit userConfirmation → canExecuteWithApproval → execute.
+- Sensitive: assertSensitiveExecutionAllowed requires verifierResult: "pass" (Phala TDX quote, pinned images, compose match, fresh).
+- Redaction + safe logging on every timeline, export, connector result, and log.
+- Approved disclosures still go to third parties (broker, controller, HIBP, Google). The model minimizes infrastructure trust and prevents broad consent.
 
 ## What Works Locally
 
-- Encrypted case shell and browser-side vault behavior.
-- Redacted case summaries and status views.
-- Policy checks for prohibited data and approval-gated actions.
-- Record-only cleanup execution for safe demos.
-- Trust Center endpoint with local `not-configured` status.
-- Deterministic hackathon adapters for MetaMask Smart Accounts, x402/ERC-7710, Venice AI, A2A delegation, and 1Shot relay status.
+- All 6 presets, approval-gated and high-autonomy batch plans.
+- Encrypted intake, redacted scope, policy blocks (SSN, password, dark web terms, source verification).
+- **Exposure discovery**: paste profile URLs and/or Brave Search (`BRAVE_SEARCH_API_KEY`) + Venice/heuristic match scoring; confirm or reject each link before opt-out drafting.
+- Safe HIBP prefix range check, Google removal plan, California DROP guidance, GDPR templates.
+- Record-only execution by default (`OBLIVION_EXECUTOR_MODE=live` for connector handoff paths). Broker opt-outs are drafted, approved, then recorded—not silently deleted site-wide.
+- Hackathon adapters (MetaMask EIP-7702/ERC-7715, x402 + ERC-7710, Venice redacted AI, A2A delegation, 1Shot relay) behind the same gates.
+- Trust Center + /trust/attestation (not-configured locally until PHALA_ATTESTATION_URL set).
 
-Local mode is for development and demos. It does not prove that sensitive managed execution is running inside a live TEE.
+## Production / Phala
 
-## Trust And Data Handling
+See `docker-compose.phala.yml`, `Dockerfile`, `config/trust-center.json`, and `SECURITY.md`.
 
-Oblivion cannot decrypt stored case vault data on the server. Sensitive data is encrypted in the browser before storage. For approved actions that require plaintext, data should be decrypted only in the browser or inside an attested TEE task payload for that exact action.
-
-This does not make identity cleanup anonymous. If a user approves a broker opt-out, search-result removal, breach check, or controller request, the approved destination may receive the approved identifiers and data categories.
-
-## API Overview
-
-- Cases: `POST /api/cases`, `GET /api/cases`, `GET /api/cases/:id`, `POST /api/cases/:id/intake`
-- Actions and approvals: `POST /api/actions/propose`, `POST /api/approvals/:id/approve`, `POST /api/actions/:id/execute`
-- Trust: `GET /api/trust/attestation`, `GET /api/trust/privacy`
-- Agent flow: `GET /api/agent/next`, `POST /api/agent/run-next`, `POST /api/agent/premium-task`, `POST /api/agent/monitor`
-- Hackathon adapters: `GET /api/x402/products`, `POST /api/metamask/demo-session`, `POST /api/x402/one-off`, `POST /api/x402/subscription`, `POST /api/1shot/relay-demo`, `POST /api/1shot/webhook`, `POST /api/ai/classify-case`, `POST /api/ai/draft-request`, `POST /api/ai/review-approval`, `POST /api/agents/delegate`, `POST /api/agents/message`, `GET /api/agents/timeline`, `GET /api/hackathon/status`
-- Portability: `POST /api/export`, `POST /api/delete`
-
-## Docker And Phala
-
-This repository includes a production template for Phala Confidential VM deployment:
-
-- `Dockerfile` builds the app on Node 22 and exposes port `8080`.
-- `docker-compose.phala.yml` maps `8080:8080`, mounts the dstack socket, and uses Phala-compatible environment variables.
-- `config/trust-center.json` is a local placeholder until live deployment values are known.
-
-The template is not a live production deployment until all release-time values are replaced:
-
-1. Build and publish an immutable image such as `ghcr.io/thomasjvu/oblivion@sha256:<digest>`.
-2. Replace the placeholder image digest in `docker-compose.phala.yml`.
-3. Set secrets through Phala encrypted secrets, not plaintext Compose values.
-4. Deploy the CVM from the digest-pinned Compose file.
-5. Retrieve the live Phala attestation report URL.
-6. Update `config/trust-center.json` with `deploymentVersion`, `sourceCommit`, `expectedComposeHash`, `attestationReportUrl`, and image digests.
-7. Confirm `GET /api/trust/attestation` returns `verifierResult: "pass"` before enabling sensitive managed execution.
-
-Required production environment:
+Required env for TEE-enabled:
 
 ```sh
-PORT=8080
-TRUST_CENTER_PATH=/app/config/trust-center.json
-PHALA_ATTESTATION_URL=https://<your-cvm-attestation-report-url>
-PHALA_VERIFIER_ENDPOINT=https://cloud-api.phala.com/api/v1/attestations/verify
-ATTESTATION_MAX_AGE_SECONDS=600
+TRUST_CENTER_PATH=...
+PHALA_ATTESTATION_URL=...
 OBLIVION_EXECUTOR_MODE=record-only
 OBLIVION_DISABLE_PLAINTEXT_LOGS=true
 ```
 
-Optional integration environment:
+Confirm `GET /api/trust/attestation` returns `verifierResult: "pass"` before enabling sensitive connectors.
+
+Optional hackathon wallet (MetaMask Smart Account demo / live Sepolia):
 
 ```sh
-VENICE_API_KEY=
-VENICE_BASE_URL=
-VENICE_MODEL=
-ONESHOT_API_KEY=
-ONESHOT_BASE_URL=
-X402_RECEIVING_ADDRESS=
-X402_NETWORK=base
-X402_TOKEN=USDC
+WALLET_LIVE_MODE=true          # enable wallet_sendCalls upgrade path in the browser
+WALLET_CHAIN_ID=11155111       # Sepolia (default)
 ```
 
-## Design
+### Live integrations (hackathon + production)
 
-`DESIGN.md` is the visual source of truth. The current direction is a dark, flat, monospace command center with sparse proof surfaces and an agent-first workflow.
+Copy [`.env.example`](.env.example) to `.env` and configure:
 
-## Security Notes
+| Variable | Purpose |
+|----------|---------|
+| `BRAVE_SEARCH_API_KEY` | People-search URL discovery (redacted query from case labels) |
+| `VENICE_API_KEY` | Live agent classify / draft / review / chat + match scoring |
+| `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real HTTP 402 settlement on `/api/agent/premium-task` and `/api/agent/monitor` |
+| `ONESHOT_BASE_URL` | 1Shot public relayer JSON-RPC (default `https://relayer.1shotapi.com/relayers`) |
+| `HIBP_API_KEY` | Live breach email check (TEE attestation pass required) |
+| `OBLIVION_EXECUTOR_MODE=live` | Run approved connectors after policy + approval (still gated by TEE for managed plaintext) |
+| `PHALA_ATTESTATION_URL` | TDX quote verification before sensitive connectors |
 
-Read `SECURITY.md` before adding real search, broker, email, payment, or model-provider integrations. New external adapters must preserve policy checks, redaction, approval gates, no plaintext logging, and TEE attestation requirements for sensitive managed execution.
+Check readiness: `GET /api/integrations/status` · x402 buyer config: `GET /api/x402/config`
+
+## Docs
+
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — **step-by-step guide for users** (also at `/help` when the server is running).
+- `AGENTS.md` — for AI agents and maintainers (invariants, safety checklists, test gaps, how to add connectors).
+- `DESIGN.md` — visual language, colors, components.
+- `SECURITY.md` — never-store rules, approval boundary, production requirements.
+- `docs/HACKATHON_DEMO.md` — 3-minute flow and track checklist.
+
+## API Surface (core)
+
+Cases, intake, presets/plans, propose/approve/execute, connectors (hibp safe + google), trust, agent run, hackathon demos, export/delete.
+
+See `src/api/app.ts` for routes. All disclosure paths enforce the gates above.

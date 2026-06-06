@@ -67,5 +67,5 @@ test("encrypted case export can include wrapped key only", async () => {
   const serialized = JSON.stringify(exported);
   assert.equal(exported.format, "oblivion-encrypted-case-v1");
   assert.match(serialized, /ciphertext-only/);
-  assert.doesNotMatch(serialized, new RegExp(key.rawKeyBase64));
+  assert.equal(serialized.includes(key.rawKeyBase64), false);
 });

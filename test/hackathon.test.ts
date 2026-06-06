@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import {
   createAgentDelegationSet,
   createPaymentSession,
-  createVeniceAnalysis,
   validateErc7710Delegation,
   validatePermissionGrant,
   X402_PRODUCTS
 } from "../src/domain/hackathon.js";
+import { runVeniceAnalysis } from "../src/domain/venice.js";
 import type { Erc7710Delegation, PermissionGrant } from "../src/domain/types.js";
 
 test("payment catalog covers one-off x402 and ERC-7710 subscription tracks", () => {
@@ -49,17 +49,46 @@ test("advanced permissions reject broad agent scope", () => {
   assert.throws(() => validatePermissionGrant(grant), /permission-scope-too-broad/);
 });
 
-test("Venice adapter redacts identifiers before producing user-facing analysis", () => {
-  const analysis = createVeniceAnalysis({
-    caseId: "case_demo",
-    kind: "classify-case",
-    notes: "Contact me at person@example.com or 212-555-1111 about my address."
-  });
-  const encoded = JSON.stringify(analysis);
-  assert.doesNotMatch(encoded, /person@example\.com/);
-  assert.doesNotMatch(encoded, /212-555-1111/);
-  assert.match(encoded, /p\*{5,}@example\.com/);
-  assert.match(encoded, /\[phone:redacted\]/);
+test("Venice adapter redacts identifiers before producing user-facing analysis", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.VENICE_API_KEY;
+  process.env.VENICE_API_KEY = "test-key";
+  process.env.VENICE_BASE_URL = "https://api.venice.ai/api/v1";
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                title: "Classification",
+                summary: "Redacted context reviewed.",
+                risk: "standard",
+                recommendedTask: "broker-opt-out",
+                nextSteps: ["Verify path"]
+              })
+            }
+          }
+        ]
+      }),
+      { status: 200 }
+    );
+  try {
+    const analysis = await runVeniceAnalysis({
+      caseId: "case_demo",
+      kind: "classify-case",
+      notes: "Contact me at person@example.com or 212-555-1111 about my address."
+    });
+    const encoded = JSON.stringify(analysis);
+    assert.doesNotMatch(encoded, /person@example\.com/);
+    assert.doesNotMatch(encoded, /212-555-1111/);
+    assert.match(analysis.redactedInputSummary, /p\*{5,}@example\.com/);
+    assert.match(analysis.redactedInputSummary, /\[phone:redacted\]/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.VENICE_API_KEY;
+    else process.env.VENICE_API_KEY = originalKey;
+  }
 });
 
 test("A2A redelegation keeps specialized agents narrowly scoped", () => {

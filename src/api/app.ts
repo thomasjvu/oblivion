@@ -1,10 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { buildAttestationProof, type TrustCenterConfig } from "../domain/attestation.js";
-import { deadlineBasisFor, followUpDate } from "../domain/deadlines.js";
 import {
-  buildHackathonStatus,
+  buildAgentPlanView,
+  CLEANUP_PRESETS,
+  createAgentPlan,
+  getPreset
+} from "../domain/cleanup.js";
+import {
   createAgentDelegationSet,
   createEip7702Authorization,
   createErc7715Permission,
@@ -12,33 +16,75 @@ import {
   createPaymentSession,
   createRelayerEvents,
   createTimelineEvent,
-  createVeniceAnalysis,
   demoSmartAccountAddress,
   X402_PRODUCTS
 } from "../domain/hackathon.js";
-import { evaluateProposedAction, canExecuteWithApproval } from "../domain/policy.js";
+import { canExecuteWithApproval } from "../domain/policy.js";
+import {
+  buildAgentNextStep,
+  buildHackathonStatusForCase,
+  buildStatus,
+  proposeApprovedAction,
+  runCleanupAgentStep
+} from "../domain/orchestration.js";
 import { redactText } from "../domain/redaction.js";
-import { buildCaseStatus } from "../domain/status.js";
-import { buildDraftText, templateForAction } from "../domain/templates.js";
+import { executeApprovedAction } from "../domain/executor.js";
+import {
+  applyFindingDecision,
+  discoverExposureCandidates,
+  discoveryReadinessMessage
+} from "../domain/exposureDiscovery.js";
+import {
+  isBraveSearchConfigured,
+  isHibpConfigured,
+  isLiveExecutorEnabled,
+  isOneShotConfigured,
+  isX402Configured
+} from "../domain/integrations.js";
+import { relayOneShotForCase, type OneShotRelayBody } from "../domain/oneshot.js";
+import {
+  applyX402HttpResult,
+  markSessionPaid,
+  processX402Request,
+  settleX402Payment,
+  x402PublicConfig
+} from "../domain/x402.js";
+import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
 import { sanitizeForLog } from "../domain/safeLogging.js";
 import type {
-  ActionRequest,
   ActionType,
   AgentName,
-  Approval,
+  AutonomyMode,
   AuthorityBasis,
   CaseRecord,
   EncryptedBlob,
   IdentifierCategory,
   Jurisdiction,
   PaymentMode,
+  PresetId,
   RedactedScope,
   RelayerStatus,
   RiskLevel
 } from "../domain/types.js";
 import { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError, toHttpError } from "./errors.js";
-import { readJson, sendJson, sendText } from "./http.js";
+import { readJson, sendBytes, sendJson, sendText } from "./http.js";
+
+const ASSET_CONTENT_TYPES: Record<string, string> = {
+  ".webp": "image/webp",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".mp4": "video/mp4"
+};
+
+const FONT_CONTENT_TYPES: Record<string, string> = {
+  ".ttf": "font/ttf",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".otf": "font/otf"
+};
+import { handleConnectorRoutes } from "./routes/connectors.js";
 
 export interface AppOptions {
   store?: MemoryStore;
@@ -81,6 +127,10 @@ interface CaseBody {
 interface SmartAccountBody {
   caseId: string;
   walletAddress: string;
+  mode?: "demo" | "live";
+  txHash?: string;
+  callsId?: string;
+  chainId?: number;
 }
 
 interface PaymentBody {
@@ -109,14 +159,12 @@ interface AgentMessageBody {
   payload?: string;
 }
 
-interface RelayerBody {
-  caseId: string;
-  sessionId?: string;
-  permissionId?: string;
-  status?: RelayerStatus;
-  txHash?: string;
-  userOpHash?: string;
-  payload?: Record<string, unknown>;
+interface RelayerBody extends OneShotRelayBody {}
+
+interface ExecuteActionBody {
+  hashPrefix?: string;
+  emailLabel?: string;
+  sourceUrl?: string;
 }
 
 interface AgentRunBody {
@@ -125,9 +173,116 @@ interface AgentRunBody {
   smartAccountAddress?: string;
 }
 
+interface ApplyPresetBody {
+  presetId: PresetId;
+  autonomyMode?: AutonomyMode;
+}
+
+interface CaseAgentRunBody {
+  highAutonomy?: boolean;
+}
+
 interface PremiumTaskBody {
   caseId: string;
   paymentSessionId?: string;
+}
+
+function escapeHelpHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatHelpInline(text: string): string {
+  let html = escapeHelpHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2">$1</a>'
+  );
+  return html;
+}
+
+function helpPageFromMarkdown(markdown: string): string {
+  const lines = markdown.split("\n");
+  const parts: string[] = [];
+  let inTable = false;
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      parts.push("</ul>");
+      inList = false;
+    }
+  };
+  for (const line of lines) {
+    if (line.startsWith("|")) {
+      closeList();
+      if (!inTable) {
+        parts.push("<table>");
+        inTable = true;
+      }
+      const cells = line
+        .split("|")
+        .slice(1, -1)
+        .map((cell) => cell.trim());
+      if (cells.every((cell) => /^-+$/.test(cell.replace(/:/g, "")))) continue;
+      parts.push(`<tr>${cells.map((c) => `<td>${formatHelpInline(c)}</td>`).join("")}</tr>`);
+      continue;
+    }
+    if (inTable) {
+      parts.push("</table>");
+      inTable = false;
+    }
+    if (line.startsWith("# ")) {
+      closeList();
+      parts.push(`<h1>${formatHelpInline(line.slice(2))}</h1>`);
+    } else if (line.startsWith("## ")) {
+      closeList();
+      parts.push(`<h2>${formatHelpInline(line.slice(3))}</h2>`);
+    } else if (line.startsWith("### ")) {
+      closeList();
+      parts.push(`<h3>${formatHelpInline(line.slice(4))}</h3>`);
+    } else if (/^\d+\.\s/.test(line)) {
+      closeList();
+      parts.push(`<p class="step-line">${formatHelpInline(line)}</p>`);
+    } else if (line.startsWith("- ")) {
+      if (!inList) {
+        parts.push("<ul>");
+        inList = true;
+      }
+      parts.push(`<li>${formatHelpInline(line.slice(2))}</li>`);
+    } else if (line.trim() === "---") {
+      closeList();
+      parts.push("<hr />");
+    } else if (line.trim()) {
+      closeList();
+      parts.push(`<p>${formatHelpInline(line)}</p>`);
+    }
+  }
+  closeList();
+  if (inTable) parts.push("</table>");
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oblivion — User Guide</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app help-page">
+    <header class="topbar">
+      <div class="brand"><div class="mark">O</div><h1>Guide</h1></div>
+      <div class="nav-actions"><a class="secondary help-back" href="/">← Home</a></div>
+    </header>
+    <article class="help-article">${parts.join("\n")}</article>
+  </div>
+</body>
+</html>`;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -141,14 +296,85 @@ export function createApp(options: AppOptions = {}) {
       const url = new URL(request.url ?? "/", "http://localhost");
       const method = request.method ?? "GET";
 
+      if (method === "GET" && url.pathname === "/help") {
+        const guidePath = join(process.cwd(), "docs", "USER_GUIDE.md");
+        const markdown = await readFile(guidePath, "utf8");
+        sendText(response, 200, helpPageFromMarkdown(markdown), "text/html");
+        return;
+      }
+
+      if (method === "GET" && (url.pathname === "/favicon.ico" || url.pathname === "/favicon.svg")) {
+        const faviconPath = join(publicDir, "favicon.svg");
+        const svg = await readFile(faviconPath, "utf8");
+        sendText(response, 200, svg, "image/svg+xml");
+        return;
+      }
+
       if (method === "GET" && url.pathname === "/") {
         const html = await readFile(join(publicDir, "index.html"), "utf8");
         sendText(response, 200, html, "text/html");
         return;
       }
 
+      if (method === "GET" && url.pathname === "/styles.css") {
+        const css = await readFile(join(publicDir, "styles.css"), "utf8");
+        sendText(response, 200, css, "text/css");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app.js") {
+        const js = await readFile(join(publicDir, "app.js"), "utf8");
+        sendText(response, 200, js, "application/javascript");
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/assets/")) {
+        const assetName = url.pathname.slice("/assets/".length);
+        if (!assetName || assetName.includes("/") || assetName.includes("..")) {
+          sendJson(response, 400, { error: "invalid-asset-path" });
+          return;
+        }
+        const contentType = ASSET_CONTENT_TYPES[extname(assetName).toLowerCase()];
+        if (!contentType) {
+          sendJson(response, 404, { error: "asset-not-found" });
+          return;
+        }
+        try {
+          const bytes = await readFile(join(publicDir, "assets", assetName));
+          sendBytes(response, 200, bytes, contentType);
+        } catch {
+          sendJson(response, 404, { error: "asset-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/fonts/")) {
+        const fontName = url.pathname.slice("/fonts/".length);
+        if (!fontName || fontName.includes("/") || fontName.includes("..")) {
+          sendJson(response, 400, { error: "invalid-font-path" });
+          return;
+        }
+        const contentType = FONT_CONTENT_TYPES[extname(fontName).toLowerCase()];
+        if (!contentType) {
+          sendJson(response, 404, { error: "font-not-found" });
+          return;
+        }
+        try {
+          const bytes = await readFile(join(publicDir, "fonts", fontName));
+          sendBytes(response, 200, bytes, contentType, "public, max-age=604800");
+        } catch {
+          sendJson(response, 404, { error: "font-not-found" });
+        }
+        return;
+      }
+
       if (method === "GET" && url.pathname === "/health") {
         sendJson(response, 200, { ok: true });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/presets") {
+        sendJson(response, 200, { presets: CLEANUP_PRESETS });
         return;
       }
 
@@ -189,6 +415,60 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      const presetMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/preset$/);
+      if (method === "POST" && presetMatch) {
+        const body = await readJson<ApplyPresetBody>(request);
+        const caseRecord = store.getCaseOrThrow(presetMatch[1]);
+        const plan = createAgentPlan({
+          caseRecord,
+          presetId: body.presetId,
+          autonomyMode: body.autonomyMode
+        });
+        store.agentPlans.set(plan.id, plan);
+        const preset = getPreset(plan.presetId);
+        const timeline = createTimelineEvent(
+          caseRecord.id,
+          "OblivionRoot",
+          "Preset selected",
+          `${preset.title} started in ${plan.autonomyMode} mode.`
+        );
+        store.agentTimeline.set(timeline.id, timeline);
+        sendJson(response, 201, {
+          preset,
+          plan: buildAgentPlanView(plan),
+          timeline,
+          status: buildStatus(store, caseRecord.id)
+        });
+        return;
+      }
+
+      const planMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/plan$/);
+      if (method === "GET" && planMatch) {
+        const caseRecord = store.getCaseOrThrow(planMatch[1]);
+        const plan = store.agentPlanForCase(caseRecord.id);
+        sendJson(response, 200, {
+          plan: plan ? buildAgentPlanView(plan) : null,
+          presets: CLEANUP_PRESETS,
+          connectorResults: store.connectorResultsForCase(caseRecord.id),
+          timeline: store.agentTimelineForCase(caseRecord.id)
+        });
+        return;
+      }
+
+      const caseAgentRunMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/agent\/run$/);
+      if (method === "POST" && caseAgentRunMatch) {
+        const body = await readJson<CaseAgentRunBody>(request);
+        const caseRecord = store.getCaseOrThrow(caseAgentRunMatch[1]);
+        const result = await runCleanupAgentStep({
+          store,
+          caseRecord,
+          trustCenterConfig: () => loadTrustCenterConfig(trustCenterPath),
+          highAutonomy: body.highAutonomy
+        });
+        sendJson(response, 200, result);
+        return;
+      }
+
       const intakeMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/intake$/);
       if (method === "POST" && intakeMatch) {
         const body = await readJson<IntakeBody>(request);
@@ -201,31 +481,93 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      const findingsListMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings$/);
+      if (method === "GET" && findingsListMatch) {
+        const caseRecord = store.getCaseOrThrow(findingsListMatch[1]);
+        const status = buildStatus(store, caseRecord.id);
+        sendJson(response, 200, {
+          findings: status.findings,
+          pendingFindings: status.pendingFindings,
+          confirmedFindings: status.confirmedFindings,
+          discovery: discoveryReadinessMessage()
+        });
+        return;
+      }
+
+      const findingsDiscoverMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/discover$/);
+      if (method === "POST" && findingsDiscoverMatch) {
+        const caseRecord = store.getCaseOrThrow(findingsDiscoverMatch[1]);
+        const body = await readJson<{ pastedUrls?: string[] }>(request);
+        const existingUrls = store.exposuresForCase(caseRecord.id).map((item) => item.sourceUrl);
+        try {
+          const discovered = await discoverExposureCandidates({
+            caseId: caseRecord.id,
+            scope: caseRecord.redactedScope,
+            pastedUrls: body.pastedUrls,
+            existingUrls
+          });
+          for (const exposure of discovered) {
+            store.exposures.set(exposure.id, exposure);
+          }
+          const timeline = createTimelineEvent(
+            caseRecord.id,
+            "ScoutAgent",
+            "Discovery run",
+            discovered.length
+              ? `${discovered.length} candidate link(s) added for review.`
+              : "No new candidates. Paste URLs or configure Brave search."
+          );
+          store.agentTimeline.set(timeline.id, timeline);
+          sendJson(response, 201, {
+            discovered,
+            status: buildStatus(store, caseRecord.id),
+            timeline,
+            discovery: discoveryReadinessMessage()
+          });
+        } catch (error) {
+          throw new HttpError(502, "discovery-failed", {
+            message: discoveryReadinessMessage(),
+            detail: sanitizeForLog(error)
+          });
+        }
+        return;
+      }
+
+      const findingConfirmMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/([^/]+)\/(confirm|reject)$/);
+      if (method === "POST" && findingConfirmMatch) {
+        const caseRecord = store.getCaseOrThrow(findingConfirmMatch[1]);
+        const exposure = store.exposures.get(findingConfirmMatch[2]);
+        if (!exposure || exposure.caseId !== caseRecord.id) {
+          throw new HttpError(404, "finding-not-found");
+        }
+        const decision = findingConfirmMatch[3] === "confirm" ? "confirmed" : "rejected";
+        const updated = applyFindingDecision(exposure, decision);
+        store.exposures.set(updated.id, updated);
+        const timeline = createTimelineEvent(
+          caseRecord.id,
+          "ScoutAgent",
+          decision === "confirmed" ? "Match confirmed" : "Match rejected",
+          redactText(updated.sourceUrl)
+        );
+        store.agentTimeline.set(timeline.id, timeline);
+        sendJson(response, 200, { exposure: updated, status: buildStatus(store, caseRecord.id), timeline });
+        return;
+      }
+
       if (method === "POST" && url.pathname === "/api/actions/propose") {
         const body = await readJson<ProposeActionBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const policy = evaluateProposedAction({
-          authorityBasis: caseRecord.authorityBasis,
-          actionType: body.actionType,
-          destination: body.destination,
-          purpose: body.purpose,
-          identifiers: body.identifiers ?? [],
-          dataToDisclose: body.dataToDisclose ?? [],
-          plaintextPreview: body.plaintextPreview,
-          sourceVerified: body.sourceVerified,
-          hasApproval: false
+        const { approval, action } = proposeApprovedAction({
+          store,
+          caseRecord,
+          body: {
+            ...body,
+            identifiers: body.identifiers ?? [],
+            dataToDisclose: body.dataToDisclose ?? []
+          }
         });
-
-        if (!policy.allowed) {
-          throw new HttpError(422, "policy-blocked", { reasons: policy.reasons });
-        }
-
-        const approval = createApproval(caseRecord.id, body);
-        const action = createActionRequest(caseRecord.jurisdiction, approval.id, body);
-        store.approvals.set(approval.id, approval);
-        store.actions.set(action.id, action);
         sendJson(response, 201, {
-          policy,
+          policy: { allowed: true, reasons: [] },
           approval,
           action,
           status: buildStatus(store, caseRecord.id)
@@ -262,12 +604,25 @@ export function createApp(options: AppOptions = {}) {
           action.executionStatus = "blocked";
           throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
         }
-        action.executionStatus = "recorded";
+        const handoff = await readJson<ExecuteActionBody>(request);
+        const executed = await executeApprovedAction({
+          store,
+          action,
+          approval,
+          trustCenterConfig: await loadTrustCenterConfig(trustCenterPath),
+          handoff
+        });
+        action.executionStatus = executed.connectorResult?.status === "failed" ? "failed" : "recorded";
         action.executedAt = new Date().toISOString();
-        action.executionRecord =
-          "record-only executor: approved action recorded. External connector not configured for automatic submission.";
+        action.executionRecord = executed.executionRecord;
         approval.status = "used";
-        sendJson(response, 200, { action, approval, status: buildStatus(store, action.caseId) });
+        sendJson(response, 200, {
+          action,
+          approval,
+          executorMode: executed.mode,
+          connectorResult: executed.connectorResult,
+          status: buildStatus(store, action.caseId)
+        });
         return;
       }
 
@@ -295,24 +650,56 @@ export function createApp(options: AppOptions = {}) {
       if (method === "GET" && url.pathname === "/api/x402/products") {
         sendJson(response, 200, {
           products: X402_PRODUCTS,
-          note: "Demo catalog for x402 one-off and ERC-7710 recurring payment permissions."
+          config: x402PublicConfig(),
+          note: isX402Configured()
+            ? "Live x402 catalog. Pay protected agent routes with PAYMENT-SIGNATURE, then ERC-7710 scopes still govern cleanup disclosure."
+            : "Configure X402_PAY_TO and X402_FACILITATOR_URL for live HTTP 402 settlement."
+        });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/x402/config") {
+        sendJson(response, 200, x402PublicConfig());
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/integrations/wallet-config") {
+        const chainId = Number(process.env.WALLET_CHAIN_ID || "11155111");
+        const liveEnabled = process.env.WALLET_LIVE_MODE === "true";
+        sendJson(response, 200, {
+          mode: liveEnabled ? "live" : "demo",
+          liveEnabled,
+          chainId,
+          chainIdHex: `0x${chainId.toString(16)}`,
+          addChainParams: {
+            chainId: `0x${chainId.toString(16)}`,
+            chainName: "Sepolia",
+            nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+            rpcUrls: ["https://rpc.sepolia.org"],
+            blockExplorerUrls: ["https://sepolia.etherscan.io"]
+          },
+          poll: { attempts: 12, delayMs: 1500 }
         });
         return;
       }
 
       if (method === "GET" && url.pathname === "/api/integrations/status") {
         sendJson(response, 200, {
-          mode: "demo-adapters",
+          mode: isVeniceConfigured() ? "live-agent" : "wallet-and-policy",
+          executorMode: isLiveExecutorEnabled() ? "live" : "record-only",
           liveReady: {
-            metamaskSmartAccounts: false,
-            x402: false,
-            erc7710: false,
-            venice: Boolean(process.env.VENICE_API_KEY && process.env.VENICE_BASE_URL),
-            oneShot: Boolean(process.env.ONESHOT_API_KEY && process.env.ONESHOT_BASE_URL),
+            metamaskSmartAccounts: process.env.WALLET_LIVE_MODE === "true",
+            x402: isX402Configured(),
+            erc7710: isX402Configured(),
+            venice: isVeniceConfigured(),
+            oneShot: isOneShotConfigured(),
+            hibpEmail: isHibpConfigured(),
+            braveSearch: isBraveSearchConfigured(),
+            liveExecutor: isLiveExecutorEnabled(),
             phalaAttestation: Boolean(process.env.PHALA_ATTESTATION_URL)
           },
           privacyInvariant:
-            "Demo and live adapters must stay behind the same approval, redaction, logging, and attestation gates."
+            "Live adapters must stay behind the same approval, redaction, logging, and attestation gates."
         });
         return;
       }
@@ -323,12 +710,17 @@ export function createApp(options: AppOptions = {}) {
         if (!body.walletAddress || !body.walletAddress.startsWith("0x")) {
           throw new HttpError(422, "wallet-address-required");
         }
+        const sessionMode = body.mode === "live" ? "live" : "demo";
         const eip7702 = createEip7702Authorization(caseRecord.id, body.walletAddress);
         const erc7715 = createErc7715Permission(caseRecord.id);
         store.permissionGrants.set(eip7702.id, eip7702);
         store.permissionGrants.set(erc7715.id, erc7715);
+        const smartDetail =
+          sessionMode === "live"
+            ? `EIP-7702 authorization recorded after MetaMask batch${body.txHash ? ` (${body.txHash.slice(0, 10)}…)` : ""}.`
+            : "EIP-7702 demo authorization created.";
         const timeline = [
-          createTimelineEvent(caseRecord.id, "MetaMask", "Smart Account session", "EIP-7702 demo authorization created."),
+          createTimelineEvent(caseRecord.id, "MetaMask", "Smart Account session", smartDetail),
           createTimelineEvent(
             caseRecord.id,
             "MetaMask",
@@ -338,8 +730,12 @@ export function createApp(options: AppOptions = {}) {
         ];
         timeline.forEach((event) => store.agentTimeline.set(event.id, event));
         sendJson(response, 201, {
+          mode: sessionMode,
           walletAddress: redactText(body.walletAddress),
           smartAccountAddress: demoSmartAccountAddress(body.walletAddress),
+          txHash: body.txHash,
+          callsId: body.callsId,
+          chainId: body.chainId,
           permissions: [eip7702, erc7715],
           timeline
         });
@@ -374,25 +770,62 @@ export function createApp(options: AppOptions = {}) {
       if (method === "POST" && (url.pathname === "/api/agent/premium-task" || url.pathname === "/api/agent/monitor")) {
         const body = await readJson<PremiumTaskBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const sessions = store.paymentSessionsForCase(caseRecord.id);
         const expectedMode: PaymentMode = url.pathname.endsWith("monitor") ? "subscription" : "one-off";
+        if (isX402Configured()) {
+          const x402Result = await processX402Request({ request, url });
+          if (x402Result?.type === "payment-error" && x402Result.response) {
+            applyX402HttpResult(response, x402Result);
+            return;
+          }
+          if (x402Result?.type === "payment-verified") {
+            const settlement = await settleX402Payment({ request, url, verified: x402Result });
+            if (!settlement.ok) {
+              throw new HttpError(402, "x402-settlement-failed", { error: settlement.error });
+            }
+            const sessions = store.paymentSessionsForCase(caseRecord.id);
+            const session = body.paymentSessionId
+              ? store.paymentSessions.get(body.paymentSessionId)
+              : sessions.find((item) => item.mode === expectedMode);
+            if (session && session.caseId === caseRecord.id) {
+              const paid = markSessionPaid(session, settlement.transaction);
+              store.paymentSessions.set(paid.id, paid);
+            }
+            const timeline = createTimelineEvent(
+              caseRecord.id,
+              "x402",
+              expectedMode === "subscription" ? "Monitor paid via x402" : "Premium task paid via x402",
+              "Facilitator settlement confirmed. Cleanup still requires a separate disclosure approval."
+            );
+            store.agentTimeline.set(timeline.id, timeline);
+            sendJson(response, 200, {
+              entitlement: "x402-settled",
+              settlement,
+              session,
+              nextRequired: "explicit-cleanup-approval",
+              timeline
+            });
+            return;
+          }
+        }
+        const sessions = store.paymentSessionsForCase(caseRecord.id);
         const session = body.paymentSessionId
           ? store.paymentSessions.get(body.paymentSessionId)
           : sessions.find((item) => item.mode === expectedMode);
         if (!session || session.caseId !== caseRecord.id || session.mode !== expectedMode) {
           throw new HttpError(402, "x402-payment-required", {
-            products: X402_PRODUCTS.filter((product) => product.mode === expectedMode)
+            products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+            config: x402PublicConfig()
           });
         }
         const timeline = createTimelineEvent(
           caseRecord.id,
           "x402",
           expectedMode === "subscription" ? "Monitor entitlement checked" : "Premium task entitlement checked",
-          "x402 payment session is present; cleanup still requires a separate disclosure approval."
+          "Payment session recorded. Configure live x402 or settle via PAYMENT-SIGNATURE for facilitator confirmation."
         );
         store.agentTimeline.set(timeline.id, timeline);
         sendJson(response, 200, {
-          entitlement: "demo-accepted",
+          entitlement: "payment-session-verified",
           session,
           nextRequired: "explicit-cleanup-approval",
           timeline
@@ -400,27 +833,27 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
-      if (method === "POST" && url.pathname === "/api/1shot/relay-demo") {
+      if (
+        method === "POST" &&
+        (url.pathname === "/api/1shot/relay" || url.pathname === "/api/1shot/relay-demo")
+      ) {
+        if (!isOneShotConfigured()) {
+          throw new HttpError(503, "oneshot-not-configured", {
+            message: "Set ONESHOT_BASE_URL (default public relayer) and optional ONESHOT_API_KEY / ONESHOT_AUTHORIZATION."
+          });
+        }
         const body = await readJson<RelayerBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const events = createRelayerEvents({
-          caseId: caseRecord.id,
-          sessionId: body.sessionId,
-          permissionId: body.permissionId,
-          status: body.status,
-          txHash: body.txHash,
-          userOpHash: body.userOpHash,
-          payload: body.payload
-        });
-        events.forEach((event) => store.relayerEvents.set(event.id, event));
+        const relay = await relayOneShotForCase(body);
+        relay.events.forEach((event) => store.relayerEvents.set(event.id, event));
         const timeline = createTimelineEvent(
           caseRecord.id,
           "1Shot",
           "Relayer status",
-          `1Shot demo status: ${events.at(-1)?.status ?? "submitted"}`
+          `1Shot ${relay.mode} relay: ${relay.events.at(-1)?.status ?? "submitted"}`
         );
         store.agentTimeline.set(timeline.id, timeline);
-        sendJson(response, 201, { events, timeline });
+        sendJson(response, 201, { mode: relay.mode, events: relay.events, timeline });
         return;
       }
 
@@ -449,111 +882,47 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      if (method === "POST" && url.pathname === "/api/agent/chat") {
+        const body = await readJson<{ caseId: string; message: string }>(request);
+        const caseRecord = store.getCaseOrThrow(body.caseId);
+        if (!body.message?.trim()) throw new HttpError(422, "agent-message-required");
+        if (!isVeniceConfigured()) {
+          throw new HttpError(503, "venice-not-configured", {
+            message: "Set VENICE_API_KEY to enable the live agent."
+          });
+        }
+        const plan = store.agentPlanForCase(caseRecord.id);
+        const reply = await runVeniceAgentReply({
+          caseId: caseRecord.id,
+          message: body.message,
+          planStep: plan?.currentStep,
+          presetId: plan?.presetId
+        });
+        const timeline = createTimelineEvent(caseRecord.id, "Venice", "Agent reply", reply);
+        store.agentTimeline.set(timeline.id, timeline);
+        sendJson(response, 200, { reply, timeline });
+        return;
+      }
+
       if (method === "POST" && url.pathname === "/api/agent/run-next") {
         const body = await readJson<AgentRunBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const before = buildAgentNextStep(store, caseRecord.id);
-        const walletAddress = body.walletAddress || "0x1111111111111111111111111111111111111111";
-        const artifacts: unknown[] = [];
+        sendJson(response, 200, await runCleanupAgentStep({
+          store,
+          caseRecord,
+          trustCenterConfig: () => loadTrustCenterConfig(trustCenterPath)
+        }));
+        return;
+      }
 
-        if (before.action === "setup-smart-account") {
-          const eip7702 = createEip7702Authorization(caseRecord.id, walletAddress);
-          const erc7715 = createErc7715Permission(caseRecord.id);
-          store.permissionGrants.set(eip7702.id, eip7702);
-          store.permissionGrants.set(erc7715.id, erc7715);
-          const timeline = createTimelineEvent(
-            caseRecord.id,
-            "MetaMask",
-            "Agent prepared Smart Account permissions",
-            "EIP-7702 and ERC-7715 demo permissions are ready for user review."
-          );
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ smartAccountAddress: demoSmartAccountAddress(walletAddress), permissions: [eip7702, erc7715], timeline });
-        } else if (before.action === "prepare-one-off-payment" || before.action === "prepare-subscription") {
-          const mode: PaymentMode = before.action === "prepare-subscription" ? "subscription" : "one-off";
-          const session = createPaymentSession({
-            caseId: caseRecord.id,
-            mode,
-            productId: mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet",
-            walletAddress: redactText(walletAddress),
-            smartAccountAddress: body.smartAccountAddress || demoSmartAccountAddress(walletAddress)
-          });
-          const permission = createPaymentPermission(caseRecord.id, session);
-          store.paymentSessions.set(session.id, session);
-          store.permissionGrants.set(permission.id, permission);
-          const timeline = createTimelineEvent(
-            caseRecord.id,
-            "x402",
-            mode === "subscription" ? "Agent prepared monitoring subscription" : "Agent prepared one-off cleanup payment",
-            "Payment is capped, expiring, case-bound, and scoped to x402."
-          );
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ session, permission, timeline });
-        } else if (before.action === "ask-venice") {
-          const analysis = createVeniceAnalysis({
-            caseId: caseRecord.id,
-            kind: "classify-case",
-            notes: "Agent-requested redacted case classification.",
-            actionType: "broker-opt-out"
-          });
-          store.veniceAnalyses.set(analysis.id, analysis);
-          const timeline = createTimelineEvent(caseRecord.id, "Venice", analysis.output.title, analysis.output.summary);
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ analysis, timeline });
-        } else if (before.action === "delegate-agents") {
-          const result = createAgentDelegationSet(caseRecord.id);
-          result.grants.forEach((grant) => store.permissionGrants.set(grant.id, grant));
-          result.delegations.forEach((delegation) => store.agentDelegations.set(delegation.id, delegation));
-          result.messages.forEach((message) => store.agentMessages.set(message.id, message));
-          result.timeline.forEach((event) => store.agentTimeline.set(event.id, event));
-          artifacts.push(result);
-        } else if (before.action === "relay-payment") {
-          const session = store.paymentSessionsForCase(caseRecord.id).at(-1);
-          const events = createRelayerEvents({ caseId: caseRecord.id, sessionId: session?.id });
-          events.forEach((event) => store.relayerEvents.set(event.id, event));
-          const timeline = createTimelineEvent(caseRecord.id, "1Shot", "Agent relayed latest payment", "1Shot demo relay confirmed.");
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ events, timeline });
-        } else if (before.action === "prepare-cleanup-approval") {
-          const proposed = createDefaultCleanupApproval(store, caseRecord);
-          const timeline = createTimelineEvent(
-            caseRecord.id,
-            "OblivionRoot",
-            "Cleanup approval prepared",
-            "Broker opt-out approval is ready for user review. No external submission has occurred."
-          );
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ ...proposed, timeline });
-        } else if (before.action === "record-approved-action") {
-          const action = store.actionsForCase(caseRecord.id).find((item) => item.executionStatus === "ready");
-          if (!action) throw new HttpError(409, "ready-action-missing");
-          const approval = store.approvals.get(action.approvalId);
-          if (!approval) throw new HttpError(409, "approval-missing");
-          const decision = canExecuteWithApproval(approval);
-          if (!decision.allowed) throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
-          action.executionStatus = "recorded";
-          action.executedAt = new Date().toISOString();
-          action.executionRecord = "record-only demo executor: approved cleanup packet recorded for user-held submission.";
-          approval.status = "used";
-          const timeline = createTimelineEvent(
-            caseRecord.id,
-            "OblivionRoot",
-            "Approved cleanup action recorded",
-            "Record-only execution completed. Production adapters must still follow the same approval gate."
-          );
-          store.agentTimeline.set(timeline.id, timeline);
-          artifacts.push({ action, approval, timeline });
-        }
-
-        const after = buildAgentNextStep(store, caseRecord.id);
-        sendJson(response, 200, {
-          ran: before,
-          next: after,
-          artifacts,
-          timeline: store.agentTimelineForCase(caseRecord.id),
-          status: buildHackathonStatusForCase(store, caseRecord.id),
-          caseStatus: buildStatus(store, caseRecord.id)
-        });
+      if (await handleConnectorRoutes({
+        request,
+        response,
+        method,
+        url,
+        store,
+        trustCenterConfig: () => loadTrustCenterConfig(trustCenterPath)
+      })) {
         return;
       }
 
@@ -569,7 +938,12 @@ export function createApp(options: AppOptions = {}) {
             : url.pathname === "/api/ai/review-approval"
               ? "review-approval"
               : "classify-case";
-        const analysis = createVeniceAnalysis({
+        if (!isVeniceConfigured()) {
+          throw new HttpError(503, "venice-not-configured", {
+            message: "Set VENICE_API_KEY (and optional VENICE_BASE_URL, VENICE_MODEL) to enable Venice.ai."
+          });
+        }
+        const analysis = await runVeniceAnalysis({
           caseId: caseRecord.id,
           kind,
           notes: body.notes,
@@ -650,6 +1024,7 @@ export function createApp(options: AppOptions = {}) {
           approvals: store.approvalsForCase(caseRecord.id),
           actions: store.actionsForCase(caseRecord.id),
           exposures: store.exposuresForCase(caseRecord.id),
+          sourceChecks: [...store.sourceChecks.values()].filter((sourceCheck) => sourceCheck.caseId === caseRecord.id),
           followUps: store.followUpsForCase(caseRecord.id),
           paymentSessions: store.paymentSessionsForCase(caseRecord.id),
           permissionGrants: store.permissionGrantsForCase(caseRecord.id),
@@ -657,7 +1032,9 @@ export function createApp(options: AppOptions = {}) {
           veniceAnalyses: store.veniceAnalysesForCase(caseRecord.id),
           agentDelegations: store.agentDelegationsForCase(caseRecord.id),
           agentMessages: store.agentMessagesForCase(caseRecord.id),
-          agentTimeline: store.agentTimelineForCase(caseRecord.id)
+          agentTimeline: store.agentTimelineForCase(caseRecord.id),
+          agentPlan: store.agentPlanForCase(caseRecord.id) ?? null,
+          connectorResults: store.connectorResultsForCase(caseRecord.id)
         });
         return;
       }
@@ -721,77 +1098,6 @@ function createCaseRecord(body: CreateCaseBody): CaseRecord {
   };
 }
 
-function createApproval(caseId: string, body: ProposeActionBody): Approval {
-  const now = new Date();
-  return {
-    id: `approval_${crypto.randomUUID()}`,
-    caseId,
-    actionType: body.actionType,
-    destination: body.destination,
-    identifiersApproved: body.identifiers ?? [],
-    dataToDisclose: body.dataToDisclose ?? [],
-    purpose: body.purpose,
-    disclosureRisk: "Approved data will be disclosed to the named destination if execution is connected to an external adapter.",
-    expiresAt: followUpDate(7, now),
-    status: "pending",
-    createdAt: now.toISOString()
-  };
-}
-
-function createActionRequest(
-  jurisdiction: Jurisdiction,
-  approvalId: string,
-  body: ProposeActionBody
-): ActionRequest {
-  return {
-    id: `action_${crypto.randomUUID()}`,
-    caseId: body.caseId,
-    actionType: body.actionType,
-    destination: body.destination,
-    template: templateForAction(body.actionType, jurisdiction),
-    draftText: buildDraftText({
-      actionType: body.actionType,
-      jurisdiction,
-      destination: body.destination,
-      purpose: body.purpose
-    }),
-    deadlineBasis: deadlineBasisFor(body.actionType, jurisdiction),
-    expectedConfirmationStep: body.expectedConfirmationStep ?? "User confirms the destination and approved data before external submission.",
-    approvalId,
-    executionStatus: "awaiting-approval",
-    createdAt: new Date().toISOString()
-  };
-}
-
-function createDefaultCleanupApproval(store: MemoryStore, caseRecord: CaseRecord): { approval: Approval; action: ActionRequest } {
-  const body: ProposeActionBody = {
-    caseId: caseRecord.id,
-    actionType: "broker-opt-out",
-    destination: "Example People Search Broker",
-    purpose: "Prepare a user-reviewed broker opt-out packet for synthetic demo data.",
-    identifiers: ["email"],
-    dataToDisclose: ["email"],
-    sourceVerified: true,
-    expectedConfirmationStep: "User reviews the approval card and confirms this exact disclosure before submission."
-  };
-  const policy = evaluateProposedAction({
-    authorityBasis: caseRecord.authorityBasis,
-    actionType: body.actionType,
-    destination: body.destination,
-    purpose: body.purpose,
-    identifiers: body.identifiers,
-    dataToDisclose: body.dataToDisclose,
-    sourceVerified: body.sourceVerified,
-    hasApproval: false
-  });
-  if (!policy.allowed) throw new HttpError(422, "policy-blocked", { reasons: policy.reasons });
-  const approval = createApproval(caseRecord.id, body);
-  const action = createActionRequest(caseRecord.jurisdiction, approval.id, body);
-  store.approvals.set(approval.id, approval);
-  store.actions.set(action.id, action);
-  return { approval, action };
-}
-
 function validateEncryptedBlob(blob: EncryptedBlob): void {
   if (!blob || blob.alg !== "AES-256-GCM" || !blob.keyId || !blob.nonce || !blob.ciphertext) {
     throw new HttpError(422, "valid-encrypted-intake-required");
@@ -805,17 +1111,6 @@ function sanitizeScope(scope: RedactedScope): RedactedScope {
     approvedIdentifierLabels: (scope.approvedIdentifierLabels ?? []).map(redactText),
     sensitiveConstraints: (scope.sensitiveConstraints ?? []).map(redactText)
   };
-}
-
-function buildStatus(store: MemoryStore, caseId: string) {
-  const caseRecord = store.getCaseOrThrow(caseId);
-  return buildCaseStatus({
-    caseRecord,
-    exposures: store.exposuresForCase(caseId),
-    approvals: store.approvalsForCase(caseId),
-    actions: store.actionsForCase(caseId),
-    followUps: store.followUpsForCase(caseId)
-  });
 }
 
 function purgeCaseData(store: MemoryStore, caseId: string): void {
@@ -855,98 +1150,16 @@ function purgeCaseData(store: MemoryStore, caseId: string): void {
   for (const [id, event] of store.agentTimeline) {
     if (event.caseId === caseId) store.agentTimeline.delete(id);
   }
+  for (const [id, plan] of store.agentPlans) {
+    if (plan.caseId === caseId) store.agentPlans.delete(id);
+  }
+  for (const [id, result] of store.connectorResults) {
+    if (result.caseId === caseId) store.connectorResults.delete(id);
+  }
 }
 
 function parseAgentName(value: string): AgentName {
-  const allowed: AgentName[] = ["OblivionRoot", "ScoutAgent", "DraftAgent", "VerifierAgent", "PaymentAgent"];
+  const allowed: AgentName[] = ["OblivionRoot", "ScoutAgent", "DraftAgent", "VerifierAgent", "PaymentAgent", "SchedulerAgent"];
   if (!allowed.includes(value as AgentName)) throw new HttpError(422, "unsupported-agent");
   return value as AgentName;
-}
-
-function buildHackathonStatusForCase(store: MemoryStore, caseId: string) {
-  return buildHackathonStatus({
-    caseId,
-    permissions: store.permissionGrantsForCase(caseId),
-    payments: store.paymentSessionsForCase(caseId),
-    veniceAnalyses: store.veniceAnalysesForCase(caseId),
-    delegations: store.agentDelegationsForCase(caseId),
-    relayerEvents: store.relayerEventsForCase(caseId)
-  });
-}
-
-function buildAgentNextStep(store: MemoryStore, caseId: string) {
-  const status = buildHackathonStatusForCase(store, caseId);
-  const caseStatus = buildStatus(store, caseId);
-  if (!status.smartAccountVisible || !status.erc7715PermissionGranted) {
-    return {
-      action: "setup-smart-account",
-      title: "Prepare wallet permissions",
-      message:
-        "I can prepare a Smart Account session and ERC-7715 permission record. You still review scope, expiry, and redelegation before real execution."
-    };
-  }
-  if (!status.x402OneOffReady) {
-    return {
-      action: "prepare-one-off-payment",
-      title: "Prepare one-off cleanup payment",
-      message: "I can create a capped x402 payment request for one broker opt-out packet."
-    };
-  }
-  if (!status.erc7710SubscriptionReady) {
-    return {
-      action: "prepare-subscription",
-      title: "Prepare monitoring subscription",
-      message: "I can create an ERC-7710 weekly monitor permission with a spend cap, endpoint scope, and expiry."
-    };
-  }
-  if (!status.veniceOutputReady) {
-    return {
-      action: "ask-venice",
-      title: "Ask Venice for redacted analysis",
-      message: "I can classify the redacted case context and turn it into a cleanup task proposal."
-    };
-  }
-  if (!status.a2aRedelegationVisible) {
-    return {
-      action: "delegate-agents",
-      title: "Delegate specialist agents",
-      message: "I can redelegate narrow roles to Scout, Draft, Verifier, and Payment agents."
-    };
-  }
-  if (!status.oneShotRelayerVisible) {
-    return {
-      action: "relay-payment",
-      title: "Relay latest payment",
-      message: "I can send the latest payment permission through the 1Shot demo relayer and track status."
-    };
-  }
-  if (caseStatus.approvalsNeeded.length === 0 && caseStatus.actionsReady.length === 0 && caseStatus.submittedActions.length === 0) {
-    return {
-      action: "prepare-cleanup-approval",
-      title: "Prepare cleanup approval",
-      message:
-        "I can draft the first broker opt-out approval card. It names the destination, data categories, purpose, risk, and expiration."
-    };
-  }
-  if (caseStatus.approvalsNeeded.length > 0) {
-    return {
-      action: "await-user-approval",
-      title: "Waiting for approval",
-      message:
-        "Review the approval card. I cannot execute or disclose anything until you approve that exact action."
-    };
-  }
-  if (caseStatus.actionsReady.length > 0) {
-    return {
-      action: "record-approved-action",
-      title: "Record approved action",
-      message:
-        "I can record the approved cleanup packet as ready for user-held submission. This demo executor does not contact external brokers."
-    };
-  }
-  return {
-    action: "complete",
-    title: "Full demo complete",
-    message: "All hackathon tracks are represented and the approved cleanup action has been recorded without external disclosure."
-  };
 }

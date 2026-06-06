@@ -17,7 +17,6 @@ import type {
   RelayerEvent,
   RelayerStatus,
   VeniceAnalysis,
-  VeniceAnalysisKind,
   X402PaymentRequest
 } from "./types.js";
 
@@ -179,29 +178,6 @@ export function validatePermissionGrant(grant: PermissionGrant): void {
   }
 }
 
-export function createVeniceAnalysis(input: {
-  caseId: string;
-  kind: VeniceAnalysisKind;
-  notes?: string;
-  destination?: string;
-  actionType?: ActionType;
-}): VeniceAnalysis {
-  const redacted = redactText(input.notes || "Encrypted case summary unavailable to server.");
-  const kind = input.kind;
-  const actionType = input.actionType ?? "broker-opt-out";
-  const destination = redactText(input.destination || "approved destination");
-  const output = buildVeniceOutput(kind, redacted, destination, actionType);
-  return {
-    id: `venice_${crypto.randomUUID()}`,
-    caseId: input.caseId,
-    kind,
-    model: process.env.VENICE_MODEL ?? "venice-demo-redacted-reasoner",
-    redactedInputSummary: redacted,
-    output,
-    createdAt: new Date().toISOString()
-  };
-}
-
 export function createAgentDelegationSet(caseId: string): {
   grants: PermissionGrant[];
   delegations: AgentDelegation[];
@@ -300,7 +276,7 @@ export function createRelayerEvents(input: {
     status,
     txHash,
     userOpHash,
-    message: status === "confirmed" ? "1Shot demo relay confirmed for the case-bound permission." : `1Shot demo relay ${status}.`,
+    message: status === "confirmed" ? "1Shot relay confirmed for the case-bound permission." : `1Shot relay ${status}.`,
     payload: input.payload,
     createdAt: new Date().toISOString()
   }));
@@ -361,38 +337,4 @@ function containsBroadScope(scope: string[]): boolean {
   });
 }
 
-function buildVeniceOutput(
-  kind: VeniceAnalysisKind,
-  redacted: string,
-  destination: string,
-  actionType: ActionType
-): VeniceAnalysis["output"] {
-  if (kind === "classify-case") {
-    return {
-      title: "Redacted case classification",
-      summary: `Venice demo adapter classified the redacted case context as ${actionType} ready without receiving raw identifiers.`,
-      risk: redacted.toLowerCase().includes("address") ? "high-risk-safety" : "standard",
-      recommendedTask: actionType,
-      nextSteps: ["Verify official removal path", "Prepare exact approval", "Keep raw identifiers in the encrypted vault"]
-    };
-  }
-  if (kind === "draft-request") {
-    return {
-      title: "Removal request draft",
-      summary: `Draft prepared for ${destination} using redacted case context.`,
-      recommendedTask: actionType,
-      draftText:
-        `Please remove the matching profile associated with the approved identifiers. ` +
-        `This request is limited to the user-confirmed case scope and should not be used for marketing, resale, or further disclosure.`,
-      nextSteps: ["Review destination", "Approve exact disclosure", "Submit only through approved channel"]
-    };
-  }
-  return {
-    title: "Approval review",
-    summary: "Venice demo adapter reviewed the approval for over-disclosure and missing user confirmation.",
-    recommendedTask: actionType,
-    approvalExplanation:
-      "This action should disclose only the selected data categories to the named destination and expires automatically.",
-    nextSteps: ["Check destination", "Check data categories", "Require passing attestation for managed execution"]
-  };
-}
+
