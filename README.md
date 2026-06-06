@@ -108,7 +108,7 @@ Check readiness: `GET /api/integrations/status` · x402 buyer config: `GET /api/
 - `AGENTS.md` — for AI agents and maintainers (invariants, safety checklists, test gaps, how to add connectors).
 - `DESIGN.md` — visual language, colors, components.
 - `SECURITY.md` — never-store rules, approval boundary, production requirements.
-- `docs/HACKATHON_DEMO.md` — 3-minute flow and track checklist.
+- `docs/HACKATHON_DEMO.md` — hackathon architecture diagram, live-vs-demo matrix, 3-minute judge flow, and per-track verification.
 
 ## API Surface (core)
 
