@@ -4,6 +4,8 @@ Oblivion is a **private cleanup agent**. You describe the exposure; it drafts re
 
 Use the **agent panel** on the right (bottom on mobile). Tap **Continue** in the guide bar when prompted.
 
+**Choosing a template?** See [`TEMPLATES.md`](TEMPLATES.md) for what each preset does, which data it needs, and the full step-by-step process.
+
 ---
 
 ## Start

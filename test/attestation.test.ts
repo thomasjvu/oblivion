@@ -39,6 +39,11 @@ test("extracts compose hash from Phala-style report", () => {
   assert.equal(extractComposeHash(report), createHash("sha256").update(appCompose).digest("hex"));
 });
 
+test("extracts compose hash from compose_hash field", () => {
+  const hash = "b".repeat(64);
+  assert.equal(extractComposeHash({ compose_hash: hash }), hash);
+});
+
 test("converts base64 quote to hex", () => {
   assert.equal(quoteToHex(Buffer.from("abc").toString("base64")), "616263");
 });

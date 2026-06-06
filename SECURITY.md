@@ -11,7 +11,7 @@ Managed Oblivion adds controls that a portable skill cannot guarantee on its own
 - Policy enforcement before LLM/tool use.
 - Phala Confidential VM deployment target.
 - Public Trust Center metadata for attestation, compose hash, image digests, source commit, and deployment version.
-- Live Phala attestation fetching through `PHALA_ATTESTATION_URL`.
+- Live Phala attestation through the dstack guest agent socket (`/var/run/dstack.sock`) via `@phala/dstack-sdk`, with optional HTTP fallback through `PHALA_ATTESTATION_URL`.
 - Intel TDX quote verification through Phala's verifier endpoint.
 - Client-side blocking for sensitive actions unless Trust Center status is passing.
 - Record-only default executor until external connectors are explicitly integrated behind approval gates.
@@ -48,7 +48,9 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 ## Production Requirements
 
 - Replace placeholder Trust Center values with live Phala attestation evidence.
-- Set `PHALA_ATTESTATION_URL` to the live CVM attestation report endpoint.
+- Mount `/var/run/dstack.sock` in the production compose file (see `docker-compose.phala.yml`).
+- Run `npm run phala:sync-trust` after deploy to pin `expectedComposeHash` in `config/trust-center.json`, then rebuild and redeploy.
+- Optionally set `PHALA_ATTESTATION_URL` as an HTTP fallback attestation endpoint.
 - Confirm `GET /api/trust/attestation` returns `verifierResult: "pass"` before accepting sensitive tasks.
 - Pin every production image by `@sha256:` digest.
 - Keep secrets in Phala encrypted secrets, not Docker Compose plaintext.

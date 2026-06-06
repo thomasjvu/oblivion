@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import type { AttestationProof } from "./types.js";
 
 const DIGEST_RE = /@sha256:[0-9a-f]{64}$/;
@@ -21,6 +22,8 @@ export interface BuildAttestationOptions {
   now?: Date;
 }
 
+type AttestationSource = "dstack" | "http" | "static";
+
 interface LiveEvidence {
   report: unknown;
   fetchedAt: string;
@@ -28,6 +31,7 @@ interface LiveEvidence {
   composeHash?: string;
   mrConfig?: string;
   errors: string[];
+  source: AttestationSource;
 }
 
 export async function buildAttestationProof(
@@ -39,10 +43,9 @@ export async function buildAttestationProof(
   const digestErrors = validateImageDigests(config.imageDigests);
   errors.push(...digestErrors);
 
-  const liveEvidence =
-    options.fetchLive && config.attestationReportUrl
-      ? await fetchLiveEvidence(config, now)
-      : buildStaticEvidence(config, now);
+  const liveEvidence = options.fetchLive
+    ? await fetchLiveEvidence(config, now)
+    : buildStaticEvidence(config, now);
 
   errors.push(...liveEvidence.errors);
 
@@ -55,6 +58,9 @@ export async function buildAttestationProof(
   const attestationFresh = isFresh(liveEvidence.fetchedAt, config.maxAttestationAgeSeconds ?? 600, now);
   const imageDigestsPinned = digestErrors.length === 0 && config.imageDigests.length > 0;
   const hardwareQuoteVerified = liveEvidence.hardwareQuoteVerified;
+  const attestationWired =
+    liveEvidence.source === "dstack" ||
+    Boolean(config.attestationReportUrl && !String(config.attestationReportUrl).startsWith("replace-"));
 
   if (!expectedComposeConfigured) errors.push("expected-compose-hash-not-configured");
   if (liveEvidence.composeHash && !composeHashMatches) errors.push("compose-hash-mismatch");
@@ -62,11 +68,13 @@ export async function buildAttestationProof(
   if (hardwareQuoteVerified === false) errors.push("hardware-quote-not-verified");
 
   const verifierResult =
-    errors.some((error) => error.includes("not-configured")) || !config.attestationReportUrl
+    !attestationWired || errors.some((error) => error.includes("not-configured"))
       ? "not-configured"
       : errors.length === 0 && composeHashMatches && imageDigestsPinned && hardwareQuoteVerified === true
         ? "pass"
-        : "fail";
+        : options.fetchLive
+          ? "fail"
+          : "not-configured";
 
   return {
     deploymentVersion: config.deploymentVersion,
@@ -95,6 +103,9 @@ export function validateImageDigests(imageDigests: string[]): string[] {
 }
 
 export function extractComposeHash(report: unknown): string | undefined {
+  const direct =
+    findStringByKey(report, "compose_hash") ?? findStringByKey(report, "compose-hash");
+  if (direct && /^[0-9a-f]{64}$/i.test(direct)) return direct.toLowerCase();
   const appCompose = findStringByKey(report, "app_compose");
   if (!appCompose) return undefined;
   return createHash("sha256").update(appCompose).digest("hex");
@@ -111,6 +122,65 @@ export function quoteToHex(quote: string): string {
 }
 
 async function fetchLiveEvidence(config: TrustCenterConfig, now: Date): Promise<LiveEvidence> {
+  const dstackEvidence = await fetchDstackEvidence(config, now);
+  if (dstackEvidence) return dstackEvidence;
+  if (config.attestationReportUrl) return fetchHttpAttestationReport(config, now);
+  return buildStaticEvidence(config, now);
+}
+
+async function fetchDstackEvidence(config: TrustCenterConfig, now: Date): Promise<LiveEvidence | null> {
+  const socketCandidates = [
+    process.env.DSTACK_SOCKET_PATH,
+    "/var/run/dstack.sock",
+    "/run/dstack.sock",
+    "/var/run/dstack/dstack.sock",
+    "/run/dstack/dstack.sock"
+  ].filter((value): value is string => Boolean(value));
+  const socketPath = socketCandidates.find((candidate) => existsSync(candidate));
+  if (!socketPath) return null;
+
+  const errors: string[] = [];
+  try {
+    const { DstackClient } = await import("@phala/dstack-sdk");
+    const client = new DstackClient(socketPath);
+    if (!(await client.isReachable())) return null;
+
+    const [quoteResult, infoResult] = await Promise.all([client.getQuote(""), client.info()]);
+    const report = {
+      quote: quoteResult.quote,
+      intel_quote: quoteResult.quote,
+      event_log: quoteResult.event_log,
+      vm_config: quoteResult.vm_config,
+      compose_hash: infoResult.compose_hash,
+      info: { tcb_info: infoResult.tcb_info }
+    };
+    const quote = extractIntelQuote(report);
+    const hardwareQuoteVerified = quote
+      ? await verifyIntelQuote(quote, config.phalaVerifierEndpoint ?? DEFAULT_PHALA_VERIFIER)
+      : null;
+    if (!quote) errors.push("intel-quote-not-found");
+
+    return {
+      report,
+      fetchedAt: now.toISOString(),
+      hardwareQuoteVerified,
+      composeHash: extractComposeHash(report),
+      mrConfig: findStringByKey(report, "mrconfig"),
+      errors,
+      source: "dstack"
+    };
+  } catch (error) {
+    return {
+      report: null,
+      fetchedAt: now.toISOString(),
+      hardwareQuoteVerified: false,
+      errors: [`dstack-attestation-error:${error instanceof Error ? error.message : "unknown"}`],
+      source: "dstack"
+    };
+  }
+}
+
+async function fetchHttpAttestationReport(config: TrustCenterConfig, now: Date): Promise<LiveEvidence> {
   const errors: string[] = [];
   try {
     const response = await fetch(config.attestationReportUrl!);
@@ -119,7 +189,8 @@ async function fetchLiveEvidence(config: TrustCenterConfig, now: Date): Promise<
         report: null,
         fetchedAt: now.toISOString(),
         hardwareQuoteVerified: false,
-        errors: [`attestation-fetch-failed:${response.status}`]
+        errors: [`attestation-fetch-failed:${response.status}`],
+        source: "http"
       };
     }
 
@@ -137,14 +208,16 @@ async function fetchLiveEvidence(config: TrustCenterConfig, now: Date): Promise<
       hardwareQuoteVerified,
       composeHash: extractComposeHash(report),
       mrConfig: findStringByKey(report, "mrconfig"),
-      errors
+      errors,
+      source: "http"
     };
   } catch (error) {
     return {
       report: null,
       fetchedAt: now.toISOString(),
       hardwareQuoteVerified: false,
-      errors: [`attestation-fetch-error:${error instanceof Error ? error.message : "unknown"}`]
+      errors: [`attestation-fetch-error:${error instanceof Error ? error.message : "unknown"}`],
+      source: "http"
     };
   }
 }
@@ -156,7 +229,8 @@ function buildStaticEvidence(config: TrustCenterConfig, now: Date): LiveEvidence
     hardwareQuoteVerified: null,
     composeHash: extractComposeHash(config.attestationReport),
     mrConfig: findStringByKey(config.attestationReport, "mrconfig"),
-    errors: config.attestationReportUrl ? [] : ["live-attestation-url-not-configured"]
+    errors: ["live-attestation-not-wired"],
+    source: "static"
   };
 }
 

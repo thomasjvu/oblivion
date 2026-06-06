@@ -62,7 +62,7 @@ Record-only executor by default. Live paths gated behind policy + attestation + 
 - Safe HIBP prefix range check, Google removal plan, California DROP guidance, GDPR templates.
 - Record-only execution by default (`OBLIVION_EXECUTOR_MODE=live` for connector handoff paths). Broker opt-outs are drafted, approved, then recorded—not silently deleted site-wide.
 - Hackathon adapters (MetaMask EIP-7702/ERC-7715, x402 + ERC-7710, Venice redacted AI, A2A delegation, 1Shot relay) behind the same gates.
-- Trust Center + /trust/attestation (not-configured locally until PHALA_ATTESTATION_URL set).
+- Trust Center + `/api/trust/attestation` (not-configured locally; passes in Phala CVM with dstack socket + pinned trust center).
 
 ## Production / Phala
 
@@ -78,6 +78,9 @@ npm run docker:run
 
 # After push to GHCR, pin digest in compose + trust center:
 npm run docker:pin -- ghcr.io/thomasjvu/oblivion@sha256:<digest>
+
+# Sync compose hash from live Phala CVM into trust-center.json:
+npm run phala:sync-trust
 ```
 
 Required env for TEE-enabled:
@@ -110,13 +113,14 @@ Copy [`.env.example`](.env.example) to `.env` and configure:
 | `ONESHOT_BASE_URL` | 1Shot public relayer JSON-RPC (default `https://relayer.1shotapi.com/relayers`) |
 | `HIBP_API_KEY` | Live breach email check (TEE attestation pass required) |
 | `OBLIVION_EXECUTOR_MODE=live` | Run approved connectors after policy + approval (still gated by TEE for managed plaintext) |
-| `PHALA_ATTESTATION_URL` | TDX quote verification before sensitive connectors |
+| `PHALA_ATTESTATION_URL` | Optional HTTP fallback for TDX quote fetch (primary path: dstack socket in CVM) |
 
 Check readiness: `GET /api/integrations/status` · x402 buyer config: `GET /api/x402/config`
 
 ## Docs
 
 - [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — **step-by-step guide for users** (also at `/help` when the server is running).
+- [`docs/TEMPLATES.md`](docs/TEMPLATES.md) — **every cleanup template/preset**: workflow, connectors, approvals, and timelines.
 - `AGENTS.md` — for AI agents and maintainers (invariants, safety checklists, test gaps, how to add connectors).
 - `DESIGN.md` — visual language, colors, components.
 - `SECURITY.md` — never-store rules, approval boundary, production requirements.
