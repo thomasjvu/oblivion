@@ -748,6 +748,7 @@ export function createApp(options: AppOptions = {}) {
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
             brokerEmail: isBrokerEmailConfigured(),
+            platformAbuseEmail: isBrokerEmailConfigured(),
             liveExecutor: isLiveExecutorEnabled(),
             phalaAttestation: Boolean(process.env.PHALA_ATTESTATION_URL)
           },

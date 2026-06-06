@@ -155,11 +155,13 @@ export async function settleX402Payment(input: {
 }
 
 export function x402PublicConfig() {
+  const enabled = isX402Configured();
   return {
-    enabled: isX402Configured(),
+    enabled,
+    protocolVersion: enabled ? "x402-v2" : "x402-demo-v1",
     facilitatorUrl: x402FacilitatorUrl(),
     network: x402Network(),
-    payTo: isX402Configured() ? x402PayTo() : undefined,
+    payTo: enabled ? x402PayTo() : undefined,
     paymentHeader: "PAYMENT-SIGNATURE",
     requiredHeader: "PAYMENT-REQUIRED"
   };

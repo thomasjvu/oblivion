@@ -1,6 +1,11 @@
 import type { TrustCenterConfig } from "./attestation.js";
 import { buildAttestationProof } from "./attestation.js";
 import { isBrokerEmailConfigured, sendBrokerOptOutEmail } from "./brokerMailer.js";
+import {
+  isPlatformAbuseEmailConfigured,
+  resolveHostAbuseContact,
+  sendPlatformAbuseNotice
+} from "./platformAbuse.js";
 import { brokerCatalogEntryById } from "./brokerCatalog.js";
 import { connectorById } from "./connectors.js";
 import { createGoogleRemovalPlan, pwnedPasswordRangeUrl } from "./cleanup.js";
@@ -257,21 +262,52 @@ async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: stri
   if (!emailLabel) {
     return handoffResult(input, connectorId, "Live platform abuse report requires emailLabel in the execute handoff.");
   }
+  const contact = resolveHostAbuseContact(input.action.destination, infringingUrl);
+  if (!contact) {
+    return handoffResult(input, connectorId, "Live platform abuse report requires a resolvable host destination.");
+  }
   const probe = await probeOfficialUrl(infringingUrl);
   const hostReachable = probe.reachable
     ? `Infringing URL reachable (${probe.status ?? "ok"}).`
     : "Infringing URL could not be verified — confirm the link before host contact.";
+  const officialPath = contact.channel ?? `mailto:${contact.email}`;
+
+  if (isPlatformAbuseEmailConfigured()) {
+    const mailed = await sendPlatformAbuseNotice({
+      action: input.action,
+      approval: input.approval,
+      contact,
+      infringingUrl,
+      emailLabel
+    });
+    const result = buildConnectorResult(input.action.caseId, connectorId, {
+      status: mailed.ok ? "recorded" : "failed",
+      sourceUrl: officialPath,
+      officialRemovalPath: officialPath,
+      summary: mailed.ok
+        ? `Live abuse notice sent to ${contact.email} for ${contact.host} via ${mailed.provider}. ${hostReachable}`
+        : `Live abuse notice to ${contact.email} failed (${mailed.error ?? "unknown"}). ${hostReachable}`,
+      requiresUserHandoff: !mailed.ok
+    });
+    return {
+      result,
+      executionRecord: `live connector ${connectorId}: platform abuse email ${result.status} for ${contact.host}.`,
+      transmitted: ["legal-name", "email", "infringing-url"],
+      neverTransmit: ["original-media", "password", "ssn"]
+    };
+  }
+
   const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status: probe.reachable ? "recorded" : "ready",
-    sourceUrl: input.action.destination,
-    officialRemovalPath: input.action.destination,
-    summary: `Live platform abuse notice prepared for ${input.action.destination}. ${hostReachable}`,
-    requiresUserHandoff: !probe.reachable
+    status: probe.reachable ? "ready" : "ready",
+    sourceUrl: officialPath,
+    officialRemovalPath: officialPath,
+    summary: `Abuse contact resolved: ${contact.email}${contact.inferred ? " (inferred)" : ""}. ${hostReachable} Configure RESEND_API_KEY or SMTP_* to send from managed runtime.`,
+    requiresUserHandoff: true
   });
   return {
     result,
-    executionRecord: `live connector ${connectorId}: platform abuse notice recorded.`,
-    transmitted: ["legal-name", "email", "infringing-url"],
+    executionRecord: `live connector ${connectorId}: platform abuse contact ${contact.email} recorded for user-held submission.`,
+    transmitted: [],
     neverTransmit: ["original-media", "password", "ssn"]
   };
 }

@@ -1231,11 +1231,12 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   border-bottom: 1px solid var(--line);
 }
 
-.skill-install-tab {
+button.skill-install-tab {
   flex: 1;
   margin: 0;
   padding: 10px 14px;
   border: 0;
+  border-right: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
   color: var(--gb-2);
@@ -1244,6 +1245,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+  box-shadow: none;
+  min-height: 0;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
@@ -1295,7 +1298,18 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   min-width: 30px;
   min-height: 30px;
   padding: 4px;
+  border: 0;
+  background: transparent;
   box-shadow: none;
+  color: var(--gb-3);
+}
+
+.skill-install-command .skill-copy-btn:hover,
+.skill-install-command .skill-copy-btn:focus-visible {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--gb-2);
 }
 
 .skill-install-actions {

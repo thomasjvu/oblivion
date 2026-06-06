@@ -34,6 +34,21 @@ export interface BrokerOptOutEmailResult {
   error?: string;
 }
 
+export async function sendTransactionalEmail(input: {
+  to: string;
+  replyTo?: string;
+  subject: string;
+  body: string;
+}): Promise<BrokerOptOutEmailResult> {
+  if (isResendConfigured()) {
+    return sendViaResend(input);
+  }
+  if (isSmtpConfigured()) {
+    return sendViaSmtp(input);
+  }
+  return { ok: false, provider: "smtp", error: "broker-email-not-configured" };
+}
+
 export async function sendBrokerOptOutEmail(input: BrokerOptOutEmailInput): Promise<BrokerOptOutEmailResult> {
   const subject = `Opt-out request — ${redactText(input.brokerLabel)}`;
   const lines = [
@@ -47,15 +62,12 @@ export async function sendBrokerOptOutEmail(input: BrokerOptOutEmailInput): Prom
     "",
     "Only the minimum identifiers approved by the user were disclosed for this request."
   ].filter((line): line is string => Boolean(line));
-  const body = lines.join("\n");
-
-  if (isResendConfigured()) {
-    return sendViaResend({ to: input.to, replyTo: input.replyTo, subject, body });
-  }
-  if (isSmtpConfigured()) {
-    return sendViaSmtp({ to: input.to, replyTo: input.replyTo, subject, body });
-  }
-  return { ok: false, provider: "smtp", error: "broker-email-not-configured" };
+  return sendTransactionalEmail({
+    to: input.to,
+    replyTo: input.replyTo,
+    subject,
+    body: lines.join("\n")
+  });
 }
 
 async function sendViaResend(input: {

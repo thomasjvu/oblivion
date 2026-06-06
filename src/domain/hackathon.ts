@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
-import { isOneShotLiveReady, isX402Configured } from "./integrations.js";
+import { isOneShotLiveReady, isX402Configured, x402Network } from "./integrations.js";
 import { redactText } from "./redaction.js";
 import { runVeniceAnalysis } from "./venice.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -114,12 +114,13 @@ export function createPaymentSession(input: {
 }): PaymentSession {
   const product = productForMode(input.mode, input.productId);
   const expiresAt = followUpDate(product.mode === "subscription" ? 30 : 1);
+  const liveX402 = isX402Configured();
   const x402Request: X402PaymentRequest = {
-    version: "x402-demo-v1",
+    version: liveX402 ? "x402-v2" : "x402-demo-v1",
     endpoint: product.x402Endpoint,
     amountUsd: product.amountUsd,
     token: product.token,
-    network: product.network,
+    network: liveX402 ? x402Network() : product.network,
     memo: `${product.name} for encrypted Oblivion case`,
     expiresAt
   };

@@ -34,6 +34,36 @@ test("resolveSmartAccountAddress uses wallet in live mode and hash in demo", () 
   );
 });
 
+test("createPaymentSession uses x402-v2 when live x402 is configured", () => {
+  const priorPayTo = process.env.X402_PAY_TO;
+  const priorEnabled = process.env.X402_ENABLED;
+  try {
+    process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
+    process.env.X402_ENABLED = "true";
+    const session = createPaymentSession({ caseId: "case_x402", mode: "one-off" });
+    assert.equal(session.x402Request.version, "x402-v2");
+    assert.match(session.x402Request.network, /^eip155:/);
+  } finally {
+    if (priorPayTo === undefined) delete process.env.X402_PAY_TO;
+    else process.env.X402_PAY_TO = priorPayTo;
+    if (priorEnabled === undefined) delete process.env.X402_ENABLED;
+    else process.env.X402_ENABLED = priorEnabled;
+  }
+});
+
+test("createPaymentSession keeps demo x402 version without live config", () => {
+  const priorPayTo = process.env.X402_PAY_TO;
+  try {
+    delete process.env.X402_PAY_TO;
+    const session = createPaymentSession({ caseId: "case_demo", mode: "one-off" });
+    assert.equal(session.x402Request.version, "x402-demo-v1");
+    assert.equal(session.x402Request.network, "base");
+  } finally {
+    if (priorPayTo === undefined) delete process.env.X402_PAY_TO;
+    else process.env.X402_PAY_TO = priorPayTo;
+  }
+});
+
 test("payment catalog covers one-off x402 and ERC-7710 subscription tracks", () => {
   assert.ok(X402_PRODUCTS.some((product) => product.mode === "one-off" && product.x402Endpoint));
   assert.ok(X402_PRODUCTS.some((product) => product.mode === "subscription" && product.cadence === "monthly"));
