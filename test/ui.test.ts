@@ -86,12 +86,14 @@ test("compact trust indicators remain visible on first viewport", async () => {
   assert.doesNotMatch(html, /<div class="nav-actions">\s*<div class="trust-strip"/);
 });
 
-test("landing page explains privacy and agent workflow", async () => {
+test("landing page links legal docs and skill install", async () => {
   const html = await readUiBundle();
 
-  assert.match(html, /id="how-it-works"/);
-  assert.match(html, /landing-flow/);
-  assert.match(html, /proof-label/);
+  assert.match(html, /id="install-skill"/);
+  assert.match(html, /href="\/privacy"/);
+  assert.match(html, /href="\/terms"/);
+  assert.doesNotMatch(html, /id="how-it-works"/);
+  assert.doesNotMatch(html, /landing-flow/);
 });
 
 test("landing page includes cinematic hero and proof visuals", async () => {
@@ -160,7 +162,7 @@ test("dashboard uses visual preset-led cleanup command center", async () => {
   assert.match(html, /id="agent-dock"/);
   assert.match(html, /app-agent-column/);
   assert.match(html, /agent-chat-body/);
-  assert.match(html, /class="agent-dock-toggle"/);
+  assert.doesNotMatch(html, /agent-dock-toggle/);
   assert.match(html, /agent-dock-brief/);
   assert.match(html, /id="agent-explain-disclosure"/);
   assert.match(html, /id="agent-chat-log"/);
@@ -196,7 +198,6 @@ test("agent dock has mobile bottom-sheet behavior", async () => {
     /@media \(max-width: 760px\)[\s\S]*\.app-chrome\.agent-collapsed \.app-agent-column[\s\S]*transform:\s*translateY\(calc\(100% - 56px\)\)/
   );
   assert.match(html, /\.app-chrome\.agent-collapsed \.agent-dock\.open[\s\S]*transform:\s*translateY\(0\)/);
-  assert.match(html, /\.agent-dock-toggle:not\(\[hidden\]\)[\s\S]*display:\s*inline-flex/);
 });
 
 test("agent autopilot auto-discovers exposure links on scout step", async () => {

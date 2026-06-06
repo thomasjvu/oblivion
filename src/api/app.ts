@@ -216,7 +216,10 @@ function formatHelpInline(text: string): string {
   return html;
 }
 
-function helpPageFromMarkdown(markdown: string): string {
+function staticDocPageFromMarkdown(
+  markdown: string,
+  options: { pageTitle: string; heading: string }
+): string {
   const lines = markdown.split("\n");
   const parts: string[] = [];
   let inTable = false;
@@ -279,16 +282,22 @@ function helpPageFromMarkdown(markdown: string): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Oblivion — User Guide</title>
+  <title>Oblivion — ${escapeHelpHtml(options.pageTitle)}</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="app help-page">
     <header class="topbar">
-      <div class="brand"><div class="mark">O</div><h1>Guide</h1></div>
+      <div class="brand"><div class="mark">O</div><h1>${escapeHelpHtml(options.heading)}</h1></div>
       <div class="nav-actions"><a class="secondary help-back" href="/">← Home</a></div>
     </header>
     <article class="help-article">${parts.join("\n")}</article>
+    <footer class="site-footer help-page-footer">
+      <nav class="site-footer-legal" aria-label="Legal">
+        <a class="site-footer-text-link" href="/privacy">Privacy</a>
+        <a class="site-footer-text-link" href="/terms">Terms</a>
+      </nav>
+    </footer>
   </div>
 </body>
 </html>`;
@@ -309,7 +318,36 @@ export function createApp(options: AppOptions = {}) {
       if (method === "GET" && url.pathname === "/help") {
         const guidePath = join(process.cwd(), "docs", "USER_GUIDE.md");
         const markdown = await readFile(guidePath, "utf8");
-        sendText(response, 200, helpPageFromMarkdown(markdown), "text/html");
+        sendText(
+          response,
+          200,
+          staticDocPageFromMarkdown(markdown, { pageTitle: "User Guide", heading: "Guide" }),
+          "text/html"
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/privacy") {
+        const privacyPath = join(process.cwd(), "docs", "PRIVACY_POLICY.md");
+        const markdown = await readFile(privacyPath, "utf8");
+        sendText(
+          response,
+          200,
+          staticDocPageFromMarkdown(markdown, { pageTitle: "Privacy Policy", heading: "Privacy" }),
+          "text/html"
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/terms") {
+        const termsPath = join(process.cwd(), "docs", "TERMS_OF_SERVICE.md");
+        const markdown = await readFile(termsPath, "utf8");
+        sendText(
+          response,
+          200,
+          staticDocPageFromMarkdown(markdown, { pageTitle: "Terms of Service", heading: "Terms" }),
+          "text/html"
+        );
         return;
       }
 

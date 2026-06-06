@@ -8289,12 +8289,6 @@ function renderShell() {
     setButtonLabel(dockCollapse, state.dockPinned ? "Hide" : "Show");
     setIcon(dockCollapse, state.dockPinned ? "minus" : "plus");
   }
-  const dockToggle = $("#agent-dock-toggle");
-  if (dockToggle) {
-    const narrow = typeof matchMedia !== "undefined" && matchMedia("(max-width: 760px)").matches;
-    const showFab = state.appOpen && (!state.dockPinned || narrow && !state.dockOpen);
-    dockToggle.hidden = !showFab;
-  }
   $("#agent-dock")?.classList.toggle("agent-dock-expanded", state.dockPinned);
 }
 function renderDashboard() {
@@ -9936,7 +9930,7 @@ window.addEventListener("hashchange", () => {
   }
 });
 $("#jump-how-it-works").addEventListener("click", () => {
-  $("#how-it-works").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#install-skill")?.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 $("#refresh-dashboard")?.addEventListener("click", () => refreshTrust().then(refreshCases).catch(write));
 $("#change-route")?.addEventListener("click", () => revealRouteTab());
@@ -10012,14 +10006,6 @@ function openAgentDock() {
   $("#agent-dock")?.classList.add("open");
   render();
 }
-$("#agent-dock-toggle").addEventListener("click", () => {
-  if (!state.dockPinned) {
-    openAgentDock();
-    return;
-  }
-  state.dockOpen = !state.dockOpen;
-  render();
-});
 function toggleDockPinned() {
   state.dockPinned = !state.dockPinned;
   if (state.dockPinned) {

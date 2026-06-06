@@ -120,7 +120,18 @@ textarea {
   font: inherit;
 }
 
-button {
+a {
+  color: var(--gb-3);
+}
+
+a:visited {
+  color: var(--gb-3);
+}
+
+button,
+a.ghost,
+a.secondary,
+a.landing-help-link {
   border: 2px solid var(--gb-2);
   border-radius: 0;
   min-height: 36px;
@@ -140,13 +151,15 @@ button {
   image-rendering: pixelated;
 }
 
-button iconify-icon {
+button iconify-icon,
+a[data-icon] iconify-icon {
   width: 1.5rem;
   height: 1.5rem;
   align-self: center;
 }
 
-button.icon-only iconify-icon {
+button.icon-only iconify-icon,
+a.icon-only iconify-icon {
   width: 1.625rem;
   height: 1.625rem;
 }
@@ -174,17 +187,39 @@ summary[data-icon] iconify-icon {
   height: 1.5rem;
 }
 
-button.secondary {
+button.secondary,
+a.secondary {
   background: var(--gb-1);
   color: var(--gb-3);
   border-color: var(--gb-2);
 }
 
-button.ghost {
+button.ghost,
+a.ghost,
+a.landing-help-link {
   background: var(--gb-0);
   color: var(--gb-3);
   border: 2px solid var(--gb-2);
   box-shadow: none;
+}
+
+a.ghost,
+a.secondary,
+a.landing-help-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+a.ghost:hover,
+a.secondary:hover,
+a.landing-help-link:hover,
+a.ghost:focus-visible,
+a.secondary:focus-visible,
+a.landing-help-link:focus-visible {
+  color: var(--gb-2);
 }
 
 button.danger {
@@ -335,7 +370,6 @@ p {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  border-right: 2px solid var(--gb-1);
 }
 
 .workspace-shell {
@@ -363,6 +397,28 @@ p {
 
 .site-footer-copy {
   margin: 0;
+}
+
+.site-footer-legal {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.site-footer-text-link {
+  color: var(--gb-2);
+  text-decoration: none;
+  font-size: 0.82rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  min-height: 0;
+}
+
+.site-footer-text-link:hover,
+.site-footer-text-link:focus-visible {
+  color: var(--gb-3);
 }
 
 .site-footer-social {
@@ -755,37 +811,6 @@ p {
   .skill-install-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-.landing-flow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px 12px;
-  padding: 12px 0 8px;
-  border-top: 2px solid var(--gb-2);
-}
-
-.landing-flow .proof-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 2px solid var(--gb-2);
-  background: var(--gb-0);
-}
-
-.landing-flow .proof-label {
-  font-family: var(--font-display);
-  font-size: 0.5rem;
-  color: var(--gb-3);
-}
-
-.flow-arrow {
-  font-family: var(--font-display);
-  font-size: 0.62rem;
-  color: var(--gb-2);
 }
 
 .landing-help-link {
@@ -1944,6 +1969,13 @@ body:not(.show-advanced-ui) .findings-panel .finding-card .muted.small {
   font-size: 0.5rem;
 }
 
+.help-page-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 2px solid var(--gb-1);
+  justify-content: flex-start;
+}
+
 .console-stage {
   min-width: 0;
   width: 100%;
@@ -2962,28 +2994,6 @@ a[data-icon] {
   padding: 8px 10px;
 }
 
-.agent-dock-toggle {
-  display: none;
-  position: fixed;
-  right: 14px;
-  bottom: 14px;
-  z-index: 26;
-  min-height: 40px;
-  padding: 8px 14px;
-  border: 2px solid var(--gb-0);
-  background: var(--gb-3);
-  color: var(--gb-0);
-  box-shadow: 2px 2px 0 var(--gb-1);
-}
-
-.agent-dock-toggle:not([hidden]) {
-  display: inline-flex;
-}
-
-.app-chrome.agent-collapsed .agent-dock-toggle:not([hidden]) {
-  display: inline-flex;
-}
-
 @media (max-width: 1399px) {
   .tab-panel.active {
     grid-template-columns: minmax(0, 1fr);
@@ -3338,13 +3348,6 @@ pre {
     grid-template-rows: minmax(0, 1fr) minmax(240px, 50vh);
   }
 
-  .agent-dock-toggle:not([hidden]) {
-    display: inline-flex;
-    position: fixed;
-    right: 12px;
-    bottom: 12px;
-  }
-
   .app-chrome.agent-collapsed .app-agent-column {
     position: fixed;
     left: 0;
@@ -3604,12 +3607,12 @@ button.compact, .compact { min-height: 32px; padding: 6px 10px; font-size: 0.72r
   font-family: var(--font-display);
   font-size: 0.5rem;
 }
-.agent-dock-title {
+.agent-dock-head .agent-dock-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.52rem;
-  letter-spacing: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .agent-dock .agent-dock-brief {

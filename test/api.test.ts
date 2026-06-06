@@ -75,6 +75,18 @@ test("serves split frontend assets with restrictive security headers", async () 
     assert.match(helpHtml, /Step 1 — Tell the agent/);
     assert.match(helpHtml, /<strong>private cleanup agent<\/strong>/);
     assert.doesNotMatch(helpHtml, /\*\*private cleanup agent\*\*/);
+
+    const privacy = await fetch(`${base}/privacy`);
+    assert.equal(privacy.status, 200);
+    const privacyHtml = await privacy.text();
+    assert.match(privacyHtml, /Privacy Policy/);
+    assert.match(privacyHtml, /do not collect, sell, or profile your personal data/i);
+
+    const terms = await fetch(`${base}/terms`);
+    assert.equal(terms.status, 200);
+    const termsHtml = await terms.text();
+    assert.match(termsHtml, /Terms of Service/);
+    assert.match(termsHtml, /No data harvesting/i);
   } finally {
     server.close();
   }
