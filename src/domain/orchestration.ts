@@ -6,6 +6,7 @@ import {
   createAgentPlan,
   createBrokerFollowUps,
   createBrokerRemovalPathPlan,
+  createContentAbusePathPlan,
   createDropPlan,
   createGoogleRemovalPlan,
   createScoutFindings,
@@ -17,6 +18,7 @@ import {
 import { deadlineBasisFor, followUpDate } from "./deadlines.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
 import { buildExecuteHandoff } from "./executeHandoff.js";
+import { hostFromDestination, resolveHostAbuseContact } from "./platformAbuse.js";
 import { executeApprovedAction } from "./executor.js";
 import { buildHackathonStatus, createTimelineEvent } from "./hackathon.js";
 import { isVeniceAvailable, runVeniceAnalysis } from "./venice.js";
@@ -226,23 +228,36 @@ export async function runCleanupAgentStep(input: {
     }
   } else if (updatedPlan.currentStep === "verify-removal-path") {
     const confirmedCount = buildStatus(input.store, input.caseRecord.id).confirmedFindings.length;
-    const connector =
-      updatedPlan.presetId === "california-drop"
-        ? createDropPlan(input.caseRecord)
-        : presetUsesBrokerDiscovery(updatedPlan.presetId)
-          ? createBrokerRemovalPathPlan(input.caseRecord.id, confirmedCount)
-          : updatedPlan.presetId === "content-takedown"
-            ? createScoutFindings(input.caseRecord.id, "content-takedown")
+    if (updatedPlan.presetId === "content-takedown") {
+      const dmcaConnector = createScoutFindings(input.caseRecord.id, "content-takedown");
+      const abuseConnector = createContentAbusePathPlan(input.caseRecord.id, confirmedCount);
+      input.store.connectorResults.set(dmcaConnector.id, dmcaConnector);
+      input.store.connectorResults.set(abuseConnector.id, abuseConnector);
+      const timeline = createTimelineEvent(
+        input.caseRecord.id,
+        "DraftAgent",
+        "Takedown paths verified",
+        `${dmcaConnector.summary} ${abuseConnector.summary}`
+      );
+      input.store.agentTimeline.set(timeline.id, timeline);
+      artifacts.push({ connector: dmcaConnector, abuseConnector, timeline });
+    } else {
+      const connector =
+        updatedPlan.presetId === "california-drop"
+          ? createDropPlan(input.caseRecord)
+          : presetUsesBrokerDiscovery(updatedPlan.presetId)
+            ? createBrokerRemovalPathPlan(input.caseRecord.id, confirmedCount)
             : createGoogleRemovalPlan(input.caseRecord.id);
-    input.store.connectorResults.set(connector.id, connector);
-    const timeline = createTimelineEvent(
-      input.caseRecord.id,
-      connector.connectorId === "california-drop-guided" ? "DROP" : "Google",
-      "Official removal path verified",
-      connector.summary
-    );
-    input.store.agentTimeline.set(timeline.id, timeline);
-    artifacts.push({ connector, timeline });
+      input.store.connectorResults.set(connector.id, connector);
+      const timeline = createTimelineEvent(
+        input.caseRecord.id,
+        connector.connectorId === "california-drop-guided" ? "DROP" : "Google",
+        "Official removal path verified",
+        connector.summary
+      );
+      input.store.agentTimeline.set(timeline.id, timeline);
+      artifacts.push({ connector, timeline });
+    }
   } else if (updatedPlan.currentStep === "draft-actions") {
     if (isVeniceAvailable()) {
       const confirmedNotes = buildStatus(input.store, input.caseRecord.id)
@@ -281,12 +296,15 @@ export async function runCleanupAgentStep(input: {
     const caseStatus = buildStatus(input.store, input.caseRecord.id);
     if (caseStatus.approvalsNeeded.length === 0 && caseStatus.actionsReady.length === 0 && caseStatus.submittedActions.length === 0) {
       const proposedList = createPresetApprovals(input.store, input.caseRecord, updatedPlan);
+      const contentTakedown = updatedPlan.presetId === "content-takedown";
       const timeline = createTimelineEvent(
         input.caseRecord.id,
         "OblivionRoot",
         "Approval required",
         proposedList.length > 1
-          ? `${proposedList.length} per-broker disclosure cards are ready. Approve each before submission.`
+          ? contentTakedown
+            ? `${proposedList.length} DMCA and platform abuse cards are ready. Approve each before host contact.`
+            : `${proposedList.length} per-broker disclosure cards are ready. Approve each before submission.`
           : "An exact disclosure card is ready. The agent cannot submit without approval."
       );
       input.store.agentTimeline.set(timeline.id, timeline);
@@ -296,7 +314,9 @@ export async function runCleanupAgentStep(input: {
         blockedReasons: ["approval-required"],
         nextUserDecision:
           proposedList.length > 1
-            ? `Approve ${proposedList.length} disclosure cards (one per confirmed listing).`
+            ? contentTakedown
+              ? `Approve ${proposedList.length} disclosure cards (DMCA + platform abuse per confirmed URL).`
+              : `Approve ${proposedList.length} disclosure cards (one per confirmed listing).`
             : "Approve or reject the exact disclosure card.",
         updatedAt: new Date().toISOString()
       };
@@ -534,6 +554,73 @@ export function createBrokerOptOutApprovals(
   return results.length ? results : [createPresetApproval(store, caseRecord, plan.presetId)];
 }
 
+function contentTakedownHostForExposure(exposure: Exposure): string {
+  return hostFromDestination(exposure.sourceUrl) || exposure.sourceUrl;
+}
+
+function proposeDmcaTakedownApproval(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  input: {
+    destination: string;
+    purpose: string;
+    exposureId?: string;
+    expectedConfirmationStep?: string;
+  }
+): { approval: Approval; action: ActionRequest } {
+  const proposed = proposeApprovedAction({
+    store,
+    caseRecord,
+    body: {
+      caseId: caseRecord.id,
+      actionType: "dmca-takedown",
+      destination: input.destination,
+      purpose: input.purpose,
+      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      sourceVerified: true,
+      expectedConfirmationStep:
+        input.expectedConfirmationStep ??
+        "User confirms they are the rights holder or authorized agent before DMCA submission."
+    }
+  });
+  if (input.exposureId) proposed.action.exposureId = input.exposureId;
+  return proposed;
+}
+
+function proposePlatformAbuseApproval(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  input: {
+    destination: string;
+    infringingUrl: string;
+    exposureId?: string;
+    expectedConfirmationStep?: string;
+  }
+): { approval: Approval; action: ActionRequest } {
+  const contact = resolveHostAbuseContact(input.destination, input.infringingUrl);
+  const host = contact?.host ?? input.destination;
+  const abuseChannel = contact?.email ?? `abuse@${host}`;
+  const proposed = proposeApprovedAction({
+    store,
+    caseRecord,
+    body: {
+      caseId: caseRecord.id,
+      actionType: "platform-abuse-report",
+      destination: host,
+      purpose: `Report unauthorized copy at ${input.infringingUrl} via ${abuseChannel}.`,
+      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
+      dataToDisclose: ["legal-name", "email", "infringing-url"],
+      sourceVerified: true,
+      expectedConfirmationStep:
+        input.expectedConfirmationStep ??
+        "User confirms host abuse contact and infringing URL before platform abuse submission."
+    }
+  });
+  if (input.exposureId) proposed.action.exposureId = input.exposureId;
+  return proposed;
+}
+
 export function createContentTakedownApprovals(
   store: MemoryStore,
   caseRecord: CaseRecord,
@@ -543,39 +630,36 @@ export function createContentTakedownApprovals(
   const limit = plan.batchApprovalPolicy?.maxDestinations ?? confirmed.length;
   const targets = confirmed.slice(0, limit || 1);
   if (!targets.length) {
-    const body: ProposedActionInput = {
-      caseId: caseRecord.id,
-      actionType: "dmca-takedown",
-      destination: "Infringing host abuse contact",
-      purpose: "Remove unauthorized copies of approved original work at pasted URLs.",
-      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
-      dataToDisclose: ["legal-name", "email", "infringing-url"],
-      sourceVerified: true,
-      expectedConfirmationStep: "User confirms rights-holder authority and infringing URLs before host contact."
-    };
-    return [proposeApprovedAction({ store, caseRecord, body })];
+    return [
+      proposeDmcaTakedownApproval(store, caseRecord, {
+        destination: "Infringing host abuse contact",
+        purpose: "Remove unauthorized copies of approved original work at pasted URLs."
+      }),
+      proposePlatformAbuseApproval(store, caseRecord, {
+        destination: "Infringing host",
+        infringingUrl: "https://infringing.example/unauthorized-copy",
+        expectedConfirmationStep:
+          "User confirms host abuse contact and infringing URL before platform abuse submission."
+      })
+    ];
   }
-  return targets.map((exposure) => {
-    let host = "Infringing host";
-    try {
-      host = new URL(exposure.sourceUrl).hostname;
-    } catch {
-      host = exposure.sourceUrl;
-    }
-    const body: ProposedActionInput = {
-      caseId: caseRecord.id,
-      actionType: "dmca-takedown",
-      destination: host,
-      purpose: `Takedown unauthorized copy at ${exposure.sourceUrl}. Rights-holder authority confirmed in intake.`,
-      identifiers: ["legal-name", "email", "infringing-url", "original-work-ref"],
-      dataToDisclose: ["legal-name", "email", "infringing-url"],
-      sourceVerified: true,
-      expectedConfirmationStep: "User confirms they are the rights holder or authorized agent before submission."
-    };
-    const proposed = proposeApprovedAction({ store, caseRecord, body });
-    proposed.action.exposureId = exposure.id;
-    return proposed;
-  });
+  const results: Array<{ approval: Approval; action: ActionRequest }> = [];
+  for (const exposure of targets) {
+    const host = contentTakedownHostForExposure(exposure);
+    results.push(
+      proposeDmcaTakedownApproval(store, caseRecord, {
+        destination: host,
+        purpose: `Takedown unauthorized copy at ${exposure.sourceUrl}. Rights-holder authority confirmed in intake.`,
+        exposureId: exposure.id
+      }),
+      proposePlatformAbuseApproval(store, caseRecord, {
+        destination: host,
+        infringingUrl: exposure.sourceUrl,
+        exposureId: exposure.id
+      })
+    );
+  }
+  return results;
 }
 
 export function exposureFromConnector(result: ConnectorResult): Exposure {

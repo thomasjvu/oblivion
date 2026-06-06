@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAgentPlan } from "../src/domain/cleanup.js";
 import { applyFindingDecision } from "../src/domain/exposureDiscovery.js";
-import { createBreachExposureApprovals, createBrokerOptOutApprovals } from "../src/domain/orchestration.js";
+import {
+  createBreachExposureApprovals,
+  createBrokerOptOutApprovals,
+  createContentTakedownApprovals
+} from "../src/domain/orchestration.js";
 import { MemoryStore } from "../src/storage/memoryStore.js";
 import type { Exposure } from "../src/domain/types.js";
 
@@ -87,6 +91,50 @@ test("applyFindingDecision enriches broker metadata from catalog", () => {
   assert.equal(exposure.brokerId, "intelius");
   assert.equal(exposure.submissionMethod, "web-form");
   assert.equal(exposure.teeAutomatable, true);
+});
+
+test("createContentTakedownApprovals prepares DMCA and platform abuse cards per URL", () => {
+  const store = new MemoryStore();
+  const now = new Date().toISOString();
+  const caseRecord = {
+    id: "case_takedown_test",
+    jurisdiction: "US" as const,
+    authorityBasis: "self" as const,
+    riskLevel: "standard" as const,
+    encryptedVaultPointer: "vault_takedown",
+    retentionDays: 30,
+    createdAt: now,
+    updatedAt: now,
+    redactedScope: {
+      personLabel: "Creator",
+      aliases: [],
+      approvedIdentifierLabels: ["email"],
+      sensitiveConstraints: []
+    }
+  };
+  store.cases.set(caseRecord.id, caseRecord);
+  const plan = createAgentPlan({ caseRecord, presetId: "content-takedown" });
+  store.agentPlans.set(plan.id, plan);
+  const exposure: Exposure = {
+    id: "exposure_reddit",
+    caseId: caseRecord.id,
+    sourceUrl: "https://www.reddit.com/r/test/comments/abc/stolen-content",
+    visibleDataCategories: ["infringing-url"],
+    confidence: "high",
+    createdAt: now,
+    matchStatus: "confirmed"
+  };
+  store.exposures.set(exposure.id, exposure);
+
+  const approvals = createContentTakedownApprovals(store, caseRecord, plan);
+  assert.equal(approvals.length, 2);
+  assert.equal(approvals[0].action.actionType, "dmca-takedown");
+  assert.equal(approvals[1].action.actionType, "platform-abuse-report");
+  assert.equal(approvals[0].action.exposureId, exposure.id);
+  assert.equal(approvals[1].action.exposureId, exposure.id);
+  assert.equal(approvals[0].approval.destination, "reddit.com");
+  assert.equal(approvals[1].approval.destination, "reddit.com");
+  assert.match(approvals[1].approval.purpose, /abuse@reddit\.com/);
 });
 
 test("createBreachExposureApprovals prepares HIBP email and password range cards", () => {

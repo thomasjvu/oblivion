@@ -349,9 +349,12 @@ export function createScoutFindings(caseId: string, presetId: PresetId): Connect
     confidence: highRisk ? "medium" : "high",
     requiresUserHandoff: highRisk || presetId === "search-result-suppression",
     nextCheckAt: followUpDate(highRisk ? 3 : 14),
-    summary: highRisk
-      ? "High-risk scout result from official guidance sources. Confirm match before drafting."
-      : "Scout result mapped to official removal guidance for this route.",
+    summary:
+      presetId === "content-takedown"
+        ? "Scout mapped DMCA notice drafting and host abuse contacts for confirmed infringing URLs."
+        : highRisk
+          ? "High-risk scout result from official guidance sources. Confirm match before drafting."
+          : "Scout result mapped to official removal guidance for this route.",
     createdAt: now
   };
 }
@@ -442,6 +445,23 @@ export function createBrokerFollowUps(
   return followUps;
 }
 
+export function createContentAbusePathPlan(caseId: string, urlCount: number): ConnectorResult {
+  const now = new Date().toISOString();
+  return {
+    id: `connector_${crypto.randomUUID()}`,
+    caseId,
+    connectorId: "platform-abuse-handoff",
+    status: "ready",
+    sourceUrl: "https://www.copyright.gov/dmca/",
+    officialRemovalPath: "https://www.copyright.gov/dmca/",
+    confidence: "high",
+    requiresUserHandoff: true,
+    nextCheckAt: followUpDate(14),
+    summary: `Host abuse contacts prepared for ${urlCount} confirmed infringing URL(s).`,
+    createdAt: now
+  };
+}
+
 export function createBrokerRemovalPathPlan(caseId: string, brokerCount: number): ConnectorResult {
   const now = new Date().toISOString();
   return {
@@ -472,7 +492,7 @@ function createBatchApprovalPolicy(preset: Preset, now: Date): BatchApprovalPoli
     maxDestinations:
       preset.id === "people-search-cleanup" ? 25 : preset.id === "high-risk-safety" ? 10 : preset.id === "content-takedown" ? 5 : 3,
     maxActions:
-      preset.id === "people-search-cleanup" ? 25 : preset.id === "high-risk-safety" ? 10 : preset.id === "content-takedown" ? 5 : 8,
+      preset.id === "people-search-cleanup" ? 25 : preset.id === "high-risk-safety" ? 10 : preset.id === "content-takedown" ? 10 : 8,
     dataCategories: preset.requiredIdentifierCategories.filter((category) => category !== "password"),
     expiresAt: followUpDate(3, now)
   };
