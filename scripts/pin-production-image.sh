@@ -16,8 +16,13 @@ fi
 
 COMPOSE_FILE="$ROOT/docker-compose.phala.yml"
 TRUST_CENTER="$ROOT/config/trust-center.json"
+COMPOSE_TAG="${OBLIVION_COMPOSE_TAG:-}"
 
-PIN_IMAGE="$IMAGE" perl -0pi -pe 's|^(\s*image:\s*).*$|$1$ENV{PIN_IMAGE}|' "$COMPOSE_FILE"
+if [[ -n "$COMPOSE_TAG" ]]; then
+  PIN_IMAGE="ghcr.io/thomasjvu/oblivion:$COMPOSE_TAG" perl -0pi -pe 's|^(\s*image:\s*).*$|$1$ENV{PIN_IMAGE}|' "$COMPOSE_FILE"
+else
+  PIN_IMAGE="$IMAGE" perl -0pi -pe 's|^(\s*image:\s*).*$|$1$ENV{PIN_IMAGE}|' "$COMPOSE_FILE"
+fi
 
 node --input-type=module -e "
 import { readFile, writeFile } from 'node:fs/promises';
@@ -28,4 +33,8 @@ config.imageDigests = [image];
 await writeFile(path, JSON.stringify(config, null, 2) + '\\n', 'utf8');
 " "$TRUST_CENTER" "$IMAGE"
 
-echo "Pinned $IMAGE in docker-compose.phala.yml and config/trust-center.json"
+if [[ -n "$COMPOSE_TAG" ]]; then
+  echo "Pinned $IMAGE in config/trust-center.json; compose image tag set to $COMPOSE_TAG"
+else
+  echo "Pinned $IMAGE in docker-compose.phala.yml and config/trust-center.json"
+fi
