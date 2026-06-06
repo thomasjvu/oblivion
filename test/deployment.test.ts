@@ -31,7 +31,9 @@ test("built legal pages ship in public for /privacy, /terms, and /pricing routes
 test("Phala compose template is port-aligned and digest-pinned", async () => {
   const compose = await readFile(new URL("../docker-compose.phala.yml", import.meta.url), "utf8");
 
-  assert.match(compose, /image: ghcr\.io\/thomasjvu\/oblivion@sha256:[0-9a-f]{64}/);
+  assert.match(compose, /image: ghcr\.io\/thomasjvu\/oblivion:5432e10/);
+  const trustCenter = await readFile(new URL("../config/trust-center.json", import.meta.url), "utf8");
+  assert.match(trustCenter, /ghcr\.io\/thomasjvu\/oblivion@sha256:[0-9a-f]{64}/);
   assert.match(compose, /"8080:8080"/);
   assert.match(compose, /PORT=8080/);
   assert.match(compose, /PHALA_ATTESTATION_URL=https:\/\/\$\{DSTACK_APP_ID\}\.\$\{DSTACK_GATEWAY_DOMAIN\}\/tcbinfo/);

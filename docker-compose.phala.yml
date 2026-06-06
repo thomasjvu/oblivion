@@ -2,7 +2,8 @@ services:
   oblivion:
     # Replace with a public, digest-pinned production image.
     # Example: ghcr.io/thomasjvu/oblivion@sha256:<64 hex chars>
-    image: ghcr.io/thomasjvu/oblivion@sha256:815b74a6ed715a02f756d4877db8453acf19b075f668f2705366dd48202f89cd
+    # Tag reference required: Phala prelaunch GHCR verifier does not parse @sha256 digests.
+    image: ghcr.io/thomasjvu/oblivion:5432e10
     restart: unless-stopped
     ports:
       - "8080:8080"
