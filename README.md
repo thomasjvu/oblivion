@@ -68,6 +68,18 @@ Record-only executor by default. Live paths gated behind policy + attestation + 
 
 See `docker-compose.phala.yml`, `Dockerfile`, `config/trust-center.json`, and `SECURITY.md`.
 
+```sh
+# Build on spectre (rsync + docker build; GHCR push optional on server):
+npm run docker:build:remote
+
+# Local-only:
+npm run docker:build
+npm run docker:run
+
+# After push to GHCR, pin digest in compose + trust center:
+npm run docker:pin -- ghcr.io/thomasjvu/oblivion@sha256:<digest>
+```
+
 Required env for TEE-enabled:
 
 ```sh

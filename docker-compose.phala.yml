@@ -2,17 +2,30 @@ services:
   oblivion:
     # Replace with a public, digest-pinned production image.
     # Example: ghcr.io/thomasjvu/oblivion@sha256:<64 hex chars>
-    image: ghcr.io/thomasjvu/oblivion@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    image: ghcr.io/thomasjvu/oblivion@sha256:815b74a6ed715a02f756d4877db8453acf19b075f668f2705366dd48202f89cd
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       - NODE_ENV=production
       - PORT=8080
       - TRUST_CENTER_PATH=/app/config/trust-center.json
-      - PHALA_ATTESTATION_URL=${PHALA_ATTESTATION_URL}
+      - PHALA_ATTESTATION_URL=https://${DSTACK_APP_ID}.${DSTACK_GATEWAY_DOMAIN}/tcbinfo
       - PHALA_VERIFIER_ENDPOINT=https://cloud-api.phala.com/api/v1/attestations/verify
       - ATTESTATION_MAX_AGE_SECONDS=600
       - OBLIVION_EXECUTOR_MODE=record-only
       - OBLIVION_DISABLE_PLAINTEXT_LOGS=true
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

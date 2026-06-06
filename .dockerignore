@@ -10,3 +10,8 @@ build/
 tmp-*
 phala-secrets*.json
 trust-center.local.json
+test/
+playwright-report/
+test-results/
+.cursor/
+.grok/

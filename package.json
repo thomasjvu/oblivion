@@ -15,7 +15,12 @@
     "typecheck": "tsc --noEmit",
     "verify": "npm run build:client && npm run build:fonts && npm run build:legal && npm test && npm run typecheck && npm run design:lint",
     "smoke:people-search": "tsx test/smoke-people-search.mjs",
-    "design:lint": "npx @google/design.md lint DESIGN.md"
+    "design:lint": "npx @google/design.md lint DESIGN.md",
+    "docker:build": "docker build -t ghcr.io/thomasjvu/oblivion:local .",
+    "docker:build:remote": "bash scripts/build-on-spectre.sh",
+    "docker:run": "docker run --rm -p 8080:8080 -e PHALA_ATTESTATION_URL -e OBLIVION_DISABLE_PLAINTEXT_LOGS=true ghcr.io/thomasjvu/oblivion:local",
+    "docker:pin": "bash scripts/pin-production-image.sh",
+    "phala:deploy": "bash scripts/deploy-phala.sh"
   },
   "engines": {
     "node": ">=22"

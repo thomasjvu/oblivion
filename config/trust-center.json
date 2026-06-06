@@ -6,7 +6,7 @@
   "phalaVerifierEndpoint": "https://cloud-api.phala.com/api/v1/attestations/verify",
   "maxAttestationAgeSeconds": 600,
   "imageDigests": [
-    "ghcr.io/thomasjvu/oblivion@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    "ghcr.io/thomasjvu/oblivion@sha256:815b74a6ed715a02f756d4877db8453acf19b075f668f2705366dd48202f89cd"
   ],
   "attestationReport": {
     "status": "not-configured",
