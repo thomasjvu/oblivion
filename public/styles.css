@@ -1220,29 +1220,61 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   line-height: 1.45;
 }
 
-.skill-install-grid {
+.skill-install-tabs-wrap {
   display: grid;
-  gap: 12px;
+  gap: 0;
 }
 
-.skill-install-card {
-  display: grid;
-  gap: 8px;
-  background: var(--gb-0);
-  padding: 10px 12px;
+.skill-install-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.skill-install-label {
+.skill-install-tab {
+  flex: 1;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--gb-2);
+  font: inherit;
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--gb-2);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.skill-install-tab:hover {
+  color: var(--gb-3);
+  background: rgba(48, 98, 48, 0.35);
+}
+
+.skill-install-tab.active {
+  color: var(--gb-3);
+  border-bottom-color: var(--gb-3);
+  background: var(--gb-0);
+}
+
+.skill-install-panels {
+  background: var(--gb-0);
+}
+
+.skill-install-panel {
+  display: none;
+}
+
+.skill-install-panel.active {
+  display: block;
 }
 
 .skill-install-command {
   position: relative;
   margin: 0;
-  padding: 10px 42px 10px 12px;
+  padding: 14px 48px 14px 16px;
+  min-height: 3.25rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1251,8 +1283,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 .skill-install-command code {
   display: block;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: clamp(0.78rem, 1.6vw, 0.88rem);
+  line-height: 1.5;
   color: var(--gb-3);
 }
 
@@ -1271,12 +1303,6 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
-}
-
-@media (min-width: 760px) {
-  .skill-install-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .landing-help-link {

@@ -6,6 +6,8 @@ import { createGoogleRemovalPlan, pwnedPasswordRangeUrl } from "./cleanup.js";
 import { followUpDate } from "./deadlines.js";
 import { assertSensitiveExecutionAllowed } from "./runtimeGuard.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
+import { buildDraftText } from "./templates.js";
+import { probeOfficialUrl } from "./urlProbe.js";
 import type { ActionRequest, Approval, ConnectorResult } from "./types.js";
 
 export interface LiveConnectorInput {
@@ -80,7 +82,10 @@ export async function runLiveConnector(input: LiveConnectorInput): Promise<LiveC
     return runPlatformAbuseLive(input, connectorId);
   }
   if (connectorId === "dmca-notice-drafter") {
-    return runGuidanceConnector(input, connectorId, true);
+    return runDraftConnector(input, connectorId, true);
+  }
+  if (connectorId === "gdpr-template") {
+    return runDraftConnector(input, connectorId, true);
   }
   return runGuidanceConnector(input, connectorId, connector.requiresUserHandoff);
 }
@@ -190,12 +195,16 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
     };
   }
   const destination = broker.privacyEmail ?? broker.officialOptOutUrl;
+  const probe = await probeOfficialUrl(broker.officialOptOutUrl);
+  const reachability = probe.reachable
+    ? `Official opt-out path reachable (${probe.status ?? "ok"}).`
+    : "Official opt-out path could not be verified — open the catalog URL manually.";
   const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status: "recorded",
+    status: probe.reachable ? "recorded" : "ready",
     sourceUrl: destination,
     officialRemovalPath: broker.officialOptOutUrl,
-    summary: `Live ${broker.brokerLabel} opt-out recorded via ${broker.submissionMethod}. Awaiting broker confirmation.`,
-    requiresUserHandoff: broker.submissionMethod === "portal"
+    summary: `Live ${broker.brokerLabel} opt-out via ${broker.submissionMethod}. ${reachability}`,
+    requiresUserHandoff: broker.submissionMethod === "portal" || !probe.reachable
   });
   return {
     result,
@@ -218,12 +227,16 @@ async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: stri
   if (!emailLabel) {
     return handoffResult(input, connectorId, "Live platform abuse report requires emailLabel in the execute handoff.");
   }
+  const probe = await probeOfficialUrl(infringingUrl);
+  const hostReachable = probe.reachable
+    ? `Infringing URL reachable (${probe.status ?? "ok"}).`
+    : "Infringing URL could not be verified — confirm the link before host contact.";
   const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status: "recorded",
+    status: probe.reachable ? "recorded" : "ready",
     sourceUrl: input.action.destination,
     officialRemovalPath: input.action.destination,
-    summary: "Live platform abuse notice recorded for host review. Track response in follow-ups.",
-    requiresUserHandoff: false
+    summary: `Live platform abuse notice prepared for ${input.action.destination}. ${hostReachable}`,
+    requiresUserHandoff: !probe.reachable
   });
   return {
     result,
@@ -240,6 +253,35 @@ function runGooglePlan(input: LiveConnectorInput, connectorId: string): LiveConn
     executionRecord: `live connector ${connectorId}: official Google removal plan recorded for user-held submission.`,
     transmitted: [],
     neverTransmit: ["legal-name", "email", "address", "ssn", "password"]
+  };
+}
+
+function runDraftConnector(
+  input: LiveConnectorInput,
+  connectorId: string,
+  requiresUserHandoff: boolean
+): LiveConnectorOutput {
+  const source = sourceVerificationFor(connectorId);
+  const draftText =
+    input.action.draftText ||
+    buildDraftText({
+      actionType: input.action.actionType,
+      jurisdiction: "US",
+      destination: input.action.destination,
+      purpose: input.approval.purpose
+    });
+  const result = buildConnectorResult(input.action.caseId, connectorId, {
+    status: "recorded",
+    sourceUrl: source?.officialUrl ?? input.action.destination,
+    officialRemovalPath: source?.expectedRemovalPath ?? source?.officialUrl,
+    summary: `Live ${connectorId}: draft ready for ${input.action.destination}. ${draftText.split("\n").slice(0, 3).join(" ")}`,
+    requiresUserHandoff
+  });
+  return {
+    result,
+    executionRecord: `live connector ${connectorId}: statutory draft recorded for user-held submission.`,
+    transmitted: [],
+    neverTransmit: ["ssn", "password", "government-id"]
   };
 }
 

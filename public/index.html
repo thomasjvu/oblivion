@@ -41,14 +41,18 @@
               <h3 id="landing-skill-title">Install the agent skill</h3>
               <p class="muted">Portable cleanup workflow for Cursor, Claude, Codex, Grok, and other agents. Same supervised rules as the managed app — install it into your own agent when you want the playbook without the UI.</p>
             </div>
-            <div class="skill-install-grid">
-              <div class="skill-install-card">
-                <span class="skill-install-label">skills.sh</span>
-                <pre class="skill-install-command" id="skill-install-npx"><code>npx skills add thomasjvu/oblivion --skill clean-online-identity</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-npx" data-icon="copy" aria-label="Copy npx install command"><span class="visually-hidden">Copy</span></button></pre>
+            <div class="skill-install-tabs-wrap">
+              <div class="skill-install-tabs" role="tablist" aria-label="Skill install methods">
+                <button type="button" class="skill-install-tab active" role="tab" id="skill-install-tab-npx" aria-selected="true" aria-controls="skill-install-panel-npx" data-skill-install-tab="npx" data-testid="skill-install-tab-npx">skills.sh</button>
+                <button type="button" class="skill-install-tab" role="tab" id="skill-install-tab-curl" aria-selected="false" aria-controls="skill-install-panel-curl" data-skill-install-tab="curl" data-testid="skill-install-tab-curl">curl installer</button>
               </div>
-              <div class="skill-install-card">
-                <span class="skill-install-label">curl installer</span>
-                <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="visually-hidden">Copy</span></button></pre>
+              <div class="skill-install-panels">
+                <div class="skill-install-panel active" role="tabpanel" id="skill-install-panel-npx" aria-labelledby="skill-install-tab-npx" data-skill-install-panel="npx">
+                  <pre class="skill-install-command" id="skill-install-npx"><code>npx skills add thomasjvu/oblivion --skill clean-online-identity</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-npx" data-icon="copy" aria-label="Copy npx install command"><span class="visually-hidden">Copy</span></button></pre>
+                </div>
+                <div class="skill-install-panel" role="tabpanel" id="skill-install-panel-curl" aria-labelledby="skill-install-tab-curl" data-skill-install-panel="curl" hidden>
+                  <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code><button type="button" class="ghost compact icon-only skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="visually-hidden">Copy</span></button></pre>
+                </div>
               </div>
             </div>
             <div class="skill-install-actions">
@@ -439,12 +443,28 @@
                 <h3>Settings</h3>
                 <span class="pill">Advanced</span>
               </div>
+              <div class="settings-block privacy-filter-block" id="privacy-filter-settings" data-testid="privacy-filter-settings">
+                <h4>Privacy filter</h4>
+                <label class="checkbox-row privacy-filter-toggle">
+                  <input type="checkbox" id="privacy-filter-toggle" data-testid="privacy-filter-toggle" />
+                  <span>Mask names in the UI (demos &amp; screenshots)</span>
+                </label>
+                <p class="muted small">Replaces your name and aliases with ******* everywhere they appear on screen.</p>
+              </div>
               <div class="settings-block payment-rails-block" id="payment-rails" data-testid="payment-rails">
                 <h4>Payment rails</h4>
                 <p class="muted small payment-rails-lead">Pay with USDC on Base via x402. Agent AI usage is capped per plan to protect your spend.</p>
                 <div class="payment-rails-grid" id="payment-rails-grid"></div>
                 <div class="status-list" id="ai-entitlement-status"></div>
                 <div class="table" id="payments-table"></div>
+              </div>
+              <div class="settings-block" id="breach-password-settings" data-testid="breach-password-settings">
+                <h4>Breach password check</h4>
+                <label class="simple-field">
+                  <span>Password to check <em class="muted">(browser-only)</em></span>
+                  <input id="breach-password-vault" data-testid="breach-password-vault" type="password" autocomplete="off" placeholder="Never sent to server — only SHA-1 prefix used" />
+                </label>
+                <p class="muted small">Used for Pwned Passwords range checks after approval. The full password stays in your browser; only the first five SHA-1 characters are sent at execute time.</p>
               </div>
               <div class="settings-block">
                 <h4>Developer details</h4>

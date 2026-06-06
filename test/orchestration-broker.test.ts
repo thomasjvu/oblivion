@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createAgentPlan } from "../src/domain/cleanup.js";
 import { applyFindingDecision } from "../src/domain/exposureDiscovery.js";
-import { createBrokerOptOutApprovals } from "../src/domain/orchestration.js";
+import { createBreachExposureApprovals, createBrokerOptOutApprovals } from "../src/domain/orchestration.js";
 import { MemoryStore } from "../src/storage/memoryStore.js";
 import type { Exposure } from "../src/domain/types.js";
 
@@ -87,4 +87,31 @@ test("applyFindingDecision enriches broker metadata from catalog", () => {
   assert.equal(exposure.brokerId, "intelius");
   assert.equal(exposure.submissionMethod, "web-form");
   assert.equal(exposure.teeAutomatable, true);
+});
+
+test("createBreachExposureApprovals prepares HIBP email and password range cards", () => {
+  const store = new MemoryStore();
+  const now = new Date().toISOString();
+  const caseRecord = {
+    id: "case_breach_test",
+    jurisdiction: "US" as const,
+    authorityBasis: "self" as const,
+    riskLevel: "standard" as const,
+    encryptedVaultPointer: "vault_breach",
+    retentionDays: 30,
+    createdAt: now,
+    updatedAt: now,
+    redactedScope: {
+      personLabel: "Jane Doe",
+      aliases: [],
+      approvedIdentifierLabels: ["email"],
+      sensitiveConstraints: []
+    }
+  };
+  store.cases.set(caseRecord.id, caseRecord);
+  const approvals = createBreachExposureApprovals(store, caseRecord);
+  assert.equal(approvals.length, 2);
+  assert.equal(approvals[0].action.actionType, "hibp-email-check");
+  assert.equal(approvals[1].action.actionType, "pwned-password-range-check");
+  assert.deepEqual(approvals[1].approval.dataToDisclose, []);
 });

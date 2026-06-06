@@ -79,7 +79,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and 1Shot demo sta
 
     const integrations = await get(base, "/api/integrations/status");
     assert.equal(integrations.liveReady.venice, true);
-    assert.equal(integrations.liveReady.oneShot, true);
+    assert.equal(integrations.liveReady.oneShot, false);
 
     const smart = await post(base, "/api/metamask/demo-session", {
       caseId,
@@ -207,6 +207,7 @@ test("complete-pending finishes x402, Venice, A2A, and 1Shot tracks from wallet-
     }, 201);
     assert.deepEqual(finished.completed, ["x402", "venice", "a2a", "1shot"]);
     assert.equal(finished.status.x402OneOffReady, true);
+    assert.equal(finished.status.erc7710SubscriptionReady, true);
     assert.equal(finished.status.veniceOutputReady, true);
     assert.equal(finished.status.a2aRedelegationVisible, true);
     assert.equal(finished.status.oneShotRelayerVisible, true);

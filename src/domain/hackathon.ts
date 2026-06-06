@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
-import { isX402Configured } from "./integrations.js";
+import { isOneShotLiveReady, isX402Configured } from "./integrations.js";
 import { redactText } from "./redaction.js";
 import { runVeniceAnalysis } from "./venice.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -323,9 +323,12 @@ export function buildHackathonStatus(input: {
   };
 }
 
-export function pendingHackathonTracks(status: HackathonStatus): Array<"x402" | "venice" | "a2a" | "1shot"> {
-  const pending: Array<"x402" | "venice" | "a2a" | "1shot"> = [];
+export function pendingHackathonTracks(
+  status: HackathonStatus
+): Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot"> {
+  const pending: Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot"> = [];
   if (!status.x402OneOffReady) pending.push("x402");
+  if (!status.erc7710SubscriptionReady) pending.push("erc7710");
   if (!status.veniceOutputReady) pending.push("venice");
   if (!status.a2aRedelegationVisible) pending.push("a2a");
   if (!status.oneShotRelayerVisible) pending.push("1shot");
@@ -354,7 +357,7 @@ export async function completePendingHackathonTracks(input: {
   destination?: string;
   actionType?: ActionType;
 }): Promise<{
-  completed: Array<"x402" | "venice" | "a2a" | "1shot">;
+  completed: Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot">;
   status: HackathonStatus;
   artifacts: {
     payments: PaymentSession[];
@@ -364,7 +367,7 @@ export async function completePendingHackathonTracks(input: {
     timeline: AgentTimelineEvent[];
   };
 }> {
-  const completed: Array<"x402" | "venice" | "a2a" | "1shot"> = [];
+  const completed: Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot"> = [];
   const payments: PaymentSession[] = [];
   const veniceAnalyses: VeniceAnalysis[] = [];
   const delegations: AgentDelegation[] = [];
@@ -406,6 +409,31 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, x402OneOffReady: true };
   }
 
+  if (!status.erc7710SubscriptionReady) {
+    const created = createPaymentSession({
+      caseId: input.caseId,
+      mode: "subscription",
+      productId: "weekly-monitor",
+      walletAddress: walletAddress ? redactText(walletAddress) : undefined,
+      smartAccountAddress
+    });
+    const session = authorizePaymentSession(created);
+    const permission = createPaymentPermission(input.caseId, session);
+    input.store.paymentSessions.set(session.id, session);
+    input.store.permissionGrants.set(permission.id, permission);
+    payments.push(session);
+    const event = createTimelineEvent(
+      input.caseId,
+      "x402",
+      "Subscription payment prepared",
+      `${session.productId} requires ERC-7710 scoped payment permission before weekly monitor runs.`
+    );
+    input.store.agentTimeline.set(event.id, event);
+    timeline.push(event);
+    completed.push("erc7710");
+    status = { ...status, erc7710SubscriptionReady: true };
+  }
+
   if (!status.veniceOutputReady) {
     const analysis = await runVeniceAnalysis({
       caseId: input.caseId,
@@ -443,9 +471,13 @@ export async function completePendingHackathonTracks(input: {
     const latestSession =
       input.store.paymentSessionsForCase(input.caseId).find((session) => session.mode === "one-off") ||
       input.store.paymentSessionsForCase(input.caseId).at(-1);
+    const latestPermission = input.store.permissionGrantsForCase(input.caseId).find(
+      (grant) => grant.permissionType === "erc7710-payment"
+    );
     const events = createRelayerEvents({
       caseId: input.caseId,
-      sessionId: latestSession?.id
+      sessionId: latestSession?.id,
+      permissionId: latestPermission?.id
     });
     events.forEach((relayerEvent) => {
       input.store.relayerEvents.set(relayerEvent.id, relayerEvent);
@@ -455,7 +487,9 @@ export async function completePendingHackathonTracks(input: {
       input.caseId,
       "1Shot",
       "Relayer status",
-      `1Shot demo relay: ${events.at(-1)?.status ?? "submitted"}`
+      isOneShotLiveReady()
+        ? `1Shot relayer ready — use Relay latest payment for live task status.`
+        : `1Shot session recorded (${events.at(-1)?.status ?? "submitted"}). Set ONESHOT_API_KEY for live relayer calls.`
     );
     input.store.agentTimeline.set(event.id, event);
     timeline.push(event);

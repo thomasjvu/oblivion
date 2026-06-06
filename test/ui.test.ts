@@ -103,8 +103,11 @@ test("landing page links legal docs and skill install", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /id="install-skill"/);
+  assert.match(html, /data-testid="skill-install-tab-npx"/);
+  assert.match(html, /data-testid="skill-install-tab-curl"/);
+  assert.match(html, /setSkillInstallTab/);
   assert.doesNotMatch(html, /\.landing-skill-inner\s*\{[^}]*border:/s);
-  assert.doesNotMatch(html, /\.skill-install-card\s*\{[^}]*border:/s);
+  assert.doesNotMatch(html, /\.skill-install-panel\s*\{[^}]*border:/s);
   assert.match(html, /href="\/help"/);
   assert.match(html, /href="\/pricing"/);
   assert.match(html, /site-footer-external-link/);
@@ -171,6 +174,11 @@ test("app keeps hackathon sponsor-track details in settings", async () => {
   assert.match(html, /id="hackathon-checklist"/);
   assert.match(html, /finish-pending-tracks/);
   assert.match(html, /finishPendingDeveloperActions/);
+  assert.match(html, /data-testid="privacy-filter-toggle"/);
+  assert.match(html, /privacyFilterMode/);
+  assert.match(html, /maskPrivacyText/);
+  assert.match(html, /data-testid="breach-password-vault"/);
+  assert.match(html, /sha1PrefixFromPassword/);
 });
 
 test("dashboard uses visual preset-led cleanup command center", async () => {

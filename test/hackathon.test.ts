@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildHackathonStatus,
   createAgentDelegationSet,
   createPaymentSession,
+  pendingHackathonTracks,
   validateErc7710Delegation,
   validatePermissionGrant,
   X402_PRODUCTS
@@ -91,6 +93,27 @@ test("Venice adapter redacts identifiers before producing user-facing analysis",
     if (originalKey === undefined) delete process.env.VENICE_API_KEY;
     else process.env.VENICE_API_KEY = originalKey;
   }
+});
+
+test("pendingHackathonTracks includes ERC-7710 subscription until prepared", () => {
+  const empty = buildHackathonStatus({
+    caseId: "case_demo",
+    permissions: [],
+    payments: [],
+    veniceAnalyses: [],
+    delegations: [],
+    relayerEvents: []
+  });
+  assert.deepEqual(pendingHackathonTracks(empty), ["x402", "erc7710", "venice", "a2a", "1shot"]);
+  const oneOff = buildHackathonStatus({
+    caseId: "case_demo",
+    permissions: [],
+    payments: [createPaymentSession({ caseId: "case_demo", mode: "one-off" })],
+    veniceAnalyses: [],
+    delegations: [],
+    relayerEvents: []
+  });
+  assert.deepEqual(pendingHackathonTracks(oneOff), ["erc7710", "venice", "a2a", "1shot"]);
 });
 
 test("A2A redelegation keeps specialized agents narrowly scoped", () => {

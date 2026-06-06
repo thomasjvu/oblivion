@@ -45,6 +45,7 @@ import {
   isHibpConfigured,
   isLiveExecutorEnabled,
   isOneShotConfigured,
+  isOneShotLiveReady,
   isX402Configured,
   veniceDemoFallbackEnabled
 } from "../domain/integrations.js";
@@ -740,7 +741,7 @@ export function createApp(options: AppOptions = {}) {
             x402: isX402Configured(),
             erc7710: isX402Configured(),
             venice: isVeniceConfigured() || veniceDemoFallbackEnabled(),
-            oneShot: isOneShotConfigured(),
+            oneShot: isOneShotLiveReady(),
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
             liveExecutor: isLiveExecutorEnabled(),

@@ -61,6 +61,10 @@ export function oneShotDemoFallbackEnabled(): boolean {
   return envFlag("ONESHOT_DEMO_FALLBACK", false);
 }
 
+export function isOneShotLiveReady(): boolean {
+  return isOneShotConfigured() && Boolean(envString("ONESHOT_API_KEY")) && !oneShotDemoFallbackEnabled();
+}
+
 export function isBraveSearchConfigured(): boolean {
   return Boolean(envString("BRAVE_SEARCH_API_KEY"));
 }

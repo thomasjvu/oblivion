@@ -6,6 +6,26 @@ export function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
+function base64ToBytes(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+export async function decryptPayload(vaultKey, blob) {
+  if (!vaultKey?.key) throw { error: "vault-key-missing", message: "Vault key is not in memory." };
+  const nonce = base64ToBytes(blob.nonce);
+  const ciphertext = base64ToBytes(blob.ciphertext);
+  const additionalData = blob.aad ? new TextEncoder().encode(blob.aad) : undefined;
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce, additionalData },
+    vaultKey.key,
+    ciphertext
+  );
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
 export async function createVaultKey() {
   const raw = crypto.getRandomValues(new Uint8Array(32));
   const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
@@ -31,6 +51,15 @@ export async function encryptPayload(stateVaultKey, payload, aad) {
     ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
     aad
   };
+}
+
+export async function sha1PrefixFromPassword(password) {
+  const trimmed = String(password || "").trim();
+  if (!trimmed) return undefined;
+  const data = new TextEncoder().encode(trimmed);
+  const hash = await crypto.subtle.digest("SHA-1", data);
+  const hex = [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return hex.slice(0, 5);
 }
 
 export async function wrapVaultKey(stateVaultKey, passphrase) {

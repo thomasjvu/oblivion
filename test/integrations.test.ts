@@ -4,6 +4,7 @@ import {
   executorMode,
   isLiveExecutorEnabled,
   isOneShotConfigured,
+  isOneShotLiveReady,
   isX402Configured,
   oneShotDemoFallbackEnabled,
   veniceDemoFallbackEnabled
@@ -63,6 +64,28 @@ test("venice demo fallback defaults on outside production", () => {
     else process.env.VENICE_DEMO_FALLBACK = prior;
     if (priorNode === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = priorNode;
+  }
+});
+
+test("oneshot live readiness requires API key and disabled demo fallback", () => {
+  const priorKey = process.env.ONESHOT_API_KEY;
+  const priorDemo = process.env.ONESHOT_DEMO_FALLBACK;
+  const priorBase = process.env.ONESHOT_BASE_URL;
+  try {
+    delete process.env.ONESHOT_API_KEY;
+    delete process.env.ONESHOT_DEMO_FALLBACK;
+    assert.equal(isOneShotLiveReady(), false);
+    process.env.ONESHOT_API_KEY = "test-key";
+    assert.equal(isOneShotLiveReady(), true);
+    process.env.ONESHOT_DEMO_FALLBACK = "true";
+    assert.equal(isOneShotLiveReady(), false);
+  } finally {
+    if (priorKey === undefined) delete process.env.ONESHOT_API_KEY;
+    else process.env.ONESHOT_API_KEY = priorKey;
+    if (priorDemo === undefined) delete process.env.ONESHOT_DEMO_FALLBACK;
+    else process.env.ONESHOT_DEMO_FALLBACK = priorDemo;
+    if (priorBase === undefined) delete process.env.ONESHOT_BASE_URL;
+    else process.env.ONESHOT_BASE_URL = priorBase;
   }
 });
 

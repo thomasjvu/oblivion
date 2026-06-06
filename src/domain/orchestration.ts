@@ -16,6 +16,7 @@ import {
 } from "./cleanup.js";
 import { deadlineBasisFor, followUpDate } from "./deadlines.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
+import { buildExecuteHandoff } from "./executeHandoff.js";
 import { executeApprovedAction } from "./executor.js";
 import { buildHackathonStatus, createTimelineEvent } from "./hackathon.js";
 import { isVeniceAvailable, runVeniceAnalysis } from "./venice.js";
@@ -314,7 +315,8 @@ export async function runCleanupAgentStep(input: {
         store: input.store,
         action,
         approval,
-        trustCenterConfig: await input.trustCenterConfig()
+        trustCenterConfig: await input.trustCenterConfig(),
+        handoff: buildExecuteHandoffFromStore(input.store, action)
       });
       action.executionStatus = executed.connectorResult?.status === "failed" ? "failed" : "recorded";
       action.executedAt = new Date().toISOString();
@@ -403,7 +405,50 @@ export function createPresetApprovals(
   if (plan.presetId === "content-takedown") {
     return createContentTakedownApprovals(store, caseRecord, plan);
   }
+  if (plan.presetId === "breach-exposure") {
+    return createBreachExposureApprovals(store, caseRecord);
+  }
   return [createPresetApproval(store, caseRecord, plan.presetId)];
+}
+
+function buildExecuteHandoffFromStore(store: MemoryStore, action: ActionRequest) {
+  const exposures = store.exposuresForCase(action.caseId);
+  return buildExecuteHandoff({
+    action: {
+      actionType: action.actionType,
+      exposureId: action.exposureId,
+      destination: action.destination
+    },
+    status: {
+      confirmedFindings: exposures
+        .filter((item) => item.matchStatus === "confirmed")
+        .map((item) => ({ id: item.id, sourceUrl: item.sourceUrl })),
+      pendingFindings: exposures
+        .filter((item) => item.matchStatus === "pending")
+        .map((item) => ({ id: item.id, sourceUrl: item.sourceUrl })),
+      findings: exposures.map((item) => ({ id: item.id, sourceUrl: item.sourceUrl }))
+    }
+  });
+}
+
+export function createBreachExposureApprovals(
+  store: MemoryStore,
+  caseRecord: CaseRecord
+): Array<{ approval: Approval; action: ActionRequest }> {
+  const emailCheck = createPresetApproval(store, caseRecord, "breach-exposure");
+  const passwordBody: ProposedActionInput = {
+    caseId: caseRecord.id,
+    actionType: "pwned-password-range-check",
+    destination: "Have I Been Pwned — Pwned Passwords",
+    purpose: "Check approved password exposure using SHA-1 prefix range lookup only.",
+    identifiers: [],
+    dataToDisclose: [],
+    sourceVerified: true,
+    expectedConfirmationStep:
+      "User supplies password in browser vault only; server receives a 5-character SHA-1 prefix."
+  };
+  const passwordCheck = proposeApprovedAction({ store, caseRecord, body: passwordBody });
+  return [emailCheck, passwordCheck];
 }
 
 /** @deprecated use createPresetApprovals */

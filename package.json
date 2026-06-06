@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Trust-minimized supervised online identity cleanup agent.",
   "scripts": {
-    "build:client": "esbuild public/src/main.js --bundle --format=esm --outfile=public/app.js",
+    "build:client": "esbuild public/src/main.js --bundle --format=esm --outfile=public/app.js --packages=bundle --loader:.ts=ts",
     "build:fonts": "cp node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2 public/fonts/GeistPixel-Square.woff2",
     "build:legal": "tsx scripts/build-legal-pages.ts",
     "dev": "npm run build:client && npm run build:fonts && npm run build:legal && tsx src/server.ts",

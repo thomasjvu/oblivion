@@ -1,5 +1,8 @@
 import * as Vault from './crypto.js';
+import { buildExecuteHandoff } from './executeHandoff.js';
+import { expandNameTerms, maskPrivacyText } from './privacyFilter.js';
 import { tryLiveSmartAccountUpgrade } from './metamaskSmartAccount.js';
+import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Pay.js';
 import { createWalletLogger, DEFAULT_WALLET_CONFIG } from './walletLog.js';
 import { bindIcons, setButtonLabel, setIcon } from './icons.js';
 
@@ -19,6 +22,7 @@ const state = {
   hackathon: null,
   hackathonStatus: null,
   integrationsStatus: null,
+  x402Config: null,
   discoveryPlan: null,
   discoveryBusy: false,
   selectedPaymentMode: localStorage.getItem("oblivion.paymentMode") || "one-off",
@@ -63,8 +67,22 @@ const state = {
   casesPanelOpen: false,
   walletModalOpen: false,
   deleteConfirmCaseId: "",
-  preSearchReady: false
+  preSearchReady: false,
+  privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1"
 };
+
+const PRIVACY_FILTER_INPUT_IDS = [
+  "simple-name",
+  "simple-alias",
+  "simple-region",
+  "simple-urls",
+  "agent-intake",
+  "intake",
+  "landing-input",
+  "findings-paste-input",
+  "purpose",
+  "destination"
+];
 
 const $ = (selector) => document.querySelector(selector);
 const output = $("#output");
@@ -165,6 +183,19 @@ function guidePrimaryLabel(step) {
   return "Continue";
 }
 
+function setSkillInstallTab(tabId) {
+  document.querySelectorAll("[data-skill-install-tab]").forEach((tab) => {
+    const active = tab.dataset.skillInstallTab === tabId;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+  });
+  document.querySelectorAll("[data-skill-install-panel]").forEach((panel) => {
+    const active = panel.dataset.skillInstallPanel === tabId;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
+  });
+}
+
 function setupLandingSkillInstall() {
   const origin = window.location.origin;
   const curl = $("#skill-install-curl");
@@ -172,6 +203,9 @@ function setupLandingSkillInstall() {
     const code = curl.querySelector("code");
     if (code) code.textContent = `curl -fsSL ${origin}/skill.sh | bash`;
   }
+  document.querySelectorAll("[data-skill-install-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => setSkillInstallTab(tab.dataset.skillInstallTab));
+  });
 }
 
 async function copySkillInstallCommand(targetId, button) {
@@ -932,12 +966,70 @@ function selectedPreset() {
   return state.presets.find((preset) => preset.id === state.selectedPresetId) || null;
 }
 
+function inputPrivacyValue(id) {
+  const el = document.getElementById(id);
+  if (!el || !("value" in el)) return "";
+  return el.dataset.privacyRealValue ?? el.value ?? "";
+}
+
+function collectPrivacyTerms() {
+  const scope = currentCase()?.redactedScope;
+  const extras = [
+    inputPrivacyValue("simple-name"),
+    inputPrivacyValue("simple-alias"),
+    inputPrivacyValue("simple-region"),
+    state.intakeText,
+    inputPrivacyValue("agent-intake"),
+    inputPrivacyValue("intake")
+  ].filter(Boolean);
+  const label =
+    scope?.personLabel ||
+    personLabelFromIntake(state.intakeText || $("#agent-intake")?.value || "") ||
+    inputPrivacyValue("simple-name")?.trim();
+  return expandNameTerms(label, scope?.aliases || [], [
+    scope?.region,
+    ...(scope?.approvedIdentifierLabels || []),
+    ...extras
+  ]);
+}
+
+function displayPlainText(value) {
+  const text = String(value ?? "");
+  if (!state.privacyFilterMode) return text;
+  return maskPrivacyText(text, collectPrivacyTerms());
+}
+
 function escapeHtml(value) {
-  return String(value)
+  return displayPlainText(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function applyPrivacyFilterToInputs() {
+  PRIVACY_FILTER_INPUT_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || !("value" in el)) return;
+    if (state.privacyFilterMode) {
+      if (el.dataset.privacyRealValue === undefined) {
+        el.dataset.privacyRealValue = el.value;
+      }
+      el.value = maskPrivacyText(el.dataset.privacyRealValue, collectPrivacyTerms());
+      el.readOnly = true;
+      el.setAttribute("aria-readonly", "true");
+    } else if (el.dataset.privacyRealValue !== undefined) {
+      el.value = el.dataset.privacyRealValue;
+      delete el.dataset.privacyRealValue;
+      el.readOnly = false;
+      el.removeAttribute("aria-readonly");
+    }
+  });
+}
+
+function renderPrivacyFilterSettings() {
+  const toggle = $("#privacy-filter-toggle");
+  if (toggle) toggle.checked = Boolean(state.privacyFilterMode);
 }
 
 function renderChatBubble(message) {
@@ -1259,7 +1351,7 @@ function renderDashboard() {
   const status = state.currentStatus;
   if (!caseRecord) return;
   const label = caseRecord.redactedScope?.personLabel || "Private case";
-  $("#case-heading").textContent = label;
+  $("#case-heading").textContent = displayPlainText(label);
   const subtitle = $("#case-subtitle");
   if (subtitle) {
     subtitle.textContent = `${presetTitle(state.agentPlan?.presetId) || "Cleanup"} · encrypted locally`;
@@ -1721,6 +1813,7 @@ function hackathonPendingTracks() {
   if (!status) return [];
   const pending = [];
   if (!status.x402OneOffReady) pending.push("x402");
+  if (!status.erc7710SubscriptionReady) pending.push("ERC-7710");
   if (!status.veniceOutputReady) pending.push("Venice");
   if (!status.a2aRedelegationVisible) pending.push("A2A");
   if (!status.oneShotRelayerVisible) pending.push("1Shot");
@@ -2162,10 +2255,12 @@ function paymentPlanLabel(mode) {
 
 function hasEntitledPayment(mode) {
   const sessions = state.hackathon?.payments || [];
-  return sessions.some(
-    (session) =>
-      session.mode === mode && (session.status === "paid" || session.status === "authorized")
-  );
+  return sessions.some((session) => {
+    if (session.mode !== mode) return false;
+    if (session.status === "paid") return true;
+    if (session.status === "authorized" && !isLiveX402Ready(state.integrationsStatus)) return true;
+    return false;
+  });
 }
 
 function hasSubscriptionEntitlement() {
@@ -2265,13 +2360,18 @@ async function ensureCasePayment(options = {}) {
     if (statusEl) statusEl.textContent = `${paymentPlanLabel(mode)} is active for this case.`;
     return { ok: true, mode, alreadyPaid: true };
   }
-  if (statusEl) statusEl.textContent = `Confirm ${paymentPlanLabel(mode)} in MetaMask…`;
+  const liveX402 = isLiveX402Ready(state.integrationsStatus);
+  if (statusEl) {
+    statusEl.textContent = liveX402
+      ? `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`
+      : `Confirm ${paymentPlanLabel(mode)} in MetaMask…`;
+  }
   if (!state.smartAccountAddress) {
     await enableSmartAccount({ quiet: true, openHub: false }).catch(() =>
       createSmartAccount({ quiet: true, openHub: false })
     );
   }
-  await preparePayment(mode, { quiet: true });
+  await preparePayment(mode, { quiet: true, skipSettle: false });
   await refreshHackathon({ silent: true }).catch(() => {});
   if (!hasEntitledPayment(mode)) {
     await finishPendingDeveloperActions({ quiet: true, stayOnTab: true });
@@ -2280,14 +2380,18 @@ async function ensureCasePayment(options = {}) {
   if (statusEl) {
     statusEl.textContent = hasEntitledPayment(mode)
       ? `${paymentPlanLabel(mode)} confirmed — agent AI unlocked for this case.`
-      : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.";
+      : liveX402
+        ? "Payment not confirmed. Open Settings → Payment rails and tap Pay once / Subscribe."
+        : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.";
   }
   if (!options.quiet) {
     addChat(
       "agent",
       hasEntitledPayment(mode)
         ? `${paymentPlanLabel(mode)} is set for this case. I'll still pause for your approval before anything sends.`
-        : "Finish payment in Settings → Payment rails if MetaMask did not confirm."
+        : liveX402
+          ? "Confirm USDC payment in MetaMask on Base Sepolia, or finish in Settings → Payment rails."
+          : "Finish payment in Settings → Payment rails if MetaMask did not confirm."
     );
   }
   renderSubscriptionUpsell();
@@ -2310,6 +2414,12 @@ function renderPayments() {
             (session) => session.productId === product.id
           );
           const status = activeSession?.status || "not-started";
+          const statusLabel =
+            status === "paid"
+              ? "paid"
+              : status === "authorized" && isLiveX402Ready(state.integrationsStatus)
+                ? "authorized — confirm USDC in MetaMask"
+                : status;
           return `
             <article class="payment-rail-card" data-payment-product="${product.id}">
               <div class="payment-rail-head">
@@ -2327,7 +2437,7 @@ function renderPayments() {
               >
                 ${product.mode === "subscription" ? "Subscribe" : "Pay once"}
               </button>
-              <p class="muted small payment-rail-status">${escapeHtml(status)}</p>
+              <p class="muted small payment-rail-status">${escapeHtml(statusLabel)}</p>
             </article>
           `;
         }).join("")
@@ -2520,6 +2630,8 @@ function render() {
   renderLandingTemplates();
   renderAgentChat();
   renderHackathonChecklist();
+  renderPrivacyFilterSettings();
+  applyPrivacyFilterToInputs();
   renderPayments();
   renderAgentNetwork();
   renderRelayer();
@@ -2858,14 +2970,38 @@ async function approve(approvalId) {
 }
 
 async function executeAction(actionId) {
+  const action =
+    state.currentStatus?.actionsReady?.find((item) => item.id === actionId) ||
+    state.currentStatus?.submittedActions?.find((item) => item.id === actionId);
+  const passwordPlaintext =
+    action?.actionType === "pwned-password-range-check"
+      ? $("#breach-password-vault")?.value || ""
+      : "";
+  const hashPrefix =
+    passwordPlaintext && action?.actionType === "pwned-password-range-check"
+      ? await Vault.sha1PrefixFromPassword(passwordPlaintext)
+      : undefined;
+  const handoff = buildExecuteHandoff({
+    action,
+    status: state.currentStatus,
+    intakeText: state.intakeText,
+    hashPrefix
+  });
   const result = await request(`/api/actions/${actionId}/execute`, {
     method: "POST",
-    body: {}
+    body: handoff
   });
   state.currentStatus = result.status;
   await refreshAgentPlan({ silent: true }).catch(() => {});
   await refreshHackathon({ silent: true });
-  addChat("agent", "Recorded. No third-party submission.");
+  const live = result.executorMode === "live";
+  const handoffNote = result.connectorResult?.requiresUserHandoff ? " Open the official path to finish submission." : "";
+  addChat(
+    "agent",
+    live
+      ? `Live connector path: ${result.connectorResult?.summary || result.action?.executionRecord || "executed."}${handoffNote}`
+      : "Recorded. No third-party submission without your explicit approval path."
+  );
   state.tab = "overview";
   render();
   write(result);
@@ -2915,7 +3051,7 @@ function openDeleteCaseModal(caseId) {
   state.deleteConfirmCaseId = caseId;
   const copy = $("#delete-case-modal-copy");
   if (copy) {
-    copy.textContent = `Delete ${label}? Server data will be purged and cannot be recovered.`;
+    copy.textContent = `Delete ${displayPlainText(label)}? Server data will be purged and cannot be recovered.`;
   }
   const dialog = $("#delete-case-modal");
   if (dialog && !dialog.open) {
@@ -2990,6 +3126,41 @@ async function refreshIntegrationsStatus() {
   } catch {
     state.integrationsStatus = null;
   }
+  try {
+    state.x402Config = await request("/api/x402/config");
+  } catch {
+    state.x402Config = null;
+  }
+}
+
+async function ensureWalletProvider() {
+  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
+  const provider = state.ethereumProvider || (await resolveEthereumProvider());
+  if (!provider?.request) throw { error: "no-provider", message: "Install MetaMask to settle x402 payments." };
+  return provider;
+}
+
+async function settlePaymentForMode(mode, options = {}) {
+  if (!isLiveX402Ready(state.integrationsStatus)) return { settled: false, skipped: true };
+  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  const sessions = state.hackathon?.payments || [];
+  const session = sessions.find((item) => item.productId === (mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet"));
+  if (!session) throw { error: "payment-session-missing", message: "Prepare payment first." };
+  if (session.status === "paid") return { settled: true, alreadyPaid: true, session };
+  const provider = await ensureWalletProvider();
+  if (!options.quiet) {
+    state.walletConnectNote = `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`;
+    renderWalletPanels();
+  }
+  const result = await settleAgentPayment({
+    provider,
+    walletAddress: state.walletAddress,
+    endpoint: agentEndpointForMode(mode),
+    body: { caseId: state.currentCaseId, paymentSessionId: session.id },
+    x402Config: state.x402Config
+  });
+  await refreshHackathon({ silent: true });
+  return result;
 }
 
 async function disconnectWallet() {
@@ -3097,7 +3268,7 @@ async function createSmartAccount(options = {}) {
       "agent",
       remaining.length
         ? `Still pending: ${remaining.join(", ")}. Open Settings → Developer details.`
-        : "Developer tracks ready: x402, Venice, A2A, and 1Shot."
+        : "Developer tracks ready: x402, ERC-7710, Venice, A2A, and 1Shot."
     );
   }
   if (options.openHub !== false) openWalletHub();
@@ -3203,7 +3374,9 @@ async function upgradeMetaMaskLive() {
 
 async function preparePayment(mode, options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
   if (!state.smartAccountAddress) await createSmartAccount({ quiet: true, openHub: false });
+  await refreshIntegrationsStatus().catch(() => {});
   const productId = mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet";
   const result = await request(`/api/x402/${mode === "subscription" ? "subscription" : "one-off"}`, {
     method: "POST",
@@ -3215,10 +3388,22 @@ async function preparePayment(mode, options = {}) {
     }
   });
   await refreshHackathon({ silent: true });
+  let settlement = null;
+  if (!options.skipSettle && isLiveX402Ready(state.integrationsStatus)) {
+    try {
+      settlement = await settlePaymentForMode(mode, { quiet: options.quiet });
+    } catch (error) {
+      if (!options.quiet) {
+        state.walletConnectError = error?.message || "x402 settlement failed.";
+        addChat("agent", state.walletConnectError);
+      }
+      if (!options.quiet) throw error;
+    }
+  }
   renderSubscriptionUpsell();
   if (!options.quiet) openPaymentRails();
-  write(result);
-  return result;
+  write({ ...result, settlement });
+  return { ...result, settlement };
 }
 
 async function finishPendingDeveloperActions(options = {}) {
@@ -3293,18 +3478,24 @@ async function delegateAgents() {
 
 async function relayDemo() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  await refreshIntegrationsStatus().catch(() => {});
   const latest = [...(state.hackathon?.payments || [])].at(-1);
-  if (!latest) await preparePayment("one-off");
+  if (!latest) await preparePayment("one-off", { quiet: true });
   const session = [...(state.hackathon?.payments || [])].at(-1);
-  const result = await request("/api/1shot/relay-demo", {
+  const useLive = Boolean(state.integrationsStatus?.liveReady?.oneShot);
+  const endpoint = "/api/1shot/relay";
+  const result = await request(endpoint, {
     method: "POST",
     body: {
       caseId: state.currentCaseId,
-      sessionId: session?.id
+      sessionId: session?.id,
+      ...(useLive ? {} : { demo: true, status: "submitted" })
     }
   });
   await refreshHackathon({ silent: true });
   state.tab = "settings";
+  if (!useLive) addChat("agent", "1Shot demo relay recorded. Configure ONESHOT_API_KEY for live relayer calls.");
+  else addChat("agent", `1Shot relay: ${result.events?.at(-1)?.status || "submitted"}.`);
   render();
   write(result);
 }
@@ -3629,6 +3820,11 @@ document.addEventListener("click", (event) => {
 });
 $("#create-smart-account")?.addEventListener("click", () => createSmartAccount().catch(write));
 
+$("#privacy-filter-toggle")?.addEventListener("change", (event) => {
+  state.privacyFilterMode = Boolean(event.target.checked);
+  localStorage.setItem("oblivion.privacyFilter", state.privacyFilterMode ? "1" : "0");
+  render();
+});
 $("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
 $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));
 $("#draft-request").addEventListener("click", () => runVenice("draft-request").catch(write));
