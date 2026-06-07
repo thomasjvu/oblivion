@@ -19,7 +19,11 @@ rsync -az --delete \
   -e ssh \
   "$ROOT/" "$HOST:~/$REMOTE_DIR/"
 
-ssh "$HOST" bash -s -- "$REMOTE_DIR" "$IMAGE" "$TAG" "$PUSH" <<'REMOTE'
+DIGEST=""
+BUILD_LOG="$(mktemp)"
+trap 'rm -f "$BUILD_LOG"' EXIT
+
+ssh "$HOST" bash -s -- "$REMOTE_DIR" "$IMAGE" "$TAG" "$PUSH" <<'REMOTE' | tee "$BUILD_LOG"
 set -euo pipefail
 DIR="$1"
 IMAGE="$2"
@@ -29,12 +33,16 @@ cd ~/"$DIR"
 docker build -t "$IMAGE:$TAG" -t "$IMAGE:local" .
 echo "Built $IMAGE:$TAG on $(hostname)"
 if [[ "$PUSH" == "1" ]]; then
-  docker push "$IMAGE:$TAG" | tail -1
+  docker push "$IMAGE:$TAG"
 fi
 REMOTE
 
 echo "Remote build complete: $IMAGE:$TAG"
 if [[ "$PUSH" == "1" ]]; then
-  echo "Pull digest from push output above, then run:"
-  echo "  npm run docker:pin -- $IMAGE@sha256:<digest>"
+  DIGEST="$(grep -Eo 'digest: sha256:[0-9a-f]{64}' "$BUILD_LOG" | tail -1 | cut -d' ' -f2)"
+  if [[ -z "$DIGEST" ]]; then
+    echo "Could not resolve image digest from remote push output." >&2
+    exit 1
+  fi
+  echo "OBLIVION_IMAGE_DIGEST=$DIGEST"
 fi

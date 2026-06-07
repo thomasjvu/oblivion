@@ -10,11 +10,24 @@ ENV_FILE="${OBLIVION_ENV_FILE:-$ROOT/.env}"
 echo "==> Sync app version into trust center"
 npm run version:sync
 
-echo "==> Build image on spectre ($TAG)"
-OBLIVION_TAG="$TAG" OBLIVION_PUSH=1 bash "$ROOT/scripts/build-on-spectre.sh"
+pin_built_image() {
+  local image_tag="$1"
+  local build_log
+  build_log="$(mktemp)"
+  trap 'rm -f "$build_log"' RETURN
+  OBLIVION_TAG="$image_tag" OBLIVION_PUSH=1 bash "$ROOT/scripts/build-on-spectre.sh" | tee "$build_log"
+  local digest
+  digest="$(grep -E '^OBLIVION_IMAGE_DIGEST=sha256:' "$build_log" | tail -1 | cut -d= -f2)"
+  if [[ -z "$digest" ]]; then
+    echo "Could not resolve digest for $image_tag" >&2
+    exit 1
+  fi
+  echo "==> Pin digest in compose + trust center ($digest)"
+  OBLIVION_COMPOSE_TAG="$image_tag" npm run docker:pin -- "ghcr.io/thomasjvu/oblivion@$digest"
+}
 
-echo "==> Pin digest in compose + trust center"
-npm run docker:pin -- "ghcr.io/thomasjvu/oblivion:$TAG"
+echo "==> Build image on spectre ($TAG)"
+pin_built_image "$TAG"
 
 echo "==> Deploy Phala CVM (secrets from $ENV_FILE)"
 OBLIVION_PHALA_TAG="$TAG" \
@@ -27,8 +40,7 @@ echo "==> Sync trust center compose hash from live CVM"
 npm run phala:sync-trust
 
 echo "==> Rebuild + redeploy with synced trust center"
-OBLIVION_TAG="${TAG}-trust" OBLIVION_PUSH=1 bash "$ROOT/scripts/build-on-spectre.sh"
-npm run docker:pin -- "ghcr.io/thomasjvu/oblivion:${TAG}-trust"
+pin_built_image "${TAG}-trust"
 OBLIVION_PHALA_TAG="${TAG}-trust" \
   OBLIVION_PUBLIC_API_URL="$PHALA_API_URL" \
   OBLIVION_CORS_ORIGIN="$CF_UI_ORIGIN" \
