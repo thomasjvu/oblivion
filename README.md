@@ -117,7 +117,9 @@ Copy [`.env.example`](.env.example) to `.env` and configure:
 
 Check readiness: `GET /api/integrations/status` · x402 buyer config: `GET /api/x402/config`
 
-Demo fallbacks (local/hackathon without API keys): `VENICE_DEMO_FALLBACK=true`, `ONESHOT_DEMO_FALLBACK=true`. Broker web-form field mapping: `BROKER_WEBFORM_AUTOMATION=true` (probe only; submission still approval-gated).
+Broker web-form field mapping: `BROKER_WEBFORM_AUTOMATION=true` (probe only; submission still approval-gated).
+
+Venice chat/classify requires a **paid** x402 session per case unless `OBLIVION_AI_BYPASS_PAYMENT=true` (dev/test only).
 
 ### Production deploy checklist
 

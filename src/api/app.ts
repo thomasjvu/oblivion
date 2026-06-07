@@ -748,6 +748,8 @@ export function createApp(options: AppOptions = {}) {
       }
 
       if (method === "GET" && url.pathname === "/api/integrations/status") {
+        const trustConfig = await loadTrustCenterConfig(trustCenterPath);
+        const attestationProof = await buildAttestationProof(trustConfig, { fetchLive: true });
         sendJson(response, 200, {
           mode: isVeniceConfigured() ? "live-agent" : "wallet-and-policy",
           executorMode: isLiveExecutorEnabled() ? "live" : "record-only",
@@ -755,15 +757,15 @@ export function createApp(options: AppOptions = {}) {
             metamaskSmartAccounts: process.env.WALLET_LIVE_MODE === "true",
             x402: isX402Configured(),
             erc7710: isX402Configured(),
-            venice: isVeniceConfigured() || process.env.VENICE_DEMO_FALLBACK === "true",
-            oneShot: isOneShotLiveReady() || process.env.ONESHOT_DEMO_FALLBACK === "true",
+            venice: isVeniceConfigured(),
+            oneShot: isOneShotLiveReady(),
             brokerWebForm: process.env.BROKER_WEBFORM_AUTOMATION === "true",
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
             brokerEmail: isBrokerEmailConfigured(),
             platformAbuseEmail: isBrokerEmailConfigured(),
             liveExecutor: isLiveExecutorEnabled(),
-            phalaAttestation: Boolean(process.env.PHALA_ATTESTATION_URL)
+            phalaAttestation: attestationProof.verifierResult === "pass"
           },
           privacyInvariant:
             "Live adapters must stay behind the same approval, redaction, logging, and attestation gates."

@@ -66,7 +66,7 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 5. **Verify attestation** — `curl -s $API/api/trust/attestation | jq '.verifierResult, .composeHashMatches, .hardwareQuoteVerified'` must show `pass`, `true`, `true`.
 6. **Check integrations** — `GET /api/integrations/status` lists `liveReady.*` for configured adapters only.
 7. **Enable live executor (optional)** — set `OBLIVION_EXECUTOR_MODE=live` in Phala secrets after attestation passes. Managed-plaintext connectors (HIBP email, broker live paths) still require `verifierResult: "pass"`.
-8. **Demo fallbacks (non-production)** — `VENICE_DEMO_FALLBACK`, `ONESHOT_DEMO_FALLBACK`, and `BROKER_WEBFORM_AUTOMATION` enable checklist/demo paths without API keys; do not enable these on production unless you accept synthetic outputs.
+8. **Never enable `OBLIVION_AI_BYPASS_PAYMENT` in production** — Venice chat/analysis requires a paid x402 session per case.
 
 ### Live integration secrets checklist
 

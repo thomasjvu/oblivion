@@ -120,7 +120,7 @@ If an edit would violate any invariant above, stop and surface the tension. The 
 - Typecheck clean; `npm run verify` is the merge gate.
 - Client bundled from `public/src/` → `public/app.js`.
 - Domain units added for policy, cleanup plan machine, orchestration propose, redaction, runtimeGuard, attestation errors, memoryStore isolation, broker web-form probe.
-- Demo fallbacks: `VENICE_DEMO_FALLBACK`, `ONESHOT_DEMO_FALLBACK`, `BROKER_WEBFORM_AUTOMATION` (all env-gated; hackathon checklist only).
+- Integration adapters require real API keys; `BROKER_WEBFORM_AUTOMATION` enables live web-form probing (not synthetic output).
 - Production attestation requires synced `expectedComposeHash` in baked trust-center + `-prod-trust` redeploy.
 
 Remaining gaps: full policy matrix for every ActionType/AuthorityBasis combo; every `advanceAgentPlan` transition; export/delete privacy matrix; reduce brittle ui.test greps.

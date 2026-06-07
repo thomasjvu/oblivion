@@ -113,9 +113,9 @@ Use `GET /api/integrations/status` for a live JSON snapshot. The table below is 
 | **MetaMask Smart Accounts** | Connect wallet, Enable Smart Account | `metamaskSmartAccount.js`, `/api/metamask/demo-session` | `WALLET_LIVE_MODE=true` + MetaMask Sepolia `wallet_sendCalls` | Demo mode: EIP-7702 + ERC-7715 grants + deterministic smart-account display | User must confirm in wallet for live upgrade |
 | **x402 one-off** | Onboarding payment, Settings → Payment rails | `hackathon.ts` sessions, `x402.ts` HTTP 402, `x402Pay.js` client settlement | `X402_PAY_TO` + `X402_FACILITATOR_URL`; sessions use **`x402-v2`** | Without pay-to: session `authorized` (not `paid`) — checklist still completes | Settlement does not bypass cleanup approvals |
 | **ERC-7710 subscription** | Weekly monitor product | `createPaymentSession(subscription)`, scoped `PaymentAgent` delegation | Same as x402 (shared facilitator) | Demo `authorized` session + valid delegation objects | Spend cap + narrow scope validated in `validateErc7710Delegation` |
-| **Venice AI** | Classify / Draft / Review buttons, agent chat | `venice.ts` → Venice chat API, redacted JSON output | `VENICE_API_KEY` set | `VENICE_DEMO_FALLBACK=true` → local `venice-demo` output; `liveReady.venice` true | `/api/agent/chat` returns 503 without API key or demo fallback |
+| **Venice AI** | Classify / Draft / Review buttons, agent chat | `venice.ts` → Venice chat API, redacted JSON output | `VENICE_API_KEY` set + paid x402 session per case | — | `/api/agent/chat` returns 503 without API key; 402 without paid session |
 | **A2A redelegation** | Delegate sub-agents | `createAgentDelegationSet` → 4 scoped agents + timeline | Always once `/api/agents/delegate` or **Finish pending tracks** runs | In-memory grants (not external A2A wire protocol) | Broad scopes rejected (`erc7710-scope-too-broad`) |
-| **1Shot relayer** | Relay latest payment | `oneshot.ts` JSON-RPC to `ONESHOT_BASE_URL` | `ONESHOT_API_KEY` + `method`/`taskId` on relay | `ONESHOT_DEMO_FALLBACK=true` or **Finish pending tracks** with API key/demo → `createRelayerEvents`; `liveReady.oneShot` true when key or demo fallback | Relay without payload returns 422 |
+| **1Shot relayer** | Relay latest payment | `oneshot.ts` JSON-RPC to `ONESHOT_BASE_URL` | `ONESHOT_API_KEY` + `method`/`taskId` on relay | **Finish pending tracks** with API key records checklist events; real proof is `POST /api/1shot/relay` | Relay without payload returns 422 |
 
 ### Connector extras (not separate hackathon tabs, but real)
 
@@ -205,7 +205,7 @@ Copy `.env.example` → `.env`:
 ```sh
 # Venice — live agent (disable demo fallback for judging)
 VENICE_API_KEY=...
-VENICE_DEMO_FALLBACK=false
+
 
 # x402 — real HTTP 402 on premium/monitor endpoints
 X402_PAY_TO=0xYourWallet...
@@ -219,7 +219,7 @@ WALLET_CHAIN_ID=11155111
 # 1Shot — live relayer polling
 ONESHOT_BASE_URL=https://relayer.1shotapi.com/relayers
 ONESHOT_API_KEY=...
-ONESHOT_DEMO_FALLBACK=false
+
 
 # Connectors (optional beyond hackathon tabs)
 BRAVE_SEARCH_API_KEY=...
@@ -254,7 +254,7 @@ npm test -- test/api/hackathon.test.ts test/domain/hackathon.test.ts test/domain
 | MetaMask | Connect → Smart Account | `GET /api/hackathon/status` → `smartAccountVisible: true`; live: `mode: live` on session |
 | x402 | Pay one-off in UI or POST premium-task with wallet | Session `status: paid`; facilitator settlement in timeline |
 | ERC-7710 | Prepare subscription session | `erc7710SubscriptionReady: true`; delegation scope includes `x402-only` |
-| Venice | Classify with API key | Timeline actor Venice; `model` ≠ `venice-demo` |
+| Venice | Classify with API key | Timeline actor Venice; live Venice model in analysis record |
 | A2A | Delegate sub-agents | ≥3 delegations; `a2aRedelegationVisible: true` |
 | 1Shot | Relay with `taskId` or finish-pending | Relayer table rows; `oneShotRelayerVisible: true` |
 
