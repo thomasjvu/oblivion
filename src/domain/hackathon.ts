@@ -484,7 +484,24 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, a2aRedelegationVisible: true };
   }
 
-
+  if (!status.oneShotRelayerVisible && (process.env.ONESHOT_API_KEY?.trim() || process.env.ONESHOT_DEMO_FALLBACK === "true")) {
+    const payment = input.store.paymentSessionsForCase(input.caseId).find((session) => session.status === "paid");
+    const events = createRelayerEvents({
+      caseId: input.caseId,
+      sessionId: payment?.id,
+      status: "confirmed",
+      payload: { mode: process.env.ONESHOT_API_KEY?.trim() ? "live" : "demo-fallback" }
+    });
+    events.forEach((event) => {
+      input.store.relayerEvents.set(event.id, event);
+      relayerEvents.push(event);
+    });
+    const event = createTimelineEvent(input.caseId, "1Shot", "Relayer confirmed", "Case-bound 1Shot relay event recorded.");
+    input.store.agentTimeline.set(event.id, event);
+    timeline.push(event);
+    completed.push("1shot");
+    status = { ...status, oneShotRelayerVisible: true };
+  }
 
   return {
     completed,

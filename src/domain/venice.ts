@@ -9,6 +9,46 @@ export function isVeniceConfigured(): boolean {
   return Boolean(process.env.VENICE_API_KEY?.trim());
 }
 
+export function isVeniceDemoFallbackEnabled(): boolean {
+  return process.env.VENICE_DEMO_FALLBACK === "true" && !isVeniceConfigured();
+}
+
+function demoVeniceOutput(
+  kind: VeniceAnalysisKind,
+  redacted: string,
+  destination: string,
+  actionType: ActionType
+): VeniceAnalysis["output"] {
+  const hasBroker = /broker|people-search|opt-out|profile/i.test(redacted);
+  const recommendedTask = (hasBroker ? "broker-opt-out" : actionType) as ActionType;
+  if (kind === "classify-case") {
+    return {
+      title: "Demo classification (Venice fallback)",
+      summary: `Redacted context suggests a ${hasBroker ? "people-search cleanup" : "supervised removal"} route for ${destination}.`,
+      risk: /high-risk|safety|stalking/i.test(redacted) ? "high-risk-safety" : "standard",
+      recommendedTask,
+      nextSteps: ["Verify official removal path", "Prepare exact approval"]
+    };
+  }
+  if (kind === "draft-request") {
+    return {
+      title: "Demo removal draft (Venice fallback)",
+      summary: "Draft generated locally from redacted context — no external AI call.",
+      recommendedTask,
+      draftText:
+        "Please remove the matching profile for the approved identifiers. Limit use to this case scope only.",
+      nextSteps: ["Review destination", "Approve exact disclosure"]
+    };
+  }
+  return {
+    title: "Demo approval review (Venice fallback)",
+    summary: "Scope review generated locally from redacted context.",
+    recommendedTask,
+    approvalExplanation: "Disclose only approved categories to the named destination before expiry.",
+    nextSteps: ["Check destination", "Check data categories"]
+  };
+}
+
 export function veniceBaseUrl(): string {
   return (process.env.VENICE_BASE_URL || DEFAULT_BASE).replace(/\/$/, "");
 }
@@ -157,12 +197,23 @@ export async function runVeniceAnalysis(input: {
   actionType?: ActionType;
   maxTokens?: number;
 }): Promise<VeniceAnalysis> {
-  if (!isVeniceConfigured()) {
-    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
-  }
   const redacted = redactText(input.notes || "Encrypted case summary unavailable to server.");
   const actionType = input.actionType ?? "broker-opt-out";
   const destination = redactText(input.destination || "approved destination");
+  if (isVeniceDemoFallbackEnabled()) {
+    return {
+      id: `venice_${crypto.randomUUID()}`,
+      caseId: input.caseId,
+      kind: input.kind,
+      model: "venice-demo",
+      redactedInputSummary: redacted,
+      output: demoVeniceOutput(input.kind, redacted, destination, actionType),
+      createdAt: new Date().toISOString()
+    };
+  }
+  if (!isVeniceConfigured()) {
+    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+  }
   const content = await veniceChatCompletion(buildVeniceMessages(input.kind, redacted, destination, actionType), {
     maxTokens: input.maxTokens
   });
@@ -186,6 +237,14 @@ export async function runVeniceAgentReply(input: {
   maxTokens?: number;
 }): Promise<string> {
   const redacted = redactText(input.message);
+  if (isVeniceDemoFallbackEnabled()) {
+    return redactText(
+      `Demo agent reply for step ${input.planStep || "unknown"}: review approvals before any disclosure.`
+    );
+  }
+  if (!isVeniceConfigured()) {
+    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+  }
   const content = await veniceChatCompletion([
     {
       role: "system",

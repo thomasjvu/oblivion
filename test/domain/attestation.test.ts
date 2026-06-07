@@ -48,6 +48,75 @@ test("converts base64 quote to hex", () => {
   assert.equal(quoteToHex(Buffer.from("abc").toString("base64")), "616263");
 });
 
+test("fails when compose hash mismatches expected value", async () => {
+  const originalFetch = globalThis.fetch;
+  const appCompose = JSON.stringify({ docker_compose_file: "services:\n  oblivion:\n    image: x@sha256:y" });
+  const report = {
+    intel_quote: Buffer.from("fake-quote").toString("base64"),
+    info: { tcb_info: { app_compose: appCompose } }
+  };
+
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).includes("attestation.local")) {
+      return Response.json(report);
+    }
+    assert.equal(init?.method, "POST");
+    return Response.json({ quote: { verified: true } });
+  }) as typeof fetch;
+
+  try {
+    const proof = await buildAttestationProof({
+      deploymentVersion: "0.1.0",
+      sourceCommit: "abc123",
+      expectedComposeHash: "f".repeat(64),
+      imageDigests: ["ghcr.io/example/oblivion@sha256:" + "a".repeat(64)],
+      attestationReportUrl: "https://attestation.local/report",
+      verificationInstructions: []
+    }, { fetchLive: true });
+
+    assert.equal(proof.verifierResult, "fail");
+    assert.equal(proof.composeHashMatches, false);
+    assert.ok(proof.verificationErrors.includes("compose-hash-mismatch"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("fails when hardware quote verification fails", async () => {
+  const originalFetch = globalThis.fetch;
+  const appCompose = JSON.stringify({ docker_compose_file: "services:\n  oblivion:\n    image: x@sha256:y" });
+  const expectedComposeHash = createHash("sha256").update(appCompose).digest("hex");
+  const report = {
+    intel_quote: Buffer.from("fake-quote").toString("base64"),
+    info: { tcb_info: { app_compose: appCompose } }
+  };
+
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).includes("attestation.local")) {
+      return Response.json(report);
+    }
+    assert.equal(init?.method, "POST");
+    return Response.json({ quote: { verified: false } });
+  }) as typeof fetch;
+
+  try {
+    const proof = await buildAttestationProof({
+      deploymentVersion: "0.1.0",
+      sourceCommit: "abc123",
+      expectedComposeHash,
+      imageDigests: ["ghcr.io/example/oblivion@sha256:" + "a".repeat(64)],
+      attestationReportUrl: "https://attestation.local/report",
+      verificationInstructions: []
+    }, { fetchLive: true });
+
+    assert.equal(proof.verifierResult, "fail");
+    assert.equal(proof.hardwareQuoteVerified, false);
+    assert.ok(proof.verificationErrors.includes("hardware-quote-not-verified"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("passes when live attestation and compose hash match", async () => {
   const originalFetch = globalThis.fetch;
   const appCompose = JSON.stringify({ docker_compose_file: "services:\n  oblivion:\n    image: x@sha256:y" });

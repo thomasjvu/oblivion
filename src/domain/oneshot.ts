@@ -25,7 +25,17 @@ export interface OneShotRelayBody {
   payload?: Record<string, unknown>;
 }
 
+export function isOneShotDemoFallbackEnabled(): boolean {
+  return process.env.ONESHOT_DEMO_FALLBACK === "true" && !process.env.ONESHOT_API_KEY?.trim();
+}
+
 export async function callOneShotRpc<T = unknown>(method: string, params?: unknown): Promise<T> {
+  if (isOneShotDemoFallbackEnabled()) {
+    if (method === "relayer_getStatus") {
+      return { status: "Confirmed", txHash: "0xdemo", userOpHash: "0xdemo" } as T;
+    }
+    return { TaskId: `demo_task_${crypto.randomUUID().slice(0, 8)}`, status: "submitted" } as T;
+  }
   const url = oneShotBaseUrl();
   const headers: Record<string, string> = { "content-type": "application/json" };
   const apiKey = process.env.ONESHOT_API_KEY?.trim();

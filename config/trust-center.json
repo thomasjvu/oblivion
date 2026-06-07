@@ -1,7 +1,7 @@
 {
   "deploymentVersion": "0.1.0",
-  "sourceCommit": "fe68cae",
-  "expectedComposeHash": "9115497152e6e7c3f987bbcff32221790839800428edac9ba15f6ad2f2d0fa88",
+  "sourceCommit": "f5eaf17",
+  "expectedComposeHash": "362a72869601d0417b7cbba940f91dca6389fff603e32e01a7e00e20960a1d9d",
   "attestationReportUrl": null,
   "phalaVerifierEndpoint": "https://cloud-api.phala.com/api/v1/attestations/verify",
   "maxAttestationAgeSeconds": 600,

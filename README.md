@@ -117,6 +117,18 @@ Copy [`.env.example`](.env.example) to `.env` and configure:
 
 Check readiness: `GET /api/integrations/status` · x402 buyer config: `GET /api/x402/config`
 
+Demo fallbacks (local/hackathon without API keys): `VENICE_DEMO_FALLBACK=true`, `ONESHOT_DEMO_FALLBACK=true`. Broker web-form field mapping: `BROKER_WEBFORM_AUTOMATION=true` (probe only; submission still approval-gated).
+
+### Production deploy checklist
+
+1. `npm run deploy:production` — build, pin digest, deploy Phala CVM, sync trust, rebuild `-prod-trust` image.
+2. Confirm `GET /api/trust/attestation` → `verifierResult: "pass"`.
+3. Load integration secrets via `scripts/deploy-phala.sh -e .env` (see `.env.example`).
+4. Optionally set `OBLIVION_EXECUTOR_MODE=live` after attestation passes and secrets are wired.
+5. Deploy UI: `npm run deploy:cloudflare-ui`.
+
+Full runbook: [`SECURITY.md`](SECURITY.md#production-runbook).
+
 ## Docs
 
 - [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — **step-by-step guide for users** (also at `/help` when the server is running).

@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type {
   ActionRequest,
   AgentDelegation,
@@ -101,8 +101,11 @@ export function scheduleStorePersist(store: MemoryStore, path: string): void {
 }
 
 export function persistStore(store: MemoryStore, path: string): void {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(snapshotStore(store), null, 2), "utf8");
+  const dir = dirname(path);
+  mkdirSync(dir, { recursive: true });
+  const tempPath = join(dir, `.${path.split("/").pop() ?? "oblivion"}.tmp-${process.pid}`);
+  writeFileSync(tempPath, JSON.stringify(snapshotStore(store), null, 2), "utf8");
+  renameSync(tempPath, path);
 }
 
 export function createPersistentStore(path: string): MemoryStore {

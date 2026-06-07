@@ -116,10 +116,13 @@ If an edit would violate any invariant above, stop and surface the tension. The 
 
 ## Current Status (as of last audit)
 
-- 48 tests, all pass.
-- Typecheck clean.
-- Single commit history.
-- Client being split + bundled.
-- Strong integration coverage on happy + block paths; domain units incomplete (see gaps).
+- 120+ unit/integration tests; Playwright e2e in CI (desktop project).
+- Typecheck clean; `npm run verify` is the merge gate.
+- Client bundled from `public/src/` → `public/app.js`.
+- Domain units added for policy, cleanup plan machine, orchestration propose, redaction, runtimeGuard, attestation errors, memoryStore isolation, broker web-form probe.
+- Demo fallbacks: `VENICE_DEMO_FALLBACK`, `ONESHOT_DEMO_FALLBACK`, `BROKER_WEBFORM_AUTOMATION` (all env-gated; hackathon checklist only).
+- Production attestation requires synced `expectedComposeHash` in baked trust-center + `-prod-trust` redeploy.
+
+Remaining gaps: full policy matrix for every ActionType/AuthorityBasis combo; every `advanceAgentPlan` transition; export/delete privacy matrix; reduce brittle ui.test greps.
 
 Update this file when gaps are closed or new ones discovered.

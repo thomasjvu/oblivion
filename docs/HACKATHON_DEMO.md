@@ -113,9 +113,9 @@ Use `GET /api/integrations/status` for a live JSON snapshot. The table below is 
 | **MetaMask Smart Accounts** | Connect wallet, Enable Smart Account | `metamaskSmartAccount.js`, `/api/metamask/demo-session` | `WALLET_LIVE_MODE=true` + MetaMask Sepolia `wallet_sendCalls` | Demo mode: EIP-7702 + ERC-7715 grants + deterministic smart-account display | User must confirm in wallet for live upgrade |
 | **x402 one-off** | Onboarding payment, Settings → Payment rails | `hackathon.ts` sessions, `x402.ts` HTTP 402, `x402Pay.js` client settlement | `X402_PAY_TO` + `X402_FACILITATOR_URL`; sessions use **`x402-v2`** | Without pay-to: session `authorized` (not `paid`) — checklist still completes | Settlement does not bypass cleanup approvals |
 | **ERC-7710 subscription** | Weekly monitor product | `createPaymentSession(subscription)`, scoped `PaymentAgent` delegation | Same as x402 (shared facilitator) | Demo `authorized` session + valid delegation objects | Spend cap + narrow scope validated in `validateErc7710Delegation` |
-| **Venice AI** | Classify / Draft / Review buttons, agent chat | `venice.ts` → Venice chat API, redacted JSON output | `VENICE_API_KEY` set, `VENICE_DEMO_FALLBACK=false` | Dev fallback: `venice-demo` model output from redacted context | `/api/agent/chat` returns 503 without API key |
+| **Venice AI** | Classify / Draft / Review buttons, agent chat | `venice.ts` → Venice chat API, redacted JSON output | `VENICE_API_KEY` set | `VENICE_DEMO_FALLBACK=true` → local `venice-demo` output; `liveReady.venice` true | `/api/agent/chat` returns 503 without API key or demo fallback |
 | **A2A redelegation** | Delegate sub-agents | `createAgentDelegationSet` → 4 scoped agents + timeline | Always once `/api/agents/delegate` or **Finish pending tracks** runs | In-memory grants (not external A2A wire protocol) | Broad scopes rejected (`erc7710-scope-too-broad`) |
-| **1Shot relayer** | Relay latest payment | `oneshot.ts` JSON-RPC to `ONESHOT_BASE_URL` | `ONESHOT_API_KEY` + `ONESHOT_DEMO_FALLBACK=false` + `method`/`taskId` on relay | Session events via `createRelayerEvents` for checklist; `liveReady.oneShot` false until API key | Relay without payload returns 422 |
+| **1Shot relayer** | Relay latest payment | `oneshot.ts` JSON-RPC to `ONESHOT_BASE_URL` | `ONESHOT_API_KEY` + `method`/`taskId` on relay | `ONESHOT_DEMO_FALLBACK=true` or **Finish pending tracks** with API key/demo → `createRelayerEvents`; `liveReady.oneShot` true when key or demo fallback | Relay without payload returns 422 |
 
 ### Connector extras (not separate hackathon tabs, but real)
 
@@ -125,6 +125,7 @@ Use `GET /api/integrations/status` for a live JSON snapshot. The table below is 
 | HIBP password range | Always (prefix-only) | No full password leaves browser |
 | HIBP email | `HIBP_API_KEY` + TEE pass | Managed plaintext |
 | Broker email opt-out | `RESEND_API_KEY` or `SMTP_*` | After approval + live executor |
+| Broker web-form probe | `BROKER_WEBFORM_AUTOMATION=true` | GET opt-out page, map fields; no auto-submit; CAPTCHA → user handoff |
 | Platform abuse email | Same as broker email | Content-takedown: DMCA + platform-abuse cards per URL |
 | Live executor | `OBLIVION_EXECUTOR_MODE=live` | Sensitive connectors still need TEE pass |
 

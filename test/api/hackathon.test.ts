@@ -6,6 +6,7 @@ const originalFetch = globalThis.fetch;
 const originalVeniceKey = process.env.VENICE_API_KEY;
 const originalVeniceBase = process.env.VENICE_BASE_URL;
 const originalOneShotKey = process.env.ONESHOT_API_KEY;
+const originalOneShotFallback = process.env.ONESHOT_DEMO_FALLBACK;
 const originalPayTo = process.env.X402_PAY_TO;
 const originalApiUrl = process.env.OBLIVION_PUBLIC_API_URL;
 
@@ -71,6 +72,15 @@ function enableLiveIntegrations() {
   process.env.ONESHOT_BASE_URL = "https://relayer.test/relayers";
   process.env.OBLIVION_PUBLIC_API_URL = "https://api.example.com";
   process.env.OBLIVION_AI_BYPASS_PAYMENT = "true";
+  delete process.env.ONESHOT_DEMO_FALLBACK;
+}
+
+function enableHackathonTracksWithoutOneShot() {
+  process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
+  process.env.OBLIVION_PUBLIC_API_URL = "https://api.example.com";
+  process.env.OBLIVION_AI_BYPASS_PAYMENT = "true";
+  delete process.env.ONESHOT_API_KEY;
+  delete process.env.ONESHOT_DEMO_FALLBACK;
 }
 
 function restoreEnv() {
@@ -81,6 +91,8 @@ function restoreEnv() {
   else process.env.VENICE_BASE_URL = originalVeniceBase;
   if (originalOneShotKey === undefined) delete process.env.ONESHOT_API_KEY;
   else process.env.ONESHOT_API_KEY = originalOneShotKey;
+  if (originalOneShotFallback === undefined) delete process.env.ONESHOT_DEMO_FALLBACK;
+  else process.env.ONESHOT_DEMO_FALLBACK = originalOneShotFallback;
   if (originalPayTo === undefined) delete process.env.X402_PAY_TO;
   else process.env.X402_PAY_TO = originalPayTo;
   if (originalApiUrl === undefined) delete process.env.OBLIVION_PUBLIC_API_URL;
@@ -161,7 +173,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot pol
 
 test("complete-pending only finishes configured integration tracks", async () => {
   installVeniceMock();
-  enableLiveIntegrations();
+  enableHackathonTracksWithoutOneShot();
   const { server, base } = await startTestServer();
 
   try {
@@ -193,6 +205,33 @@ test("complete-pending only finishes configured integration tracks", async () =>
   } finally {
     server.close();
     globalThis.fetch = originalFetch;
+    restoreEnv();
+  }
+});
+
+test("complete-pending finishes 1shot when demo fallback is enabled", async () => {
+  installVeniceMock();
+  enableHackathonTracksWithoutOneShot();
+  process.env.ONESHOT_DEMO_FALLBACK = "true";
+  const { server, base } = await startTestServer();
+
+  try {
+    const created = await post(base, "/api/cases", {
+      jurisdiction: "US",
+      authorityBasis: "self"
+    }, 201);
+    const caseId = created.case.id;
+
+    const finished = await post(base, "/api/hackathon/complete-pending", {
+      caseId,
+      notes: "Remove person@example.com from people-search."
+    }, 201);
+    assert.ok(finished.completed.includes("1shot"));
+    assert.equal(finished.status.oneShotRelayerVisible, true);
+  } finally {
+    server.close();
+    globalThis.fetch = originalFetch;
+    restoreEnv();
   }
 });
 

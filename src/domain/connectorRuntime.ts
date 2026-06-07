@@ -13,6 +13,7 @@ import { followUpDate } from "./deadlines.js";
 import { assertSensitiveExecutionAllowed } from "./runtimeGuard.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
 import { buildDraftText } from "./templates.js";
+import { brokerWebFormAutomationEnabled, probeBrokerOptOutForm } from "./brokerWebForm.js";
 import { probeOfficialUrl } from "./urlProbe.js";
 import type { ActionRequest, Approval, ConnectorResult } from "./types.js";
 
@@ -205,6 +206,32 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
   const reachability = probe.reachable
     ? `Official opt-out path reachable (${probe.status ?? "ok"}).`
     : "Official opt-out path could not be verified — open the catalog URL manually.";
+
+  if (broker.submissionMethod === "web-form") {
+    const formProbe = await probeBrokerOptOutForm(broker.officialOptOutUrl);
+    const automationReady =
+      brokerWebFormAutomationEnabled() &&
+      formProbe.reachable &&
+      formProbe.formCount > 0 &&
+      !formProbe.requiresCaptcha;
+    const result = buildConnectorResult(input.action.caseId, connectorId, {
+      status: formProbe.reachable ? "recorded" : "ready",
+      sourceUrl: broker.officialOptOutUrl,
+      officialRemovalPath: broker.officialOptOutUrl,
+      summary: `${formProbe.summary} ${reachability}${
+        automationReady
+          ? " Form mapped for TEE handoff packet — user confirmation still required before any submit."
+          : " User-held browser submission required."
+      }`,
+      requiresUserHandoff: !automationReady
+    });
+    return {
+      result,
+      executionRecord: `live connector ${connectorId}: ${broker.brokerId} web-form ${automationReady ? "mapped" : "handoff"}.`,
+      transmitted: automationReady ? ["profile-url"] : [],
+      neverTransmit: ["ssn", "password", "government-id"]
+    };
+  }
 
   if (broker.submissionMethod === "email" && broker.privacyEmail && isBrokerEmailConfigured() && emailLabel) {
     const mailed = await sendBrokerOptOutEmail({

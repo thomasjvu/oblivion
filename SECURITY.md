@@ -57,6 +57,29 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 - Disable plaintext logs and request tracing.
 - Add external adapters only after tests prove blocked execution without matching approval.
 
+## Production Runbook
+
+1. **Build and pin** — `npm run docker:build:remote` (or local build), then `npm run docker:pin -- ghcr.io/thomasjvu/oblivion@sha256:<digest>`.
+2. **Deploy CVM** — `npm run phala:deploy` with secrets via `scripts/deploy-phala.sh -e .env` (never commit `.env`).
+3. **Sync trust** — `npm run phala:sync-trust` copies the live compose hash into `config/trust-center.json` and updates `sourceCommit`.
+4. **Rebuild trust image** — bake the synced `config/trust-center.json` into a `-prod-trust` image and redeploy so the CVM serves matching metadata.
+5. **Verify attestation** — `curl -s $API/api/trust/attestation | jq '.verifierResult, .composeHashMatches, .hardwareQuoteVerified'` must show `pass`, `true`, `true`.
+6. **Check integrations** — `GET /api/integrations/status` lists `liveReady.*` for configured adapters only.
+7. **Enable live executor (optional)** — set `OBLIVION_EXECUTOR_MODE=live` in Phala secrets after attestation passes. Managed-plaintext connectors (HIBP email, broker live paths) still require `verifierResult: "pass"`.
+8. **Demo fallbacks (non-production)** — `VENICE_DEMO_FALLBACK`, `ONESHOT_DEMO_FALLBACK`, and `BROKER_WEBFORM_AUTOMATION` enable checklist/demo paths without API keys; do not enable these on production unless you accept synthetic outputs.
+
+### Live integration secrets checklist
+
+| Secret | Enables |
+|--------|---------|
+| `BRAVE_SEARCH_API_KEY` | Exposure URL discovery |
+| `VENICE_API_KEY` | Agent classify/draft/review/chat |
+| `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real x402 settlement |
+| `ONESHOT_API_KEY` | Live 1Shot JSON-RPC relay |
+| `HIBP_API_KEY` | Live breach email check (TEE-gated) |
+| `RESEND_API_KEY` or `SMTP_*` | Broker/platform email connectors |
+| `OBLIVION_EXECUTOR_MODE=live` | External connector execution after approval |
+
 ## User-Facing Claim
 
 Use precise wording:

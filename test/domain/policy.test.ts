@@ -53,6 +53,52 @@ test("blocks dark web dump access", () => {
   assert.ok(decision.reasons.includes("dark-web-or-breach-dump-access-blocked"));
 });
 
+test("blocks payment disclosure and unverified broker source", () => {
+  const payment = evaluateProposedAction({
+    authorityBasis: "self",
+    actionType: "broker-opt-out",
+    destination: "Example Broker",
+    purpose: "Remove profile",
+    identifiers: ["email"],
+    dataToDisclose: ["payment"],
+    sourceVerified: true,
+    hasApproval: true
+  });
+  assert.equal(payment.allowed, false);
+  assert.ok(payment.reasons.includes("payment-disclosure-blocked"));
+
+  const unverified = evaluateProposedAction({
+    authorityBasis: "self",
+    actionType: "broker-opt-out",
+    destination: "Example Broker",
+    purpose: "Remove profile",
+    identifiers: ["email"],
+    dataToDisclose: ["email"],
+    sourceVerified: false,
+    hasApproval: true
+  });
+  assert.equal(unverified.allowed, false);
+  assert.ok(unverified.reasons.includes("source-verification-required"));
+});
+
+test("blocks expired approvals at execution time", () => {
+  const approval: Approval = {
+    id: "approval_expired",
+    caseId: "case_1",
+    actionType: "broker-opt-out",
+    destination: "Example Broker",
+    identifiersApproved: ["email"],
+    dataToDisclose: ["email"],
+    purpose: "Remove",
+    disclosureRisk: "Disclosure to broker",
+    expiresAt: new Date(Date.now() - 1000).toISOString(),
+    status: "approved",
+    createdAt: new Date().toISOString()
+  };
+  assert.equal(canExecuteWithApproval(approval).allowed, false);
+  assert.ok(canExecuteWithApproval(approval).reasons.includes("approval-expired"));
+});
+
 test("execution requires live approved approval", () => {
   const approval: Approval = {
     id: "approval_1",

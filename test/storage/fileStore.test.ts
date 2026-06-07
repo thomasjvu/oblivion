@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadFileStore, persistStore } from "../../src/storage/fileStore.js";
@@ -25,6 +25,8 @@ test("file store persists and reloads case records", () => {
     };
     store.cases.set(caseRecord.id, caseRecord);
     persistStore(store, path);
+    const raw = readFileSync(path, "utf8");
+    assert.doesNotThrow(() => JSON.parse(raw));
     const reloaded = loadFileStore(path);
     assert.equal(reloaded.getCaseOrThrow("case_persist").id, "case_persist");
   } finally {
