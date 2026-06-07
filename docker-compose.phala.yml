@@ -3,7 +3,7 @@ services:
     # Replace with a public, digest-pinned production image.
     # Example: ghcr.io/thomasjvu/oblivion@sha256:<64 hex chars>
     # Tag reference required: Phala prelaunch GHCR verifier does not parse @sha256 digests.
-    image: ghcr.io/thomasjvu/oblivion:2a17356
+    image: ghcr.io/thomasjvu/oblivion:98345a0-trust
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -16,8 +16,13 @@ services:
       - ATTESTATION_MAX_AGE_SECONDS=600
       - OBLIVION_EXECUTOR_MODE=record-only
       - OBLIVION_DISABLE_PLAINTEXT_LOGS=true
+      - OBLIVION_STORE=file
+      - OBLIVION_STORE_PATH=/data/oblivion.json
+      - OBLIVION_PUBLIC_API_URL=https://3a522af6627d93bb480ba7bd39d375a1535aefa8-8080.dstack-pha-prod5.phala.network
+      - OBLIVION_CORS_ORIGIN=https://oblivion.phantasy.bot
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
+      - oblivion-data:/data
     healthcheck:
       test:
         [
@@ -30,3 +35,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+volumes:
+  oblivion-data:

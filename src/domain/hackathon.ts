@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
-import { isOneShotLiveReady, isX402Configured, x402Network } from "./integrations.js";
+import { isX402Configured, x402Network } from "./integrations.js";
 import { redactText } from "./redaction.js";
 import { runVeniceAnalysis } from "./venice.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -114,13 +114,18 @@ export function createPaymentSession(input: {
 }): PaymentSession {
   const product = productForMode(input.mode, input.productId);
   const expiresAt = followUpDate(product.mode === "subscription" ? 30 : 1);
-  const liveX402 = isX402Configured();
+  if (!isX402Configured()) {
+    throw Object.assign(new Error("x402-not-configured"), {
+      statusCode: 503,
+      message: "Set X402_PAY_TO and X402_FACILITATOR_URL for payment sessions."
+    });
+  }
   const x402Request: X402PaymentRequest = {
-    version: liveX402 ? "x402-v2" : "x402-demo-v1",
+    version: "x402-v2",
     endpoint: product.x402Endpoint,
     amountUsd: product.amountUsd,
     token: product.token,
-    network: liveX402 ? x402Network() : product.network,
+    network: x402Network(),
     memo: `${product.name} for encrypted Oblivion case`,
     expiresAt
   };
@@ -354,11 +359,6 @@ export function pendingHackathonTracks(
   return pending;
 }
 
-function authorizePaymentSession(session: PaymentSession): PaymentSession {
-  if (isX402Configured() || session.status === "paid") return session;
-  return { ...session, status: "authorized", updatedAt: new Date().toISOString() };
-}
-
 function walletContextForCase(store: MemoryStore, caseId: string, input?: { walletAddress?: string; smartAccountAddress?: string }) {
   const eip7702 = store.permissionGrantsForCase(caseId).find((grant) => grant.permissionType === "eip7702-authorization");
   return {
@@ -403,15 +403,14 @@ export async function completePendingHackathonTracks(input: {
     relayerEvents: input.store.relayerEventsForCase(input.caseId)
   });
 
-  if (!status.x402OneOffReady) {
-    const created = createPaymentSession({
+  if (!status.x402OneOffReady && isX402Configured()) {
+    const session = createPaymentSession({
       caseId: input.caseId,
       mode: "one-off",
       productId: "broker-opt-out-packet",
       walletAddress: walletAddress ? redactText(walletAddress) : undefined,
       smartAccountAddress
     });
-    const session = authorizePaymentSession(created);
     const permission = createPaymentPermission(input.caseId, session);
     input.store.paymentSessions.set(session.id, session);
     input.store.permissionGrants.set(permission.id, permission);
@@ -428,15 +427,14 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, x402OneOffReady: true };
   }
 
-  if (!status.erc7710SubscriptionReady) {
-    const created = createPaymentSession({
+  if (!status.erc7710SubscriptionReady && isX402Configured()) {
+    const session = createPaymentSession({
       caseId: input.caseId,
       mode: "subscription",
       productId: "weekly-monitor",
       walletAddress: walletAddress ? redactText(walletAddress) : undefined,
       smartAccountAddress
     });
-    const session = authorizePaymentSession(created);
     const permission = createPaymentPermission(input.caseId, session);
     input.store.paymentSessions.set(session.id, session);
     input.store.permissionGrants.set(permission.id, permission);
@@ -453,7 +451,7 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, erc7710SubscriptionReady: true };
   }
 
-  if (!status.veniceOutputReady) {
+  if (!status.veniceOutputReady && process.env.VENICE_API_KEY?.trim()) {
     const analysis = await runVeniceAnalysis({
       caseId: input.caseId,
       kind: "classify-case",
@@ -486,35 +484,7 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, a2aRedelegationVisible: true };
   }
 
-  if (!status.oneShotRelayerVisible) {
-    const latestSession =
-      input.store.paymentSessionsForCase(input.caseId).find((session) => session.mode === "one-off") ||
-      input.store.paymentSessionsForCase(input.caseId).at(-1);
-    const latestPermission = input.store.permissionGrantsForCase(input.caseId).find(
-      (grant) => grant.permissionType === "erc7710-payment"
-    );
-    const events = createRelayerEvents({
-      caseId: input.caseId,
-      sessionId: latestSession?.id,
-      permissionId: latestPermission?.id
-    });
-    events.forEach((relayerEvent) => {
-      input.store.relayerEvents.set(relayerEvent.id, relayerEvent);
-      relayerEvents.push(relayerEvent);
-    });
-    const event = createTimelineEvent(
-      input.caseId,
-      "1Shot",
-      "Relayer status",
-      isOneShotLiveReady()
-        ? `1Shot relayer ready — use Relay latest payment for live task status.`
-        : `1Shot session recorded (${events.at(-1)?.status ?? "submitted"}). Set ONESHOT_API_KEY for live relayer calls.`
-    );
-    input.store.agentTimeline.set(event.id, event);
-    timeline.push(event);
-    completed.push("1shot");
-    status = { ...status, oneShotRelayerVisible: true };
-  }
+
 
   return {
     completed,

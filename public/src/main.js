@@ -3,8 +3,63 @@ import { buildExecuteHandoff } from './executeHandoff.js';
 import { expandNameTerms, maskPrivacyText } from './privacyFilter.js';
 import { tryLiveSmartAccountUpgrade } from './metamaskSmartAccount.js';
 import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Pay.js';
+import { apiRequest, loadApiConfig } from './apiClient.js';
+import { pollRelayTask, submitRelayBundle } from './oneShotRelayer.js';
 import { createWalletLogger, DEFAULT_WALLET_CONFIG } from './walletLog.js';
-import { bindIcons, setButtonLabel, setIcon } from './icons.js';
+import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
+
+function isUserRejectedError(value) {
+  if (!value) return false;
+  if (value.reason === "user-rejected") return true;
+  const code = value.code ?? value.detail?.code;
+  if (code === 4001) return true;
+  const message = String(value.message || value.shortMessage || value || "");
+  return /user rejected the request/i.test(message);
+}
+
+function paymentErrorMessage(error) {
+  if (isUserRejectedError(error)) {
+    const raw = String(error?.message || error?.shortMessage || "");
+    if (/smart account|upgrade/i.test(raw) || error?.reason === "user-rejected") {
+      return "Smart Account upgrade cancelled in MetaMask.";
+    }
+    return "Payment cancelled in MetaMask.";
+  }
+  return error?.message || error?.shortMessage || String(error?.error || "Something went wrong.");
+}
+
+function setInlineStatus(el, message, options = {}) {
+  if (!el) return;
+  const text = message ? (typeof message === "string" ? message : paymentErrorMessage(message)) : "";
+  const warning =
+    options.variant === "warning" || (options.variant !== "success" && options.variant !== "info" && isUserRejectedError(message || text));
+  const classes = [
+    options.baseClass || "muted small",
+    options.extraClass,
+    text && warning ? "status-message warning" : "",
+    text && options.variant === "fail" && !warning ? "status-message fail" : ""
+  ].filter(Boolean);
+  el.className = classes.join(" ");
+  el.replaceChildren();
+  if (!text) return;
+  if (warning) el.appendChild(iconEl("alert", { className: "status-message-icon" }));
+  const span = document.createElement("span");
+  span.className = "status-message-text";
+  span.textContent = text;
+  el.appendChild(span);
+  bindIcons(el);
+}
+
+function walletErrorMarkup(message) {
+  if (!message) return "";
+  const text = paymentErrorMessage({ message });
+  const warning = isUserRejectedError(message);
+  const icon = warning
+    ? '<iconify-icon class="status-message-icon" icon="pixelarticons:alert" aria-hidden="true"></iconify-icon>'
+    : "";
+  const klass = warning ? "wallet-connect-feedback warning" : "wallet-connect-feedback fail";
+  return `<p class="${klass}">${icon}<span class="status-message-text">${escapeHtml(text)}</span></p>`;
+}
 
 const state = {
   cases: [],
@@ -22,6 +77,7 @@ const state = {
   hackathon: null,
   hackathonStatus: null,
   integrationsStatus: null,
+  pendingRelayBundle: null,
   x402Config: null,
   discoveryPlan: null,
   discoveryBusy: false,
@@ -337,8 +393,6 @@ function applyLandingIntakeText(text) {
     authorityBasis: parsed.authorityBasis,
     riskLevel: defaults.riskLevel
   });
-  addChat("user", trimmed);
-  addChat("agent", "Details loaded — edit anything on the left, then tap Start cleanup.");
   renderIntakeInferencePreview();
   render();
   focusIntake();
@@ -2153,7 +2207,7 @@ function renderWalletModal() {
       <div class="status-row"><span>Mode</span><strong>${escapeHtml(mode)}</strong></div>
     </div>` : `<p class="muted small">Connect MetaMask to pay with USDC on Base and enable Smart Account features.</p>`}
     ${state.walletConnectNote ? `<p class="muted small">${escapeHtml(state.walletConnectNote)}</p>` : ""}
-    ${state.walletConnectError ? `<p class="wallet-connect-feedback fail">${escapeHtml(state.walletConnectError)}</p>` : ""}
+    ${walletErrorMarkup(state.walletConnectError)}
     <p class="muted small wallet-modal-hint">${escapeHtml(liveHint)}</p>
     <details class="wallet-debug-panel advanced-only">
       <summary>Wallet log</summary>
@@ -2179,17 +2233,21 @@ function renderWalletFeedback() {
   const errorText = state.walletConnectError || "";
   const primary = $("#wallet-feedback-primary");
   if (primary) {
-    primary.className = errorText ? "visually-hidden wallet-connect-feedback fail" : "visually-hidden wallet-connect-feedback";
-    primary.textContent = errorText;
+    setInlineStatus(primary, errorText, {
+      baseClass: "visually-hidden wallet-connect-feedback",
+      variant: isUserRejectedError(errorText) ? "warning" : errorText ? "fail" : undefined
+    });
   }
   document.querySelectorAll("[data-wallet-feedback-secondary]").forEach((node) => {
     if (errorText) {
       node.hidden = false;
-      node.className = "wallet-connect-feedback fail";
-      node.textContent = errorText;
+      setInlineStatus(node, errorText, {
+        baseClass: "wallet-connect-feedback",
+        variant: isUserRejectedError(errorText) ? "warning" : "fail"
+      });
     } else {
       node.hidden = true;
-      node.textContent = "";
+      setInlineStatus(node, "");
     }
   });
   const onboardingFb = $("#wallet-feedback-onboarding");
@@ -2255,12 +2313,7 @@ function paymentPlanLabel(mode) {
 
 function hasEntitledPayment(mode) {
   const sessions = state.hackathon?.payments || [];
-  return sessions.some((session) => {
-    if (session.mode !== mode) return false;
-    if (session.status === "paid") return true;
-    if (session.status === "authorized" && !isLiveX402Ready(state.integrationsStatus)) return true;
-    return false;
-  });
+  return sessions.some((session) => session.mode === mode && session.status === "paid");
 }
 
 function hasSubscriptionEntitlement() {
@@ -2349,7 +2402,11 @@ async function ensureCasePayment(options = {}) {
   const mode = state.selectedPaymentMode || "one-off";
   const statusEl = options.statusEl || $("#onboarding-payment-status");
   if (!state.walletAddress) {
-    if (statusEl) statusEl.textContent = "Connect MetaMask to pay for this cleanup…";
+    if (statusEl) {
+      setInlineStatus(statusEl, "Connect MetaMask to pay for this cleanup…", {
+        baseClass: "muted small onboarding-payment-status"
+      });
+    }
     if (!options.quiet) {
       addChat("agent", "Approve the MetaMask connection to pay for this cleanup.");
     }
@@ -2357,32 +2414,48 @@ async function ensureCasePayment(options = {}) {
   }
   await refreshHackathon({ silent: true }).catch(() => {});
   if (hasEntitledPayment(mode)) {
-    if (statusEl) statusEl.textContent = `${paymentPlanLabel(mode)} is active for this case.`;
+    if (statusEl) {
+      setInlineStatus(statusEl, `${paymentPlanLabel(mode)} is active for this case.`, {
+        baseClass: "muted small onboarding-payment-status",
+        variant: "success"
+      });
+    }
     return { ok: true, mode, alreadyPaid: true };
   }
   const liveX402 = isLiveX402Ready(state.integrationsStatus);
   if (statusEl) {
-    statusEl.textContent = liveX402
-      ? `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`
-      : `Confirm ${paymentPlanLabel(mode)} in MetaMask…`;
+    setInlineStatus(
+      statusEl,
+      liveX402
+        ? `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`
+        : `Confirm ${paymentPlanLabel(mode)} in MetaMask…`,
+      { baseClass: "muted small onboarding-payment-status" }
+    );
   }
   if (!state.smartAccountAddress) {
     await enableSmartAccount({ quiet: true, openHub: false }).catch(() =>
       createSmartAccount({ quiet: true, openHub: false })
     );
   }
-  await preparePayment(mode, { quiet: true, skipSettle: false });
+  await preparePayment(mode, { quiet: true, skipSettle: false, statusEl });
   await refreshHackathon({ silent: true }).catch(() => {});
   if (!hasEntitledPayment(mode)) {
     await finishPendingDeveloperActions({ quiet: true, stayOnTab: true });
     await refreshHackathon({ silent: true }).catch(() => {});
   }
   if (statusEl) {
-    statusEl.textContent = hasEntitledPayment(mode)
-      ? `${paymentPlanLabel(mode)} confirmed — agent AI unlocked for this case.`
-      : liveX402
-        ? "Payment not confirmed. Open Settings → Payment rails and tap Pay once / Subscribe."
-        : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.";
+    setInlineStatus(
+      statusEl,
+      hasEntitledPayment(mode)
+        ? `${paymentPlanLabel(mode)} confirmed — agent AI unlocked for this case.`
+        : liveX402
+          ? "Payment not confirmed. Open Settings → Payment rails and tap Pay once / Subscribe."
+          : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.",
+      {
+        baseClass: "muted small onboarding-payment-status",
+        variant: hasEntitledPayment(mode) ? "success" : undefined
+      }
+    );
   }
   if (!options.quiet) {
     addChat(
@@ -2417,8 +2490,8 @@ function renderPayments() {
           const statusLabel =
             status === "paid"
               ? "paid"
-              : status === "authorized" && isLiveX402Ready(state.integrationsStatus)
-                ? "authorized — confirm USDC in MetaMask"
+              : status === "payment-required" && isLiveX402Ready(state.integrationsStatus)
+                ? "payment-required — confirm USDC in MetaMask"
                 : status;
           return `
             <article class="payment-rail-card" data-payment-product="${product.id}">
@@ -2471,7 +2544,7 @@ function renderPayments() {
             <strong>${escapeHtml(session.productId)}</strong>
             <div class="muted small">${session.mode} · ${session.amountUsd} ${session.token} · ${session.status}</div>
           </div>
-          <span class="${pillClass(session.status === "paid" || session.status === "authorized")}">x402</span>
+          <span class="${pillClass(session.status === "paid")}">x402</span>
         </div>
       `).join("")
     : `<div class="empty">No payment session yet. Choose a plan above.</div>`;
@@ -2675,16 +2748,7 @@ async function submitLandingIntake() {
   applyLandingIntakeText(text);
 }
 
-async function request(path, options = {}) {
-  const response = await fetch(path, {
-    method: options.method || "GET",
-    headers: options.body ? { "content-type": "application/json" } : undefined,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-  const json = await response.json();
-  if (!response.ok) throw json;
-  return json;
-}
+const request = apiRequest;
 
 async function createCase(options = {}) {
   state.appOpen = true;
@@ -2891,8 +2955,13 @@ async function startSimpleCleanup() {
     if (statusEl) statusEl.textContent = "";
     $("#dashboard-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    const message = error?.message || "Could not start cleanup.";
-    if (statusEl) statusEl.textContent = message;
+    const message = paymentErrorMessage(error);
+    if (statusEl) {
+      setInlineStatus(statusEl, message, {
+        baseClass: "muted small simple-status",
+        variant: isUserRejectedError(error) ? "warning" : "fail"
+      });
+    }
     pulseFocusField($("#simple-name"));
     write(error);
   } finally {
@@ -3215,7 +3284,7 @@ async function connectWallet(options = {}) {
     const code = error?.code;
     let message =
       code === 4001
-        ? "Cancelled in MetaMask."
+        ? "Wallet connection cancelled in MetaMask."
         : error?.message || "Wallet connection failed.";
     if (/unexpected error/i.test(message) || error?.message?.includes("selectExtension")) {
       message =
@@ -3317,7 +3386,7 @@ async function enableSmartAccount(options = {}) {
       return;
     }
     if (liveResult.reason === "user-rejected") {
-      state.walletConnectError = "Smart Account upgrade cancelled in MetaMask.";
+      state.walletConnectError = paymentErrorMessage({ reason: "user-rejected", message: liveResult.message });
       render();
       return;
     }
@@ -3397,11 +3466,18 @@ async function preparePayment(mode, options = {}) {
     try {
       settlement = await settlePaymentForMode(mode, { quiet: options.quiet });
     } catch (error) {
-      if (!options.quiet) {
-        state.walletConnectError = error?.message || "x402 settlement failed.";
-        addChat("agent", state.walletConnectError);
+      const message = paymentErrorMessage(error);
+      if (options.statusEl) {
+        setInlineStatus(options.statusEl, message, {
+          baseClass: "muted small onboarding-payment-status",
+          variant: isUserRejectedError(error) ? "warning" : "fail"
+        });
       }
-      if (!options.quiet) throw error;
+      if (!options.quiet) {
+        state.walletConnectError = message;
+        addChat("agent", message);
+        throw error;
+      }
     }
   }
   renderSubscriptionUpsell();
@@ -3480,26 +3556,42 @@ async function delegateAgents() {
   write(result);
 }
 
-async function relayDemo() {
+async function relayPayment() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   await refreshIntegrationsStatus().catch(() => {});
-  const latest = [...(state.hackathon?.payments || [])].at(-1);
-  if (!latest) await preparePayment("one-off", { quiet: true });
-  const session = [...(state.hackathon?.payments || [])].at(-1);
-  const useLive = Boolean(state.integrationsStatus?.liveReady?.oneShot);
-  const endpoint = "/api/1shot/relay";
-  const result = await request(endpoint, {
-    method: "POST",
-    body: {
-      caseId: state.currentCaseId,
-      sessionId: session?.id,
-      ...(useLive ? {} : { demo: true, status: "submitted" })
-    }
-  });
+  if (!state.integrationsStatus?.liveReady?.oneShot) {
+    throw {
+      error: "oneshot-not-configured",
+      message: "Set ONESHOT_API_KEY and OBLIVION_PUBLIC_API_URL on the API server for live 1Shot relay."
+    };
+  }
+  const session =
+    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid" && item.mode === "one-off") ||
+    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid");
+  if (!session) {
+    throw { error: "payment-required", message: "Settle x402 payment before relaying via 1Shot." };
+  }
+  let result;
+  if (session.relayerTaskId) {
+    result = await pollRelayTask(state.currentCaseId, session.id, session.relayerTaskId);
+  } else if (state.pendingRelayBundle?.method && state.pendingRelayBundle?.params) {
+    result = await submitRelayBundle(
+      state.currentCaseId,
+      session.id,
+      state.pendingRelayBundle.method,
+      state.pendingRelayBundle.params,
+      state.pendingRelayBundle.destinationUrl
+    );
+  } else {
+    throw {
+      error: "oneshot-relay-payload-required",
+      message:
+        "Provide a signed relayer_send7710Transaction bundle or an existing taskId. Poll again after submitting from the wallet flow."
+    };
+  }
   await refreshHackathon({ silent: true });
   state.tab = "settings";
-  if (!useLive) addChat("agent", "1Shot demo relay recorded. Configure ONESHOT_API_KEY for live relayer calls.");
-  else addChat("agent", `1Shot relay: ${result.events?.at(-1)?.status || "submitted"}.`);
+  addChat("agent", `1Shot relay: ${result.events?.at(-1)?.status || "submitted"}.`);
   render();
   write(result);
 }
@@ -3834,7 +3926,7 @@ $("#classify-case").addEventListener("click", () => runVenice("classify-case").c
 $("#draft-request").addEventListener("click", () => runVenice("draft-request").catch(write));
 $("#review-approval").addEventListener("click", () => runVenice("review-approval").catch(write));
 $("#delegate-agents").addEventListener("click", () => delegateAgents().catch(write));
-$("#relay-demo").addEventListener("click", () => relayDemo().catch(write));
+$("#relay-demo").addEventListener("click", () => relayPayment().catch(write));
 $("#agent-send").addEventListener("click", () => askAgent().catch(write));
 $("#agent-input").addEventListener("input", updateAgentSendState);
 $("#agent-input").addEventListener("keydown", (event) => {
@@ -4037,6 +4129,7 @@ setupDelegates();
 setupLandingSkillInstall();
 
 syncAppRoute();
+await loadApiConfig().catch(() => null);
 await refreshPresets().catch(write);
 await refreshTrust().catch(write);
 await refreshWalletConfig().catch(write);

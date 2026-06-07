@@ -21,7 +21,7 @@ import { buildExecuteHandoff } from "./executeHandoff.js";
 import { hostFromDestination, resolveHostAbuseContact } from "./platformAbuse.js";
 import { executeApprovedAction } from "./executor.js";
 import { buildHackathonStatus, createTimelineEvent } from "./hackathon.js";
-import { isVeniceAvailable, runVeniceAnalysis } from "./venice.js";
+import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
 import { canExecuteWithApproval, evaluateProposedAction } from "./policy.js";
 import { buildCaseStatus } from "./status.js";
 import { buildDraftText, templateForAction } from "./templates.js";
@@ -259,7 +259,7 @@ export async function runCleanupAgentStep(input: {
       artifacts.push({ connector, timeline });
     }
   } else if (updatedPlan.currentStep === "draft-actions") {
-    if (isVeniceAvailable()) {
+    if (isVeniceConfigured()) {
       const confirmedNotes = buildStatus(input.store, input.caseRecord.id)
         .confirmedFindings.map((item) => `${item.brokerLabel || "broker"}: ${item.sourceUrl}`)
         .join("; ");

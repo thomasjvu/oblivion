@@ -22,7 +22,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - `src/crypto/clientVault.ts` (browser + node compatible primitives; used by server for types, by public for impl)
 - `src/storage/memoryStore.ts` (implements OblivionRepository; all the *ForCase helpers)
 - `public/`: index.html, styles.css (per DESIGN.md), app.js (currently served raw; source now in public/src/ and bundled)
-- `test/`: 12 test files. Integration heavy (api.test, cleanup-api, hackathon-api). Domain units are sparse.
+- `test/`: organized by layer — `domain/` (unit), `api/` (HTTP integration), `storage/`, `crypto/`, `orchestration/`, `ui/`, `deployment/`, `helpers/http.ts` (shared API fixtures), `e2e/` (Playwright), `smoke/`.
 - `config/trust-center.json`, `Dockerfile`, `docker-compose.phala.yml`
 - `DESIGN.md` (visual spec, colors, components), `SECURITY.md`, `docs/HACKATHON_DEMO.md`
 
@@ -31,7 +31,8 @@ No other frameworks. Pure node:http + Web Crypto + TS ESM.
 ## Running & Verification
 
 - `npm run dev` → builds client then tsx src/server.ts (port 8080)
-- `npm test` → tsx --test test/*.test.ts
+- `npm test` → tsx --test test/**/*.test.ts
+- `npm run version:sync` → copies `package.json` version + git `sourceCommit` into `config/trust-center.json` (also runs at start of `verify` and `deploy:production`)
 - `npm run typecheck`
 - `npm run verify` → build:client + test + typecheck + design:lint (DESIGN.md only)
 - `npm run e2e` → playwright (uses the running UI)

@@ -1,6 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { corsAllowedOrigin } from "../domain/integrations.js";
 
 const MAX_JSON_BYTES = 64 * 1024;
+let currentRequestOrigin: string | undefined;
+
+export function bindRequestOrigin(origin: string | undefined): void {
+  currentRequestOrigin = origin;
+}
+
+export function clearRequestOrigin(): void {
+  currentRequestOrigin = undefined;
+}
 
 export async function readJson<T>(request: IncomingMessage): Promise<T> {
   const chunks: Buffer[] = [];
@@ -22,18 +32,69 @@ export async function readJson<T>(request: IncomingMessage): Promise<T> {
   }
 }
 
+function resolveCorsOrigin(requestOrigin?: string): string | undefined {
+  const allowed = corsAllowedOrigin();
+  if (!allowed) return undefined;
+  if (allowed === "*") return requestOrigin || "*";
+  if (requestOrigin && requestOrigin === allowed) return requestOrigin;
+  return undefined;
+}
+
+export function corsHeaders(requestOrigin?: string): Record<string, string> {
+  const origin = resolveCorsOrigin(requestOrigin);
+  if (!origin) return {};
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type, payment-signature",
+    "access-control-max-age": "86400",
+    vary: "Origin"
+  };
+}
+
+export function securityHeaders(requestOrigin?: string): Record<string, string> {
+  const connectSrc = ["'self'"];
+  const allowed = corsAllowedOrigin();
+  if (allowed && allowed !== "*") connectSrc.push(allowed);
+  const apiOrigin = process.env.OBLIVION_PUBLIC_API_URL?.trim().replace(/\/$/, "");
+  if (apiOrigin) connectSrc.push(apiOrigin);
+  return {
+    ...corsHeaders(requestOrigin),
+    "content-security-policy": [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self'",
+      "font-src 'self' data:",
+      "img-src 'self' data:",
+      "media-src 'self'",
+      `connect-src ${connectSrc.join(" ")}`,
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+      "form-action 'self'"
+    ].join("; "),
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer"
+  };
+}
+
 export function sendJson(response: ServerResponse, statusCode: number, body: unknown): void {
   response.writeHead(statusCode, {
-    ...securityHeaders(),
+    ...securityHeaders(currentRequestOrigin),
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store"
   });
   response.end(JSON.stringify(body, null, 2));
 }
 
-export function sendText(response: ServerResponse, statusCode: number, body: string, contentType = "text/plain"): void {
+export function sendText(
+  response: ServerResponse,
+  statusCode: number,
+  body: string,
+  contentType = "text/plain"
+): void {
   response.writeHead(statusCode, {
-    ...securityHeaders(),
+    ...securityHeaders(currentRequestOrigin),
     "content-type": `${contentType}; charset=utf-8`,
     "cache-control": "no-store"
   });
@@ -48,29 +109,9 @@ export function sendBytes(
   cacheControl = "public, max-age=86400"
 ): void {
   response.writeHead(statusCode, {
-    ...securityHeaders(),
+    ...securityHeaders(currentRequestOrigin),
     "content-type": contentType,
     "cache-control": cacheControl
   });
   response.end(body);
-}
-
-export function securityHeaders(): Record<string, string> {
-  return {
-    "content-security-policy": [
-      "default-src 'self'",
-      "script-src 'self'",
-      "style-src 'self'",
-      "font-src 'self' data:",
-      "img-src 'self' data:",
-      "media-src 'self'",
-      "connect-src 'self'",
-      "base-uri 'none'",
-      "frame-ancestors 'none'",
-      "form-action 'self'"
-    ].join("; "),
-    "x-content-type-options": "nosniff",
-    "x-frame-options": "DENY",
-    "referrer-policy": "no-referrer"
-  };
 }

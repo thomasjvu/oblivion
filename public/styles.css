@@ -628,6 +628,19 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   justify-content: center;
 }
 
+.app-chrome.sidebar-collapsed .app-sidebar-nav .tab:not(.active):hover,
+.app-chrome.sidebar-collapsed .app-sidebar-nav .tab:not(.active):focus-visible {
+  color: var(--gb-0);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.app-chrome.sidebar-collapsed .app-sidebar-nav .tab:not(.active):hover iconify-icon,
+.app-chrome.sidebar-collapsed .app-sidebar-nav .tab:not(.active):focus-visible iconify-icon {
+  color: var(--gb-0);
+}
+
 .app-chrome.sidebar-collapsed .app-sidebar-wallet {
   padding: 8px 6px;
   align-items: center;
@@ -1208,8 +1221,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 }
 
 .landing-skill-copy h3 {
-  margin: 0 0 8px;
-  font-size: 0.95rem;
+  margin: 0 0 10px;
+  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1217,6 +1230,7 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 .landing-skill-copy p {
   margin: 0 0 16px;
   max-width: none;
+  font-size: 0.92rem;
   line-height: 1.45;
 }
 
@@ -1275,9 +1289,11 @@ button.skill-install-tab {
 
 .skill-install-command {
   position: relative;
+  display: flex;
+  align-items: center;
   margin: 0;
-  padding: 14px 48px 14px 16px;
-  min-height: 3.25rem;
+  padding: 12px 48px 12px 16px;
+  min-height: 3.5rem;
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1285,6 +1301,9 @@ button.skill-install-tab {
 
 .skill-install-command code {
   display: block;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: clamp(0.78rem, 1.6vw, 0.88rem);
   line-height: 1.5;
@@ -1293,8 +1312,9 @@ button.skill-install-tab {
 
 .skill-install-command .skill-copy-btn {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
   min-width: 30px;
   min-height: 30px;
   padding: 4px;
@@ -3238,6 +3258,34 @@ a.pricing-plan-cta:focus-visible {
   line-height: 1.45;
 }
 
+.status-message.warning,
+.wallet-connect-feedback.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--gb-3);
+}
+
+.status-message.fail,
+.wallet-connect-feedback.fail {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.status-message-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  margin-top: 0.12em;
+  color: var(--gb-3);
+}
+
+.status-message-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .onboarding-pricing-link {
   min-height: 0;
   padding: 2px 6px;
@@ -3258,7 +3306,13 @@ a.pricing-plan-cta:focus-visible {
   border: 2px solid var(--gb-2);
   background: var(--gb-0);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  overflow: hidden;
+  isolation: isolate;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.payment-plan-card:not(.active) {
+  opacity: 0.78;
 }
 
 .payment-plan-card input[type="radio"] {
@@ -3277,9 +3331,88 @@ a.pricing-plan-cta:focus-visible {
 }
 
 .payment-plan-card.active {
+  opacity: 1;
   border-color: var(--gb-3);
   background: var(--gb-1);
   box-shadow: var(--pixel-shadow);
+  animation: gba-plan-select 2.8s steps(4, end) infinite;
+}
+
+.payment-plan-card.active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 3px,
+    rgba(155, 188, 15, 0.08) 3px,
+    rgba(155, 188, 15, 0.08) 4px
+  );
+  animation: gba-plan-scan 3.4s steps(6, end) infinite;
+  opacity: 0.45;
+}
+
+.payment-plan-card.active::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--gb-3);
+  box-shadow: -2px 0 0 var(--gb-2), 0 -2px 0 var(--gb-2);
+  pointer-events: none;
+  animation: gba-plan-corner 1.8s steps(2, end) infinite;
+}
+
+.payment-plan-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes gba-plan-select {
+  0%,
+  100% {
+    box-shadow: 2px 2px 0 var(--gb-1);
+  }
+  50% {
+    box-shadow: 3px 3px 0 var(--gb-0), 0 0 0 1px rgba(155, 188, 15, 0.3);
+  }
+}
+
+@keyframes gba-plan-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes gba-plan-corner {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-plan-card.active {
+    animation: none;
+  }
+
+  .payment-plan-card.active::before,
+  .payment-plan-card.active::after {
+    animation: none;
+  }
 }
 
 .payment-plan-title {

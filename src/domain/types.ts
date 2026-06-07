@@ -308,7 +308,7 @@ export interface PaymentProduct {
 }
 
 export interface X402PaymentRequest {
-  version: "x402-demo-v1" | "x402-v2";
+  version: "x402-v2";
   endpoint: string;
   amountUsd: number;
   token: string;
@@ -342,6 +342,7 @@ export interface PaymentSession {
   erc7710Delegation: Erc7710Delegation;
   walletAddress?: string;
   smartAccountAddress?: string;
+  relayerTaskId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -376,6 +377,7 @@ export interface RelayerEvent {
   provider: "1shot";
   eventType: RelayerStatus;
   status: RelayerStatus;
+  taskId?: string;
   txHash?: string;
   userOpHash?: string;
   message: string;

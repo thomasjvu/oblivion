@@ -49,9 +49,11 @@ import {
   isOneShotConfigured,
   isOneShotLiveReady,
   isX402Configured,
-  veniceDemoFallbackEnabled
+  oblivionPublicApiUrl,
+  oneShotWebhookDestinationUrl
 } from "../domain/integrations.js";
-import { relayOneShotForCase, type OneShotRelayBody } from "../domain/oneshot.js";
+import { callOneShotRpc, relayOneShotForCase, type OneShotRelayBody } from "../domain/oneshot.js";
+import { relayerEventFromOneShotWebhook, type OneShotWebhookPayload } from "../domain/oneshotWebhook.js";
 import {
   applyX402HttpResult,
   markSessionPaid,
@@ -65,8 +67,10 @@ import {
   maxTokensForEntitlement,
   resolveAiEntitlement
 } from "../domain/aiBudget.js";
-import { isVeniceAvailable, isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
+import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
 import { sanitizeForLog } from "../domain/safeLogging.js";
+import { createAppStore, storePersistPath } from "../storage/createStore.js";
+import { scheduleStorePersist } from "../storage/fileStore.js";
 import type {
   ActionType,
   AgentName,
@@ -84,7 +88,7 @@ import type {
 } from "../domain/types.js";
 import { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError, toHttpError } from "./errors.js";
-import { readJson, sendBytes, sendJson, sendText } from "./http.js";
+import { bindRequestOrigin, clearRequestOrigin, readJson, securityHeaders, sendBytes, sendJson, sendText } from "./http.js";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
@@ -228,16 +232,24 @@ async function serveBuiltOrMarkdownPage(
 }
 
 export function createApp(options: AppOptions = {}) {
-  const store = options.store ?? new MemoryStore();
+  const store = options.store ?? createAppStore();
+  const persistPath = options.store ? null : storePersistPath();
   const publicDir = options.publicDir ?? join(process.cwd(), "public");
   const skillsDir = join(process.cwd(), "skills");
   const trustCenterPath =
     options.trustCenterPath ?? process.env.TRUST_CENTER_PATH ?? join(process.cwd(), "config", "trust-center.json");
 
   async function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    bindRequestOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
     try {
       const url = new URL(request.url ?? "/", "http://localhost");
       const method = request.method ?? "GET";
+
+      if (method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+        response.writeHead(204, securityHeaders());
+        response.end();
+        return;
+      }
 
       if (method === "GET" && url.pathname === "/help") {
         const markdown = await loadMarkdownDoc("USER_GUIDE.md");
@@ -743,7 +755,7 @@ export function createApp(options: AppOptions = {}) {
             metamaskSmartAccounts: process.env.WALLET_LIVE_MODE === "true",
             x402: isX402Configured(),
             erc7710: isX402Configured(),
-            venice: isVeniceConfigured() || veniceDemoFallbackEnabled(),
+            venice: isVeniceConfigured(),
             oneShot: isOneShotLiveReady(),
             hibpEmail: isHibpConfigured(),
             braveSearch: isBraveSearchConfigured(),
@@ -801,20 +813,30 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      if (method === "GET" && url.pathname === "/api/config") {
+        sendJson(response, 200, {
+          apiOrigin: oblivionPublicApiUrl() || null,
+          corsOrigin: process.env.OBLIVION_CORS_ORIGIN?.trim() || null
+        });
+        return;
+      }
+
       if (method === "POST" && (url.pathname === "/api/x402/one-off" || url.pathname === "/api/x402/subscription")) {
+        if (!isX402Configured()) {
+          throw new HttpError(503, "x402-not-configured", {
+            message: "Set X402_PAY_TO and X402_FACILITATOR_URL for payment sessions."
+          });
+        }
         const mode: PaymentMode = url.pathname.endsWith("subscription") ? "subscription" : "one-off";
         const body = await readJson<PaymentBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const created = createPaymentSession({
+        const session = createPaymentSession({
           caseId: caseRecord.id,
           mode,
           productId: body.productId,
           walletAddress: body.walletAddress ? redactText(body.walletAddress) : undefined,
           smartAccountAddress: body.smartAccountAddress
         });
-        const session = isX402Configured()
-          ? created
-          : { ...created, status: "authorized" as const, updatedAt: new Date().toISOString() };
         const permission = createPaymentPermission(caseRecord.id, session);
         store.paymentSessions.set(session.id, session);
         store.permissionGrants.set(permission.id, permission);
@@ -879,32 +901,35 @@ export function createApp(options: AppOptions = {}) {
             config: x402PublicConfig()
           });
         }
-        const authorized = {
-          ...session,
-          status: session.status === "paid" ? "paid" : "authorized",
-          updatedAt: new Date().toISOString()
-        } as typeof session;
-        store.paymentSessions.set(authorized.id, authorized);
-        const timeline = createTimelineEvent(
-          caseRecord.id,
-          "x402",
-          expectedMode === "subscription" ? "Monitor entitlement checked" : "Premium task entitlement checked",
-          "Payment session recorded. Configure live x402 or settle via PAYMENT-SIGNATURE for facilitator confirmation."
-        );
-        store.agentTimeline.set(timeline.id, timeline);
+        throw new HttpError(402, "x402-payment-required", {
+          products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+          config: x402PublicConfig()
+        });
+      }
+
+      if (method === "GET" && url.pathname === "/api/1shot/webhook-url") {
+        const caseId = url.searchParams.get("caseId");
+        const sessionId = url.searchParams.get("sessionId") ?? undefined;
+        if (!caseId) throw new HttpError(422, "case-id-required");
+        store.getCaseOrThrow(caseId);
         sendJson(response, 200, {
-          entitlement: "payment-session-verified",
-          session: authorized,
-          nextRequired: "explicit-cleanup-approval",
-          timeline
+          destinationUrl: oneShotWebhookDestinationUrl(caseId, sessionId)
         });
         return;
       }
 
-      if (
-        method === "POST" &&
-        (url.pathname === "/api/1shot/relay" || url.pathname === "/api/1shot/relay-demo")
-      ) {
+      if (method === "POST" && url.pathname === "/api/1shot/rpc") {
+        if (!isOneShotConfigured()) {
+          throw new HttpError(503, "oneshot-not-configured");
+        }
+        const body = await readJson<{ method: string; params?: unknown }>(request);
+        if (!body.method) throw new HttpError(422, "oneshot-method-required");
+        const result = await callOneShotRpc(body.method, body.params);
+        sendJson(response, 200, { result });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/1shot/relay") {
         if (!isOneShotConfigured()) {
           throw new HttpError(503, "oneshot-not-configured", {
             message: "Set ONESHOT_BASE_URL (default public relayer) and optional ONESHOT_API_KEY / ONESHOT_AUTHORIZATION."
@@ -914,31 +939,52 @@ export function createApp(options: AppOptions = {}) {
         const caseRecord = store.getCaseOrThrow(body.caseId);
         const relay = await relayOneShotForCase(body);
         relay.events.forEach((event) => store.relayerEvents.set(event.id, event));
+        if (relay.taskId && body.sessionId) {
+          const session = store.paymentSessions.get(body.sessionId);
+          if (session && session.caseId === caseRecord.id) {
+            store.paymentSessions.set(session.id, {
+              ...session,
+              relayerTaskId: relay.taskId,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
         const timeline = createTimelineEvent(
           caseRecord.id,
           "1Shot",
           "Relayer status",
-          `1Shot ${relay.mode} relay: ${relay.events.at(-1)?.status ?? "submitted"}`
+          `1Shot relay: ${relay.events.at(-1)?.status ?? "submitted"}`
         );
         store.agentTimeline.set(timeline.id, timeline);
-        sendJson(response, 201, { mode: relay.mode, events: relay.events, timeline });
+        sendJson(response, 201, { events: relay.events, taskId: relay.taskId, timeline });
         return;
       }
 
       if (method === "POST" && url.pathname === "/api/1shot/webhook") {
-        const body = await readJson<RelayerBody>(request);
-        const caseRecord = store.getCaseOrThrow(body.caseId);
-        const [event] = createRelayerEvents({
+        const caseId = url.searchParams.get("caseId");
+        const sessionId = url.searchParams.get("sessionId") ?? undefined;
+        if (!caseId) throw new HttpError(422, "case-id-required");
+        const caseRecord = store.getCaseOrThrow(caseId);
+        const body = await readJson<OneShotWebhookPayload>(request);
+        const event = relayerEventFromOneShotWebhook({
           caseId: caseRecord.id,
-          sessionId: body.sessionId,
-          permissionId: body.permissionId,
-          status: body.status ?? "submitted",
-          txHash: body.txHash,
-          userOpHash: body.userOpHash,
-          payload: sanitizeForLog(body.payload) as Record<string, unknown>
-        }).slice(-1);
+          sessionId,
+          payload: body
+        });
         store.relayerEvents.set(event.id, event);
-        sendJson(response, 202, { event });
+        if (event.taskId && sessionId) {
+          const session = store.paymentSessions.get(sessionId);
+          if (session && session.caseId === caseRecord.id) {
+            store.paymentSessions.set(session.id, {
+              ...session,
+              relayerTaskId: event.taskId,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
+        const timeline = createTimelineEvent(caseRecord.id, "1Shot", "Webhook status", event.message);
+        store.agentTimeline.set(timeline.id, timeline);
+        sendJson(response, 202, { event, timeline });
         return;
       }
 
@@ -1021,9 +1067,9 @@ export function createApp(options: AppOptions = {}) {
             : url.pathname === "/api/ai/review-approval"
               ? "review-approval"
               : "classify-case";
-        if (!isVeniceAvailable()) {
+        if (!isVeniceConfigured()) {
           throw new HttpError(503, "venice-not-configured", {
-            message: "Set VENICE_API_KEY or VENICE_DEMO_FALLBACK=true to enable Venice.ai."
+            message: "Set VENICE_API_KEY to enable Venice.ai."
           });
         }
         let entitlement;
@@ -1175,6 +1221,9 @@ export function createApp(options: AppOptions = {}) {
         error: httpError.message,
         details: sanitizeForLog(httpError.details)
       });
+    } finally {
+      if (persistPath) scheduleStorePersist(store, persistPath);
+      clearRequestOrigin();
     }
   }
 

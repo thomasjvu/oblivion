@@ -20,10 +20,6 @@ export function isVeniceEnvConfigured(): boolean {
   return Boolean(envString("VENICE_API_KEY"));
 }
 
-export function veniceDemoFallbackEnabled(): boolean {
-  return envFlag("VENICE_DEMO_FALLBACK", process.env.NODE_ENV !== "production");
-}
-
 export function isHibpConfigured(): boolean {
   return Boolean(envString("HIBP_API_KEY"));
 }
@@ -32,7 +28,7 @@ export function isX402Configured(): boolean {
   if (!envFlag("X402_ENABLED", true)) return false;
   const payTo = envString("X402_PAY_TO");
   const facilitator = envString("X402_FACILITATOR_URL", "https://x402.org/facilitator");
-  return Boolean(payTo && facilitator && payTo.startsWith("0x"));
+  return Boolean(payTo && facilitator && payTo.startsWith("0x") && !/^0x0+$/i.test(payTo));
 }
 
 export function x402PayTo(): string {
@@ -57,12 +53,29 @@ export function oneShotBaseUrl(): string {
   return envString("ONESHOT_BASE_URL", "https://relayer.1shotapi.com/relayers");
 }
 
-export function oneShotDemoFallbackEnabled(): boolean {
-  return envFlag("ONESHOT_DEMO_FALLBACK", false);
+export function isOneShotLiveReady(): boolean {
+  return isOneShotConfigured() && Boolean(envString("ONESHOT_API_KEY"));
 }
 
-export function isOneShotLiveReady(): boolean {
-  return isOneShotConfigured() && Boolean(envString("ONESHOT_API_KEY")) && !oneShotDemoFallbackEnabled();
+export function oblivionPublicApiUrl(): string {
+  return envString("OBLIVION_PUBLIC_API_URL").replace(/\/$/, "");
+}
+
+export function oneShotWebhookDestinationUrl(caseId: string, sessionId?: string): string {
+  const base = oblivionPublicApiUrl();
+  if (!base) {
+    throw Object.assign(new Error("oblivion-public-api-url-required"), {
+      statusCode: 503,
+      message: "Set OBLIVION_PUBLIC_API_URL to your public API origin for 1Shot webhooks."
+    });
+  }
+  const params = new URLSearchParams({ caseId });
+  if (sessionId) params.set("sessionId", sessionId);
+  return `${base}/api/1shot/webhook?${params.toString()}`;
+}
+
+export function corsAllowedOrigin(): string {
+  return envString("OBLIVION_CORS_ORIGIN");
 }
 
 export function isBraveSearchConfigured(): boolean {

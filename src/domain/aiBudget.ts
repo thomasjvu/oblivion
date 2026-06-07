@@ -25,7 +25,7 @@ export interface AiEntitlementView {
 }
 
 function isEntitledSession(session: PaymentSession): boolean {
-  if (session.status !== "paid" && session.status !== "authorized") return false;
+  if (session.status !== "paid") return false;
   const expiresAt = session.x402Request?.expiresAt || session.erc7710Delegation?.expiresAt;
   if (!expiresAt) return true;
   return new Date(expiresAt).getTime() > Date.now();

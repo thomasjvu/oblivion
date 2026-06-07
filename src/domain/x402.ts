@@ -158,7 +158,7 @@ export function x402PublicConfig() {
   const enabled = isX402Configured();
   return {
     enabled,
-    protocolVersion: enabled ? "x402-v2" : "x402-demo-v1",
+    protocolVersion: "x402-v2",
     facilitatorUrl: x402FacilitatorUrl(),
     network: x402Network(),
     payTo: enabled ? x402PayTo() : undefined,

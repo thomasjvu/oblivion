@@ -244,7 +244,7 @@ curl -s "http://localhost:8080/api/hackathon/status?caseId=CASE_ID" | jq
 Run automated coverage:
 
 ```sh
-npm test -- test/hackathon-api.test.ts test/hackathon.test.ts test/venice.test.ts test/oneshot.test.ts
+npm test -- test/api/hackathon.test.ts test/domain/hackathon.test.ts test/domain/venice.test.ts test/domain/oneshot.test.ts
 ```
 
 | Track | Manual proof | Pass criteria |

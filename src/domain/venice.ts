@@ -1,4 +1,3 @@
-import { veniceDemoFallbackEnabled } from "./integrations.js";
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type { ActionType, VeniceAnalysis, VeniceAnalysisKind } from "./types.js";
@@ -8,10 +7,6 @@ const DEFAULT_MODEL = "zai-org-glm-5-1";
 
 export function isVeniceConfigured(): boolean {
   return Boolean(process.env.VENICE_API_KEY?.trim());
-}
-
-export function isVeniceAvailable(): boolean {
-  return isVeniceConfigured() || veniceDemoFallbackEnabled();
 }
 
 export function veniceBaseUrl(): string {
@@ -154,53 +149,6 @@ function parseVeniceOutput(
   };
 }
 
-export function createDemoVeniceAnalysis(input: {
-  caseId: string;
-  kind: VeniceAnalysisKind;
-  notes?: string;
-  destination?: string;
-  actionType?: ActionType;
-}): VeniceAnalysis {
-  const redacted = redactText(input.notes || "Encrypted case summary unavailable to server.");
-  const actionType = input.actionType ?? "broker-opt-out";
-  const destination = redactText(input.destination || "approved destination");
-  const demoPayload =
-    input.kind === "draft-request"
-      ? {
-          title: "Removal request draft",
-          summary: "Demo draft prepared from redacted case context.",
-          recommendedTask: actionType,
-          draftText:
-            "Please remove the approved profile listing for this case. Use only the identifiers approved in the disclosure card.",
-          nextSteps: ["Review destination", "Approve exact disclosure"]
-        }
-      : input.kind === "review-approval"
-        ? {
-            title: "Approval review",
-            summary: "Demo review of the approval scope and disclosure categories.",
-            recommendedTask: actionType,
-            approvalExplanation:
-              "Disclose only approved categories to the named destination before the approval expires.",
-            nextSteps: ["Check destination", "Approve or reject"]
-          }
-        : {
-            title: "Redacted case classification",
-            summary: `People-search cleanup route fits the redacted context for ${destination}.`,
-            risk: "standard",
-            recommendedTask: actionType,
-            nextSteps: ["Verify official removal path", "Prepare exact approval"]
-          };
-  return {
-    id: `venice_${crypto.randomUUID()}`,
-    caseId: input.caseId,
-    kind: input.kind,
-    model: "venice-demo",
-    redactedInputSummary: redacted,
-    output: parseVeniceOutput(input.kind, demoPayload, actionType),
-    createdAt: new Date().toISOString()
-  };
-}
-
 export async function runVeniceAnalysis(input: {
   caseId: string;
   kind: VeniceAnalysisKind;
@@ -210,10 +158,7 @@ export async function runVeniceAnalysis(input: {
   maxTokens?: number;
 }): Promise<VeniceAnalysis> {
   if (!isVeniceConfigured()) {
-    if (!veniceDemoFallbackEnabled()) {
-      throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
-    }
-    return createDemoVeniceAnalysis(input);
+    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
   }
   const redacted = redactText(input.notes || "Encrypted case summary unavailable to server.");
   const actionType = input.actionType ?? "broker-opt-out";

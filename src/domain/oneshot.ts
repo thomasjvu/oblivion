@@ -1,6 +1,6 @@
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
-import { oneShotBaseUrl, oneShotDemoFallbackEnabled } from "./integrations.js";
+import { oneShotBaseUrl, oneShotWebhookDestinationUrl } from "./integrations.js";
 import type { RelayerEvent, RelayerStatus } from "./types.js";
 import { createRelayerEvents } from "./hackathon.js";
 
@@ -23,7 +23,6 @@ export interface OneShotRelayBody {
   txHash?: string;
   userOpHash?: string;
   payload?: Record<string, unknown>;
-  demo?: boolean;
 }
 
 export async function callOneShotRpc<T = unknown>(method: string, params?: unknown): Promise<T> {
@@ -94,24 +93,30 @@ export function relayerEventsFromTask(input: {
     payload: sanitizeForLog(input.statusPayload) as Record<string, unknown>
   }).map((event) => ({
     ...event,
+    taskId: input.taskId,
     message: `1Shot ${event.status} for task ${redactText(input.taskId)}.`
   }));
 }
 
-export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ events: RelayerEvent[]; mode: "live" | "demo" }> {
-  if (body.demo || (oneShotDemoFallbackEnabled() && !body.method && !body.taskId)) {
-    const events = createRelayerEvents({
-      caseId: body.caseId,
-      sessionId: body.sessionId,
-      permissionId: body.permissionId,
-      status: body.status,
-      txHash: body.txHash,
-      userOpHash: body.userOpHash,
-      payload: body.payload
-    });
-    return { events, mode: "demo" };
+function injectRelayContext(
+  body: OneShotRelayBody,
+  params: Record<string, unknown> | unknown[]
+): Record<string, unknown> | unknown[] {
+  const destinationUrl =
+    body.destinationUrl ||
+    (body.sessionId ? oneShotWebhookDestinationUrl(body.caseId, body.sessionId) : undefined);
+  if (Array.isArray(params)) return params;
+  const record = { ...(params as Record<string, unknown>) };
+  if (destinationUrl && record.destinationUrl === undefined) {
+    record.destinationUrl = destinationUrl;
   }
+  if (body.sessionId && record.memo === undefined) {
+    record.memo = JSON.stringify({ caseId: body.caseId, sessionId: body.sessionId });
+  }
+  return record;
+}
 
+export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ events: RelayerEvent[]; taskId?: string }> {
   if (body.taskId) {
     const result = await callOneShotRpc<Record<string, unknown>>("relayer_getStatus", { taskId: body.taskId });
     const events = relayerEventsFromTask({
@@ -121,11 +126,12 @@ export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ eve
       sessionId: body.sessionId,
       permissionId: body.permissionId
     });
-    return { events, mode: "live" };
+    return { events, taskId: body.taskId };
   }
 
   if (body.method) {
-    const result = await callOneShotRpc<Record<string, unknown>>(body.method, body.params);
+    const params = injectRelayContext(body, (body.params as Record<string, unknown>) ?? {});
+    const result = await callOneShotRpc<Record<string, unknown>>(body.method, params);
     const taskId =
       typeof result.TaskId === "string"
         ? result.TaskId
@@ -142,7 +148,7 @@ export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ eve
         status: "submitted",
         payload: sanitizeForLog(result) as Record<string, unknown>
       });
-      return { events, mode: "live" };
+      return { events };
     }
     const status = await callOneShotRpc<Record<string, unknown>>("relayer_getStatus", { taskId });
     const events = relayerEventsFromTask({
@@ -152,7 +158,7 @@ export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ eve
       sessionId: body.sessionId,
       permissionId: body.permissionId
     });
-    return { events, mode: "live" };
+    return { events, taskId };
   }
 
   throw Object.assign(new Error("oneshot-relay-payload-required"), {
