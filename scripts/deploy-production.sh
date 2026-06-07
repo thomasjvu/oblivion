@@ -47,6 +47,15 @@ OBLIVION_PHALA_TAG="${TAG}-trust" \
   OBLIVION_ENV_FILE="$ENV_FILE" \
   bash "$ROOT/scripts/deploy-phala.sh"
 
+echo "==> Converge trust center with running compose (sync, rebuild, redeploy)"
+npm run phala:sync-trust
+pin_built_image "${TAG}-trust"
+OBLIVION_PHALA_TAG="${TAG}-trust" \
+  OBLIVION_PUBLIC_API_URL="$PHALA_API_URL" \
+  OBLIVION_CORS_ORIGIN="$CF_UI_ORIGIN" \
+  OBLIVION_ENV_FILE="$ENV_FILE" \
+  bash "$ROOT/scripts/deploy-phala.sh"
+
 echo "==> Deploy Cloudflare Workers UI"
 OBLIVION_API_ORIGIN="$PHALA_API_URL" bash "$ROOT/scripts/deploy-cloudflare-ui.sh"
 
