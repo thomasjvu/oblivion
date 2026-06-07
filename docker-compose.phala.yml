@@ -3,7 +3,7 @@ services:
     # Replace with a public, digest-pinned production image.
     # Example: ghcr.io/thomasjvu/oblivion@sha256:<64 hex chars>
     # Tag reference required: Phala prelaunch GHCR verifier does not parse @sha256 digests.
-    image: ghcr.io/thomasjvu/oblivion:b65ddae-prod-trust
+    image: ghcr.io/thomasjvu/oblivion:2e2fc94-prod-trust
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -14,12 +14,37 @@ services:
       - PHALA_ATTESTATION_URL=https://${DSTACK_APP_ID}.${DSTACK_GATEWAY_DOMAIN}/tcbinfo
       - PHALA_VERIFIER_ENDPOINT=https://cloud-api.phala.com/api/v1/attestations/verify
       - ATTESTATION_MAX_AGE_SECONDS=600
-      - OBLIVION_EXECUTOR_MODE=record-only
+      - OBLIVION_EXECUTOR_MODE=${OBLIVION_EXECUTOR_MODE:-record-only}
       - OBLIVION_DISABLE_PLAINTEXT_LOGS=true
       - OBLIVION_STORE=file
       - OBLIVION_STORE_PATH=/data/oblivion.json
       - OBLIVION_PUBLIC_API_URL=https://3a522af6627d93bb480ba7bd39d375a1535aefa8-8080.dstack-pha-prod5.phala.network
       - OBLIVION_CORS_ORIGIN=https://oblivion.phantasy.bot
+      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
+      - BRAVE_SEARCH_BASE_URL=${BRAVE_SEARCH_BASE_URL:-}
+      - BRAVE_SEARCH_COUNT=${BRAVE_SEARCH_COUNT:-}
+      - VENICE_API_KEY=${VENICE_API_KEY:-}
+      - VENICE_BASE_URL=${VENICE_BASE_URL:-}
+      - VENICE_MODEL=${VENICE_MODEL:-}
+      - HIBP_API_KEY=${HIBP_API_KEY:-}
+      - WALLET_LIVE_MODE=${WALLET_LIVE_MODE:-}
+      - WALLET_CHAIN_ID=${WALLET_CHAIN_ID:-}
+      - X402_ENABLED=${X402_ENABLED:-}
+      - X402_FACILITATOR_URL=${X402_FACILITATOR_URL:-}
+      - X402_PAY_TO=${X402_PAY_TO:-}
+      - X402_NETWORK=${X402_NETWORK:-}
+      - X402_CDP_API_KEY_ID=${X402_CDP_API_KEY_ID:-}
+      - X402_CDP_API_KEY_SECRET=${X402_CDP_API_KEY_SECRET:-}
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - ONESHOT_BASE_URL=${ONESHOT_BASE_URL:-}
+      - ONESHOT_API_KEY=${ONESHOT_API_KEY:-}
+      - ONESHOT_AUTHORIZATION=${ONESHOT_AUTHORIZATION:-}
+      - BROKER_WEBFORM_AUTOMATION=${BROKER_WEBFORM_AUTOMATION:-}
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - oblivion-data:/data
