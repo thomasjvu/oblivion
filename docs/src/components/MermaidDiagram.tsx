@@ -1,7 +1,7 @@
 import { Icon } from '@iconify/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
-import { normalizeMermaidDiagram, waitForDiagramFonts } from '../utils/mermaidLayout';
+import { scheduleMermaidNormalization, waitForDiagramFonts } from '../utils/mermaidLayout';
 import { createLogger } from '../utils/logger';
 
 const logger = createLogger('MermaidDiagram');
@@ -178,15 +178,15 @@ export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
   }, [chart]);
 
   useLayoutEffect(() => {
-    normalizeMermaidDiagram(inlineCanvasRef.current);
+    return scheduleMermaidNormalization(inlineCanvasRef.current);
   }, [inlineSvg]);
 
   useLayoutEffect(() => {
     if (!lightboxSvg) {
-      return;
+      return undefined;
     }
 
-    normalizeMermaidDiagram(lightboxCanvasRef.current);
+    return scheduleMermaidNormalization(lightboxCanvasRef.current);
   }, [lightboxSvg]);
 
   if (error && !inlineSvg) {

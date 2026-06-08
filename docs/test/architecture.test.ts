@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -828,6 +828,26 @@ export const architectureTests: ArchitectureTestCase[] = [
       const viewBox = buildPaddedViewBox({ x: 0, y: 0, width: 749.46875, height: 506.5 }, 20, 28);
 
       assert.equal(viewBox, '-20 -28 789.46875 562.5');
+    },
+  },
+  {
+    name: 'mermaid layout recenters html labels and strips stale Mermaid transforms',
+    run: async () => {
+      const layoutSource = await readFile(join(process.cwd(), 'src/utils/mermaidLayout.ts'), 'utf8');
+      const diagramSource = await readFile(join(process.cwd(), 'src/components/MermaidDiagram.tsx'), 'utf8');
+
+      assert.match(
+        layoutSource,
+        /foreignObject\.setAttribute\('x', String\(-width \/ 2\)\)/
+      );
+      assert.match(
+        layoutSource,
+        /foreignObject\.setAttribute\('y', String\(-height \/ 2\)\)/
+      );
+      assert.match(layoutSource, /removeAttribute\(MERMAID_LABEL_TRANSFORM_ATTR\)/);
+      assert.match(layoutSource, /export function scheduleMermaidNormalization/);
+      assert.match(diagramSource, /scheduleMermaidNormalization/);
+      assert.doesNotMatch(diagramSource, /normalizeMermaidDiagram\(inlineCanvasRef/);
     },
   },
   {

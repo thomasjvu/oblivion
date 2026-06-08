@@ -3,6 +3,9 @@ const NODE_PADDING_Y = 18;
 const DIAGRAM_PADDING_X = 20;
 const DIAGRAM_PADDING_Y = 28;
 
+/** Mermaid 11 htmlLabels leave a stale translate() on g.label; strip after re-centering foreignObject. */
+const MERMAID_LABEL_TRANSFORM_ATTR = 'transform';
+
 function readLength(value: string | null): number {
   if (!value) {
     return 0;
@@ -97,7 +100,9 @@ function fitNodeGroup(nodeGroup: SVGGElement): void {
     foreignObject.setAttribute('y', String(-height / 2));
   }
 
-  labelGroup.removeAttribute('transform');
+  // Mermaid positions html labels with translate(-partialWidth, -8.25). That fights our
+  // foreignObject centering and clips text against the left edge of the shape.
+  labelGroup.removeAttribute(MERMAID_LABEL_TRANSFORM_ATTR);
 }
 
 function fitClusterGroup(clusterGroup: SVGGElement): void {
@@ -168,6 +173,45 @@ export function normalizeMermaidDiagram(canvas: HTMLElement | null): void {
   if (svg instanceof SVGSVGElement) {
     padDiagramViewBox(svg);
   }
+}
+
+/**
+ * Run normalization immediately, then again after fonts and layout settle.
+ * Returns a cleanup that cancels any pending deferred pass.
+ */
+export function scheduleMermaidNormalization(canvas: HTMLElement | null): () => void {
+  if (!canvas) {
+    return () => {};
+  }
+
+  let cancelled = false;
+
+  const run = () => {
+    if (!cancelled) {
+      normalizeMermaidDiagram(canvas);
+    }
+  };
+
+  run();
+
+  void (async () => {
+    await waitForDiagramFonts();
+    if (cancelled) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+
+      requestAnimationFrame(run);
+    });
+  })();
+
+  return () => {
+    cancelled = true;
+  };
 }
 
 export const fitMermaidNodeLabels = normalizeMermaidDiagram;
