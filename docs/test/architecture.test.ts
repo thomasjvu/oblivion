@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { buildPaddedViewBox } from '../src/utils/mermaidLayout.ts';
 import {
   createDocsArtifacts,
   enrichDocumentArtifact,
@@ -819,6 +820,14 @@ export const architectureTests: ArchitectureTestCase[] = [
       assert.equal(frenchRoute?.title, 'Introduction FR | papers');
       assert.equal(docsRootAlias?.canonicalPath, '/docs/2.0/en/getting-started/introduction');
       assert.equal(docsRootAlias?.title, 'Introduction | papers');
+    },
+  },
+  {
+    name: 'buildPaddedViewBox expands mermaid diagram bounds with vertical breathing room',
+    run: async () => {
+      const viewBox = buildPaddedViewBox({ x: 0, y: 0, width: 749.46875, height: 506.5 }, 20, 28);
+
+      assert.equal(viewBox, '-20 -28 789.46875 562.5');
     },
   },
   {
