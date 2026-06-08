@@ -6,12 +6,14 @@ import DocumentationPage from '../components/docs/DocumentationPage';
 import OpenApiReference from '../components/OpenApiReference';
 import OpenApiSpecSelector from '../components/OpenApiSpecSelector';
 import { openapiConfig } from '../../shared/documentation-config.js';
+import { buildOpenApiRoutePath, getOpenApiPagePath } from '../lib/openapi';
 import { applySeoMetadata } from '../utils/seo';
 
 const SITE_NAME = import.meta.env.VITE_SITE_NAME || 'papers';
 
 export default function OpenApiPage() {
   const { specId } = useParams();
+  const pagePath = getOpenApiPagePath();
   const specs = openapiConfig.enabled ? openapiConfig.specs : [];
   const activeSpec = useMemo(() => {
     const requested = specs.find((spec) => spec.id === specId);
@@ -27,23 +29,21 @@ export default function OpenApiPage() {
       return;
     }
 
+    const routePath = buildOpenApiRoutePath(
+      activeSpec.id === openapiConfig.defaultSpecId ? null : activeSpec.id
+    );
+
     applySeoMetadata({
       title: `${activeSpec.label} | ${SITE_NAME}`,
       description: activeSpec.description || `Interactive OpenAPI reference for ${activeSpec.label}.`,
-      path:
-        activeSpec.id === openapiConfig.defaultSpecId
-          ? '/docs/developers/openapi'
-          : `/docs/developers/openapi/${activeSpec.id}`,
-      canonicalPath:
-        activeSpec.id === openapiConfig.defaultSpecId
-          ? '/docs/developers/openapi'
-          : `/docs/developers/openapi/${activeSpec.id}`,
+      path: routePath,
+      canonicalPath: routePath,
       type: 'article',
     });
   }, [activeSpec]);
 
   if (specId && !activeSpec) {
-    return <Navigate to="/docs/developers/openapi" replace />;
+    return <Navigate to={buildOpenApiRoutePath()} replace />;
   }
 
   if (!activeSpec) {
@@ -53,7 +53,7 @@ export default function OpenApiPage() {
   return (
     <DocumentationPage
       initialContent=""
-      currentPath="developers/openapi"
+      currentPath={pagePath}
       contentSlot={
         <div className="doc-content pt-8 pb-6 px-6 md:pt-12 md:pb-8 md:px-8 lg:pt-16 lg:pb-12 lg:px-12 max-w-6xl mx-auto">
           <header className="mb-6">
@@ -74,12 +74,13 @@ export default function OpenApiPage() {
             specs={specs}
             activeSpecId={activeSpec.id}
             defaultSpecId={openapiConfig.defaultSpecId}
+            pagePath={pagePath}
           />
 
           <OpenApiReference specUrl={activeSpec.url} />
           <DocPageFooter
-            path="developers/openapi"
-            sourcePath="src/docs/content/developers/openapi.md"
+            path={pagePath}
+            sourcePath={`src/docs/content/${pagePath}.md`}
           />
         </div>
       }

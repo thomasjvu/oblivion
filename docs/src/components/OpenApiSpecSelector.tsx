@@ -11,20 +11,24 @@ type OpenApiSpecSelectorProps = {
   specs: OpenApiSpecConfig[];
   activeSpecId: string;
   defaultSpecId: string;
+  pagePath: string;
 };
 
-function buildSpecHref(specId: string, defaultSpecId: string) {
+function buildSpecHref(specId: string, defaultSpecId: string, pagePath: string) {
+  const basePath = `/docs/${pagePath}`;
+
   if (specId === defaultSpecId) {
-    return '/docs/developers/openapi';
+    return basePath;
   }
 
-  return `/docs/developers/openapi/${specId}`;
+  return `${basePath}/${specId}`;
 }
 
 export default function OpenApiSpecSelector({
   specs,
   activeSpecId,
   defaultSpecId,
+  pagePath,
 }: OpenApiSpecSelectorProps) {
   const location = useLocation();
 
@@ -39,7 +43,7 @@ export default function OpenApiSpecSelector({
       aria-label="OpenAPI specifications"
     >
       {specs.map((spec) => {
-        const href = buildSpecHref(spec.id, defaultSpecId);
+        const href = buildSpecHref(spec.id, defaultSpecId, pagePath);
         const isActive = spec.id === activeSpecId;
 
         return (

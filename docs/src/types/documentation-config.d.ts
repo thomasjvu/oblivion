@@ -66,6 +66,7 @@ declare module '*/shared/documentation-config.js' {
 
   export interface OpenApiConfig {
     enabled: boolean;
+    pagePath: string;
     defaultSpecId: string;
     specs: OpenApiSpecConfig[];
   }

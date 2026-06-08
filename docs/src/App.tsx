@@ -6,7 +6,7 @@ import DocsPage from './pages/DocsPage';
 import LLMSPage from './pages/LLMSPage';
 import OpenApiPage from './pages/OpenApiPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { homepageConfig } from '../shared/documentation-config.js';
+import { homepageConfig, openapiConfig } from '../shared/documentation-config.js';
 import { DEFAULT_DOCUMENT_PATH } from './lib/navigation';
 import { buildDocsLandingPath } from '../shared/docsRouting.js';
 
@@ -27,7 +27,12 @@ export default function App() {
             path="/docs"
             element={<Navigate to={buildDocsLandingPath(DEFAULT_DOCUMENT_PATH)} replace />}
           />
-          <Route path="/docs/developers/openapi/:specId?" element={<OpenApiPage />} />
+          {openapiConfig.enabled ? (
+            <Route
+              path={`/docs/${openapiConfig.pagePath}/:specId?`}
+              element={<OpenApiPage />}
+            />
+          ) : null}
           <Route path="/docs/*" element={<DocsPage />} />
           <Route path="/llms" element={<LLMSPage />} />
           <Route path="*" element={<NotFoundPage />} />

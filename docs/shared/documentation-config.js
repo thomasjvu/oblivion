@@ -23,6 +23,7 @@ export const i18nConfig = {
 /** @type {import('./documentation-config.js').OpenApiConfig} */
 export const openapiConfig = {
   enabled: true,
+  pagePath: 'developers/openapi',
   defaultSpecId: 'partner',
   specs: [
     {
