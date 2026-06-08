@@ -1,6 +1,10 @@
+<div class="legal-page-header">
+
 # Privacy Policy
 
-**Last updated:** June 5, 2026
+<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+
+</div>
 
 Oblivion is built so you can clean up your online footprint without handing your identity to us. This policy explains what we do — and deliberately do not do — with information when you use the Oblivion web app and related open-source materials.
 

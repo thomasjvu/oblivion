@@ -1,6 +1,10 @@
+<div class="legal-page-header">
+
 # Terms of Service
 
-**Last updated:** June 5, 2026
+<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+
+</div>
 
 These terms govern your use of the Oblivion web application and related open-source materials. By using Oblivion, you agree to these terms.
 

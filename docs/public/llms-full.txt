@@ -567,65 +567,66 @@ Private identity cleanup: encrypted intake, explicit approvals, crypto-native pe
 
 ```mermaid
 flowchart TB
-  subgraph UI["Browser UI"]
+  subgraph uiLayer["Browser UI"]
     Landing[Landing + presets]
     Wallet[Connect wallet / Smart Account]
     Agent[Agent dock + autopilot]
     Approvals[Approval cards]
-    Settings[Settings → Developer details]
+    Settings["Settings - Developer details"]
     Trust[Trust tab]
   end
 
-  subgraph Gates["Safety gates (always on)"]
-    Vault[Browser vault — AES-GCM intake]
-    Policy[policy.ts evaluateProposedAction]
+  subgraph gatesLayer["Safety gates"]
+    Vault[Browser vault AES-GCM intake]
+    Policy[policy evaluateProposedAction]
     Approve[Explicit userConfirmation]
     Redact[redactText + sanitizeForLog]
-    TEE[assertSensitiveExecutionAllowed + Phala quote]
+    TEE[assertSensitiveExecutionAllowed]
   end
 
-  subgraph Core["Core agent (Best Agent track)"]
+  subgraph coreLayer["Core agent"]
     Plan[AgentPlan + CLEANUP_PRESETS]
-    Orch[orchestration.ts runCleanupAgentStep]
-    Exec[executor.ts executeApprovedAction]
-    Conn[connectorRuntime.ts live connectors]
+    Orch[runCleanupAgentStep]
+    Exec[executeApprovedAction]
+    Conn[connectorRuntime live connectors]
   end
 
-  subgraph MM["MetaMask Smart Accounts"]
-    MMClient[metamaskSmartAccount.js wallet_sendCalls]
-    MMServer["/api/metamask/demo-session"]
+  subgraph mmLayer["MetaMask Smart Accounts"]
+    MMClient[wallet_sendCalls]
+    MMServer["POST metamask demo-session"]
     E7702[EIP-7702 authorization grant]
     E7715[ERC-7715 advanced permission]
   end
 
-  subgraph Pay["x402 + ERC-7710"]
-    X402Prep["/api/credits/purchase | monitor"]
-    X402Pay["x402Pay.js PAYMENT-SIGNATURE"]
+  subgraph payLayer["x402 + ERC-7710"]
+    X402Prep["POST credits purchase or monitor"]
+    X402Pay[x402Pay PAYMENT-SIGNATURE]
     Credits[Wallet credit balance]
-    E7710[ERC-7710 delegation + PaymentAgent scope]
+    E7710[ERC-7710 PaymentAgent scope]
   end
 
-  subgraph Venice["Venice AI"]
-    VClassify["/api/ai/classify-case"]
-    VDraft["/api/ai/draft-request"]
-    VReview["/api/ai/review-approval"]
-    VChat["/api/agent/chat"]
-    VRedact[Redacted prompts only]
+  subgraph veniceLayer["Venice AI"]
+    VClassify[POST ai classify-case]
+    VDraft[POST ai draft-request]
+    VReview[POST ai review-approval]
+    VChat[POST agent chat]
   end
 
-  subgraph A2A["A2A redelegation"]
-    Delegate["/api/agents/delegate"]
+  subgraph a2aLayer["A2A redelegation"]
+    Delegate[POST agents delegate]
     Scout[ScoutAgent]
     Draft[DraftAgent]
     Verifier[VerifierAgent]
     Payment[PaymentAgent]
   end
 
-  subgraph Shot["1Shot relayer"]
-    Relay["/api/1shot/relay"]
-    Webhook["/api/1shot/webhook"]
+  subgraph shotLayer["1Shot relayer"]
+    Relay[POST 1shot relay]
+    Webhook[POST 1shot webhook]
     RelayerEvents[Relayer timeline + table]
   end
+
+  VRedact[Redacted prompts only]
 
   Landing --> Agent
   Agent --> Plan --> Orch
@@ -634,7 +635,7 @@ flowchart TB
   Exec --> TEE --> Conn
 
   Vault --> Orch
-  Redact --> Venice
+  Redact --> VRedact
   Redact --> Conn
 
   Wallet --> MMClient --> MMServer --> E7702 --> E7715
@@ -651,7 +652,11 @@ flowchart TB
   VChat --> VRedact
   Credits --> VChat
 
-  Settings --> Delegate --> Scout & Draft & Verifier & Payment
+  Settings --> Delegate
+  Delegate --> Scout
+  Delegate --> Draft
+  Delegate --> Verifier
+  Delegate --> Payment
   Settings --> Relay --> RelayerEvents
   Relay --> Webhook
 
@@ -696,8 +701,8 @@ sequenceDiagram
   UI->>API: POST /api/hackathon/complete-pending
   API->>Venice: classify (redacted)
   Judge->>UI: Buy credits via x402 (if configured)
-  UI->>API: POST /api/credits/purchase → 402 → PAYMENT-SIGNATURE
-  API->>API: settleCreditsForProduct → wallet balance
+  UI->>API: POST credits purchase, HTTP 402, PAYMENT-SIGNATURE
+  API->>API: settleCreditsForProduct credits wallet
   Judge->>UI: Approve + Execute
   opt Live 1Shot
     UI->>API: POST /api/1shot/relay
@@ -876,9 +881,13 @@ Every sensitive action binds: destination · action type · identifier categorie
 
 URL: /docs/legal/privacy
 
+<div class="legal-page-header">
+
 # Privacy Policy
 
-**Last updated:** June 5, 2026
+<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+
+</div>
 
 Oblivion is built so you can clean up your online footprint without handing your identity to us. This policy explains what we do — and deliberately do not do — with information when you use the Oblivion web app and related open-source materials.
 
@@ -937,9 +946,13 @@ Questions about privacy: open an issue at [github.com/thomasjvu/oblivion](https:
 
 URL: /docs/legal/terms
 
+<div class="legal-page-header">
+
 # Terms of Service
 
-**Last updated:** June 5, 2026
+<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+
+</div>
 
 These terms govern your use of the Oblivion web application and related open-source materials. By using Oblivion, you agree to these terms.
 

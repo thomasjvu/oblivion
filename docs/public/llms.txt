@@ -19,6 +19,6 @@ Personal information removal without giving away your personal information. Encr
 
 ## Legal
 
-- [Privacy](/docs/legal/privacy): **Last updated:** June 5, 2026
-- [Terms](/docs/legal/terms): **Last updated:** June 5, 2026
+- [Privacy](/docs/legal/privacy): <p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+- [Terms](/docs/legal/terms): <p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
 
