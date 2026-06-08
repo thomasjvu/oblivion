@@ -9,7 +9,10 @@ import { useTheme } from '../../providers/ThemeProvider';
 import type { FileItem } from '../../types/documentation';
 import { stripMarkdownBom } from '../../utils/markdown';
 import safeLocalStorage from '../../utils/storage';
+import type { DocumentContentFormat } from '../../lib/content';
+import { prefetchDocument } from '../../lib/content';
 import ContentRenderer from '../ContentRenderer';
+import DocsVariantSelector from '../DocsVariantSelector';
 import DocumentationGraph from '../DocumentationGraph/OptimizedDocumentationGraph';
 import FileTree from '../FileTree';
 import fileTreeStyles from '../FileTree.module.css';
@@ -24,6 +27,8 @@ interface DocumentationPageProps {
   initialContent: string;
   currentPath: string;
   sourcePath?: string;
+  contentFormat?: DocumentContentFormat;
+  contentSlot?: React.ReactNode;
   isLoading?: boolean;
   pendingPath?: string;
 }
@@ -85,6 +90,8 @@ const DocumentationPage = React.memo(
     initialContent,
     currentPath,
     sourcePath,
+    contentFormat = 'markdown',
+    contentSlot,
     isLoading = false,
     pendingPath,
   }: DocumentationPageProps) => {
@@ -414,12 +421,22 @@ const DocumentationPage = React.memo(
                     {shortcutLabel}
                   </kbd>
                 </button>
+
+                <div className="mt-3">
+                  <DocsVariantSelector docPath={path} />
+                </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto py-4 scrollbar-hide">
                 <FileTree
                   items={documentationTree}
                   onSelect={handleSelectFile}
+                  onPrefetch={(targetPath) =>
+                    prefetchDocument(targetPath, {
+                      version: routeContext.activeVersion,
+                      locale: routeContext.activeLocale,
+                    })
+                  }
                   currentPath={path}
                   defaultOpenAll={true}
                 />
@@ -541,7 +558,14 @@ const DocumentationPage = React.memo(
                 </div>
               )}
 
-              <ContentRenderer content={content} path={path} sourcePath={sourcePath} />
+              {contentSlot ?? (
+                <ContentRenderer
+                  content={content}
+                  path={path}
+                  sourcePath={sourcePath}
+                  contentFormat={contentFormat}
+                />
+              )}
             </div>
           </div>
         </div>

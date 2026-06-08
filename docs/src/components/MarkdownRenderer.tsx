@@ -1,8 +1,9 @@
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { DocumentContentFormat } from '../lib/content';
 import {
   processMarkdown,
   type CodeBlockData,
@@ -15,13 +16,14 @@ import { buildCanonicalDocsPath, parseDocsRoutePath } from '../../shared/docsRou
 import CodeBlock from './CodeBlock';
 import ColorPalette from './ColorPalette';
 import LiveExample from './LiveExample';
-import MermaidDiagram from './MermaidDiagram';
+const MermaidDiagram = lazy(() => import('./MermaidDiagram'));
 
 const componentLogger = createLogger('MarkdownRenderer');
 
 type MarkdownRendererProps = {
   content: string;
   path: string;
+  contentFormat?: DocumentContentFormat;
 };
 
 interface ProcessedMarkdownData {
@@ -254,7 +256,14 @@ function renderNode(node: ChildNode, key: string, context: RenderContext): React
       return null;
     }
 
-    return <MermaidDiagram key={key} chart={block.chart} />;
+    return (
+      <Suspense
+        key={key}
+        fallback={<div className="mermaid-block mermaid-block--loading">Rendering diagram...</div>}
+      >
+        <MermaidDiagram chart={block.chart} />
+      </Suspense>
+    );
   }
 
   if (tagName === 'div' && element.hasAttribute('data-liveexample-id')) {
@@ -531,7 +540,11 @@ function MarkdownWalletAddress({
   );
 }
 
-const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, path }) => {
+const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
+  content,
+  path,
+  contentFormat = 'markdown',
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [processedData, setProcessedData] = useState<ProcessedMarkdownData | null>(null);
@@ -543,7 +556,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, path }) =>
   useEffect(() => {
     let isMounted = true;
 
-    if (!content) {
+    if (!content || contentFormat === 'html') {
       hasRenderedContentRef.current = false;
       setProcessedData(null);
       setIsProcessing(false);
@@ -583,7 +596,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, path }) =>
     return () => {
       isMounted = false;
     };
-  }, [content]);
+  }, [content, contentFormat]);
 
   const renderedContent = useMemo(() => {
     if (!processedData) {
@@ -611,6 +624,22 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, path }) =>
       },
     });
   }, [navigate, path, processedData, routeContext.activeLocale, routeContext.activeVersion]);
+
+  if (contentFormat === 'html' && content) {
+    return (
+      <motion.div
+        initial={{ opacity: 0.9, y: 0 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.15 }}
+        className="w-full"
+      >
+        <div
+          className="markdown-content prose prose-gray dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      </motion.div>
+    );
+  }
 
   if (!processedData && isProcessing) {
     return (

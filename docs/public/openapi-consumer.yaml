@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Oblivion Consumer API
+  version: 0.1.0
+  description: Browser app API for supervised personal information cleanup.
+servers:
+  - url: https://oblivion.phantasy.bot
+paths:
+  /api/cases:
+    post:
+      summary: Create cleanup case
+      tags: [Cases]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jurisdiction, authorityBasis, riskLevel]
+              properties:
+                jurisdiction: { type: string, enum: [US, EU, UK] }
+                authorityBasis: { type: string }
+                riskLevel: { type: string, enum: [low, medium, high] }
+      responses:
+        '201': { description: Case created }
+    get:
+      summary: List consumer cases
+      tags: [Cases]
+      responses:
+        '200': { description: Case list }
+  /api/cases/{caseId}/intake:
+    post:
+      summary: Submit encrypted intake
+      tags: [Cases]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [encryptedIntake, redactedScope]
+              properties:
+                encryptedIntake: { type: string }
+                redactedScope: { type: object }
+      responses:
+        '200': { description: Intake stored }
+  /api/cases/{caseId}/preset:
+    post:
+      summary: Apply cleanup preset
+      tags: [Agent]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Preset applied }
+  /api/actions/propose:
+    post:
+      summary: Propose disclosure action
+      tags: [Approvals]
+      responses:
+        '201': { description: Approval proposed }
+  /api/approvals/{approvalId}/approve:
+    post:
+      summary: Approve proposed action
+      tags: [Approvals]
+      parameters:
+        - name: approvalId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Approval recorded }
+  /api/trust/attestation:
+    get:
+      summary: Trust center attestation proof
+      tags: [Trust]
+      responses:
+        '200': { description: Attestation payload }

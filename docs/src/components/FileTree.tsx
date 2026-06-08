@@ -13,6 +13,7 @@ type FileTreeProps = {
   onSelect: (item: FileItem) => void;
   currentPath?: string;
   defaultOpenAll?: boolean;
+  onPrefetch?: (path: string) => void;
 };
 
 type FileTreeItemProps = {
@@ -21,6 +22,7 @@ type FileTreeItemProps = {
   depth: number;
   onToggle: (path: string) => void;
   currentPath?: string;
+  onPrefetch?: (path: string) => void;
 };
 
 const NESTED_INDENT_STEP = 14;
@@ -37,7 +39,7 @@ function sortRootSidebarItems(entries: FileItem[]): FileItem[] {
 }
 
 const FileTreeItem: React.FC<FileTreeItemProps> = React.memo(
-  ({ item, onSelect, depth, onToggle, currentPath }) => {
+  ({ item, onSelect, depth, onToggle, currentPath, onPrefetch }) => {
     const { prefersReducedMotion } = useTheme();
     const isActive = currentPath === item.path;
     const isDirectory = item.type === 'directory';
@@ -67,6 +69,16 @@ const FileTreeItem: React.FC<FileTreeItemProps> = React.memo(
         <div
           className={`${styles.fileTreeItem} flex items-center py-0.5 ${isActive ? 'active' : ''}`}
           onClick={handleClick}
+          onMouseEnter={() => {
+            if (!isDirectory && item.path) {
+              onPrefetch?.(item.path);
+            }
+          }}
+          onFocus={() => {
+            if (!isDirectory && item.path) {
+              onPrefetch?.(item.path);
+            }
+          }}
           onKeyDown={handleKeyDown}
           tabIndex={0}
           role={isDirectory ? 'button' : 'link'}
@@ -125,6 +137,7 @@ const FileTreeItem: React.FC<FileTreeItemProps> = React.memo(
                   depth={depth + 1}
                   onToggle={onToggle}
                   currentPath={currentPath}
+                  onPrefetch={onPrefetch}
                 />
               ))}
             </motion.div>
@@ -142,6 +155,7 @@ const FileTree: React.FC<FileTreeProps> = ({
   onSelect,
   currentPath,
   defaultOpenAll = false,
+  onPrefetch,
 }) => {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>(() => {
     if (!defaultOpenAll || !currentPath) {
@@ -196,6 +210,7 @@ const FileTree: React.FC<FileTreeProps> = ({
           depth={0}
           onToggle={toggleItem}
           currentPath={currentPath}
+          onPrefetch={onPrefetch}
         />
       ))}
     </div>

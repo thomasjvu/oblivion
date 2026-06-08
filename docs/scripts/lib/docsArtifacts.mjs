@@ -1,4 +1,5 @@
 import { extractDescriptionFromMarkdown } from '../../shared/seo.js';
+import { compileMdxToHtml, isMdxSourcePath } from './mdxCompile.mjs';
 
 function stripUtf8Bom(content) {
   return content.replace(/^\uFEFF/, '');
@@ -75,11 +76,26 @@ export function createDocumentArtifact(docPath, rawContent, sourcePath) {
     description: description || undefined,
     frontmatter,
     content,
+    contentFormat: 'markdown',
     ...(sourcePath
       ? {
           sourcePath,
         }
       : {}),
+  };
+}
+
+export async function enrichDocumentArtifact(document) {
+  if (!document?.sourcePath || !isMdxSourcePath(document.sourcePath)) {
+    return document;
+  }
+
+  const html = await compileMdxToHtml(document.content);
+
+  return {
+    ...document,
+    content: html,
+    contentFormat: 'html',
   };
 }
 

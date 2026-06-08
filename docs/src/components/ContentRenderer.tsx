@@ -7,18 +7,24 @@ import { documentationTree } from '../data/documentation';
 import { findAdjacentPages, findPageTags } from '../lib/navigation';
 import { buildCanonicalDocsPath, parseDocsRoutePath } from '../../shared/docsRouting.js';
 
+import type { DocumentContentFormat } from '../lib/content';
+import { prefetchDocument } from '../lib/content';
+
+import DocPageFooter from './DocPageFooter';
 import MarkdownRenderer from './MarkdownRenderer';
 
 type ContentRendererProps = {
   content: string;
   path: string;
   sourcePath?: string;
+  contentFormat?: DocumentContentFormat;
 };
 
 const ContentRenderer = memo(function ContentRenderer({
   content = '',
   path = '',
   sourcePath,
+  contentFormat = 'markdown',
 }: ContentRendererProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -34,8 +40,16 @@ const ContentRenderer = memo(function ContentRenderer({
   const pageTags = useMemo(() => findPageTags(path, documentationTree), [path]);
   const isSynopsisPage = useMemo(() => path.toLowerCase().includes('synopsis'), [path]);
 
-  const githubBranch = import.meta.env.VITE_GITHUB_BRANCH || 'main';
-  const githubSourcePath = sourcePath || `src/docs/content/${path}.md`;
+  const warmPage = (targetPath?: string) => {
+    if (!targetPath) {
+      return;
+    }
+
+    prefetchDocument(targetPath, {
+      version: routeContext.activeVersion,
+      locale: routeContext.activeLocale,
+    });
+  };
 
   return (
     <div className="w-full h-full overflow-hidden" role="article">
@@ -58,7 +72,7 @@ const ContentRenderer = memo(function ContentRenderer({
             </div>
           )}
 
-          <MarkdownRenderer content={content} path={path} />
+          <MarkdownRenderer content={content} path={path} contentFormat={contentFormat} />
 
           {pageTags.length > 0 && (
             <motion.div
@@ -112,6 +126,8 @@ const ContentRenderer = memo(function ContentRenderer({
                         })
                       )
                     }
+                    onMouseEnter={() => warmPage(prevPage.path)}
+                    onFocus={() => warmPage(prevPage.path)}
                     className="nav-button text-left p-4 rounded-lg transition-opacity hover:opacity-70"
                     type="button"
                   >
@@ -136,6 +152,8 @@ const ContentRenderer = memo(function ContentRenderer({
                         })
                       )
                     }
+                    onMouseEnter={() => warmPage(nextPage.path)}
+                    onFocus={() => warmPage(nextPage.path)}
                     className="nav-button text-right p-4 rounded-lg transition-opacity hover:opacity-70"
                     type="button"
                   >
@@ -151,52 +169,7 @@ const ContentRenderer = memo(function ContentRenderer({
             </motion.div>
           )}
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.3 }}
-            className="mt-4 pt-4 border-t"
-            style={{ borderColor: 'var(--border-unified)' }}
-          >
-            <div className="flex flex-wrap gap-3 justify-center items-center">
-              {import.meta.env.VITE_GITHUB_URL && (
-                <>
-                  <a
-                    href={`${import.meta.env.VITE_GITHUB_URL}/edit/${githubBranch}/${githubSourcePath}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs transition-colors hover:opacity-70"
-                    style={{ fontFamily: 'var(--mono-font)', color: 'var(--muted-color)' }}
-                  >
-                    <Icon icon="mingcute:edit-2-line" className="w-3.5 h-3.5" />
-                    <span>edit</span>
-                  </a>
-
-                  <a
-                    href={`${import.meta.env.VITE_GITHUB_URL}/issues/new?title=Issue with ${encodeURIComponent(path)}&body=${encodeURIComponent(`I found an issue with the documentation page: ${path}\n\nDescription:\n`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs transition-colors hover:opacity-70"
-                    style={{ fontFamily: 'var(--mono-font)', color: 'var(--muted-color)' }}
-                  >
-                    <Icon icon="mingcute:bug-line" className="w-3.5 h-3.5" />
-                    <span>issue</span>
-                  </a>
-
-                  <a
-                    href={`${import.meta.env.VITE_GITHUB_URL}/blob/${githubBranch}/${githubSourcePath}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs transition-colors hover:opacity-70"
-                    style={{ fontFamily: 'var(--mono-font)', color: 'var(--muted-color)' }}
-                  >
-                    <Icon icon="mingcute:code-line" className="w-3.5 h-3.5" />
-                    <span>source</span>
-                  </a>
-                </>
-              )}
-            </div>
-          </motion.div>
+          <DocPageFooter path={path} sourcePath={sourcePath} />
         </div>
       </div>
     </div>

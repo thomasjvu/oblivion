@@ -20,6 +20,26 @@ export const i18nConfig = {
   locales: ['en'],
 };
 
+/** @type {import('./documentation-config.js').OpenApiConfig} */
+export const openapiConfig = {
+  enabled: true,
+  defaultSpecId: 'partner',
+  specs: [
+    {
+      id: 'partner',
+      label: 'Partner API',
+      url: '/openapi-v1.yaml',
+      description: 'B2B rail for embedded partners — cases, webhooks, billing.',
+    },
+    {
+      id: 'consumer',
+      label: 'Consumer API',
+      url: '/openapi-consumer.yaml',
+      description: 'Browser app endpoints — cases, intake, approvals, agent runs.',
+    },
+  ],
+};
+
 /** @type {import('./documentation-config.js').HomepageConfig} */
 export const homepageConfig = {
   enabled: true,
@@ -147,6 +167,12 @@ export const documentationTree = [
         name: 'API Reference.md',
         path: 'developers/api-reference',
         tags: ['openapi', 'reference'],
+      },
+      {
+        type: 'file',
+        name: 'OpenAPI Explorer.md',
+        path: 'developers/openapi',
+        tags: ['openapi', 'reference', 'interactive'],
       },
       {
         type: 'file',

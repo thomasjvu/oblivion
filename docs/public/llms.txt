@@ -14,6 +14,7 @@ Personal information removal without giving away your personal information. Encr
 - [Partner API](/docs/developers/partner-api): Embed broker cleanup **without becoming a data custodian**. Raw identifiers stay in the **user's browser vault** (AES-256-GCM). Your servers get `caseId`, redacted labels, exposure URLs, and webhooks.
 - [Partner Onboarding](/docs/developers/partner-onboarding): 30-minute path to a working people-search integration.
 - [API Reference](/docs/developers/api-reference): The Oblivion partner API is documented in the integration guide and formalized in OpenAPI v1.
+- [OpenAPI Explorer](/docs/developers/openapi): This page is served by the interactive OpenAPI viewer at `/docs/developers/openapi`.
 - [Hackathon Demo](/docs/developers/hackathon-demo): **3-minute judge walkthrough** for private identity cleanup: encrypted intake, explicit approvals, and crypto-native payment rails. Every integration demo runs behind the same safety gates — no checklist bypass.
 - [Trust & Security](/docs/developers/security): Oblivion minimizes trust surface area. Third-party services (brokers, search engines, breach checkers) may receive identifiers **only after you approve** a specific action.
 

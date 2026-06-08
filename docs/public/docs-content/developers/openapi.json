@@ -1,0 +1,12 @@
+{
+  "path": "developers/openapi",
+  "title": "Partner API Reference",
+  "description": "Interactive OpenAPI explorer for the Oblivion Partner API.",
+  "frontmatter": {
+    "title": "Partner API Reference",
+    "description": "Interactive OpenAPI explorer for the Oblivion Partner API."
+  },
+  "content": "# Partner API Reference\n\nThis page is served by the interactive OpenAPI viewer at `/docs/developers/openapi`.",
+  "contentFormat": "markdown",
+  "sourcePath": "src/docs/content/developers/openapi.md"
+}

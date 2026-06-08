@@ -7,6 +7,7 @@ import { buildDocsContentPath, getDocsVariantContexts } from '../shared/docsRout
 import {
   createDocumentArtifact,
   createDocsArtifacts,
+  enrichDocumentArtifact,
   serializeArtifactJson,
   stabilizeIndexGeneration,
 } from './lib/docsArtifacts.mjs';
@@ -81,7 +82,9 @@ async function buildVariantDocuments(docPaths) {
         locale: context.locale,
       });
 
-      documents[documentKey] = createDocumentArtifact(docPath, rawContent, fileInfo?.sourcePath);
+      documents[documentKey] = await enrichDocumentArtifact(
+        createDocumentArtifact(docPath, rawContent, fileInfo?.sourcePath)
+      );
 
       if (context.isDefault) {
         defaultDocsByPath[docPath] = rawContent;

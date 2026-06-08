@@ -144,7 +144,9 @@ export function createSeoRouteEntries(docsIndex, documentsByPath, options = {}) 
     includeInSitemap: true,
   });
 
-  const defaultDocPath = getDefaultDocumentPath(documentationTree);
+  const navigationTree = options.documentationTree || documentationTree;
+  const defaultDocPath =
+    options.defaultDocumentPath || getDefaultDocumentPath(navigationTree);
   if (defaultDocPath) {
     registerDocsRouteVariants(registerRoute, '', defaultDocPath, documentsByPath, {
       ...routeOptions,
@@ -152,7 +154,7 @@ export function createSeoRouteEntries(docsIndex, documentsByPath, options = {}) 
     });
   }
 
-  for (const alias of getDirectoryAliasEntries(documentationTree)) {
+  for (const alias of getDirectoryAliasEntries(navigationTree)) {
     registerDocsRouteVariants(registerRoute, alias.routePath.replace(/^\/docs\/?/, ''), alias.docPath, documentsByPath, {
       ...routeOptions,
       includeInSitemap: false,

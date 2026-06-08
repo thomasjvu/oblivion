@@ -287,7 +287,7 @@ flowchart LR
   Agent --> WH
 ```
 
-[Onboarding runbook](/docs/developers/partner-onboarding) · OpenAPI: [`openapi-v1.yaml`](openapi-v1.yaml)
+[Onboarding runbook](/docs/developers/partner-onboarding) · [Interactive OpenAPI](/docs/developers/openapi) · [`openapi-v1.yaml`](openapi-v1.yaml)
 
 **Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case, discovery, execute, and AI — no user wallet required.
 
@@ -503,6 +503,7 @@ The Oblivion partner API is documented in the integration guide and formalized i
 
 - [Partner API guide](/docs/developers/partner-api) — auth, cases, webhooks, billing
 - [Partner onboarding](/docs/developers/partner-onboarding) — 30-minute design-partner checklist
+- [Interactive OpenAPI explorer](/docs/developers/openapi) — try endpoints and schemas in the browser
 - [OpenAPI v1 YAML](/openapi-v1.yaml) — machine-readable contract
 
 ## Base URL
@@ -517,6 +518,22 @@ curl -sS -H "Authorization: Bearer obl_live_..." \
 ## Local OpenAPI mirror
 
 The app also serves the same YAML at `/docs/openapi-v1.yaml` for partner demos that run against a local API server.
+
+---
+
+
+### OpenAPI Explorer
+
+URL: /docs/developers/openapi
+
+---
+title: Partner API Reference
+description: Interactive OpenAPI explorer for the Oblivion Partner API.
+---
+
+# Partner API Reference
+
+This page is served by the interactive OpenAPI viewer at `/docs/developers/openapi`.
 
 ---
 

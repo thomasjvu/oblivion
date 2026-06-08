@@ -9,6 +9,8 @@ import { extractTopLevelMarkdownTitle, stripMarkdownBom } from '../utils/markdow
 
 const logger = createLogger('Content');
 
+export type DocumentContentFormat = 'markdown' | 'html';
+
 export interface Document {
   path: string;
   content: string;
@@ -16,6 +18,7 @@ export interface Document {
   description?: string;
   frontmatter?: Record<string, unknown>;
   sourcePath?: string;
+  contentFormat?: DocumentContentFormat;
 }
 
 export interface DocumentVariantOptions {
@@ -37,6 +40,7 @@ interface GeneratedDocumentResponse {
   description?: string;
   frontmatter?: Record<string, unknown>;
   sourcePath?: string;
+  contentFormat?: DocumentContentFormat;
 }
 
 let cachedContent: DocsIndexResponse | null = null;
@@ -116,7 +120,28 @@ async function fetchDocument(path: string, options: DocumentVariantOptions = {})
     description: rawDocument.description,
     frontmatter: rawDocument.frontmatter,
     sourcePath: rawDocument.sourcePath,
+    contentFormat: rawDocument.contentFormat || 'markdown',
   };
+}
+
+export function prefetchDocument(path: string, options: DocumentVariantOptions = {}): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const href = getDocumentAssetUrl(path, options);
+  const existing = document.head.querySelector(`link[data-prefetch-doc="${href}"]`);
+  if (existing) {
+    return;
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'prefetch';
+  link.as = 'fetch';
+  link.href = href;
+  link.crossOrigin = 'anonymous';
+  link.setAttribute('data-prefetch-doc', href);
+  document.head.appendChild(link);
 }
 
 export async function getDocument(
