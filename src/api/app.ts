@@ -315,6 +315,16 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      if (method === "GET" && url.pathname === "/llms") {
+        redirectToDocs(response, "/llms", process.env.NODE_ENV === "production");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/llms.txt") {
+        redirectToDocs(response, "/llms.txt", process.env.NODE_ENV === "production");
+        return;
+      }
+
       if (method === "GET" && (url.pathname === "/favicon.ico" || url.pathname === "/favicon.svg")) {
         const faviconPath = join(publicDir, "favicon.svg");
         const svg = await readFile(faviconPath, "utf8");

@@ -77,6 +77,14 @@ test("serves split frontend assets with restrictive security headers", async () 
     const pricing = await fetch(`${base}/pricing`, { redirect: "manual" });
     assert.equal(pricing.status, 302);
     assert.match(pricing.headers.get("location") ?? "", /\/docs\/pricing$/);
+
+    const llms = await fetch(`${base}/llms`, { redirect: "manual" });
+    assert.equal(llms.status, 302);
+    assert.match(llms.headers.get("location") ?? "", /\/llms$/);
+
+    const llmsTxt = await fetch(`${base}/llms.txt`, { redirect: "manual" });
+    assert.equal(llmsTxt.status, 302);
+    assert.match(llmsTxt.headers.get("location") ?? "", /\/llms\.txt$/);
   } finally {
     server.close();
   }

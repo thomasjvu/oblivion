@@ -1,51 +1,63 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/user-guide/overview</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/user-guide/overview</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/user-guide/templates</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/user-guide/templates</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/pricing</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/pricing</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/partner-api</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/partner-api</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/partner-onboarding</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/partner-onboarding</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/api-reference</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/api-reference</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/openapi</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/openapi</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/hackathon-demo</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/hackathon-demo</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/developers/security</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/security</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/legal/privacy</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/llms</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
   <url>
-    <loc>https://oblivion-docs.phantasy.bot/docs/legal/terms</loc>
-    <lastmod>2026-06-08T14:35:11.530Z</lastmod>
+    <loc>https://oblivion-docs.pages.dev/docs/legal/privacy</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
+  </url>
+  <url>
+    <loc>https://oblivion-docs.pages.dev/docs/legal/terms</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
+  </url>
+  <url>
+    <loc>https://oblivion-docs.pages.dev/llms.txt</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
+  </url>
+  <url>
+    <loc>https://oblivion-docs.pages.dev/llms-full.txt</loc>
+    <lastmod>2026-06-08T15:00:54.407Z</lastmod>
   </url>
 </urlset>

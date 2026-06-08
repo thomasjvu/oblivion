@@ -1,35 +1,21 @@
 # LLMs.txt
 
-This template generates AI-facing text exports from the docs corpus.
+Oblivion publishes machine-readable documentation exports for AI tools, agents, and internal automation.
 
-## Generated Files
+## Generated files
 
-- `/llms.txt`
-- `/llms-full.txt`
+- `/llms.txt` — summary index with canonical doc links
+- `/llms-full.txt` — full text corpus for retrieval workflows
 
-## Why They Exist
+## Why they exist
 
-These files give AI tools and internal agents a clean text entry point without requiring them to crawl the full UI.
+These files give AI systems a stable text entry point without crawling the interactive docs UI.
 
-## How They Are Generated
+## Updates
 
-`npm run build` runs `scripts/generate-llms.mjs` automatically.
+Exports refresh automatically when the docs site is rebuilt. Published pages in the docs tree are included in both files.
 
-If you only want to refresh AI exports while writing, run:
-
-```bash
-npm run generate:llms
-```
-
-## When To Regenerate
-
-Regenerate after:
-
-- changing Markdown content
-- renaming or restructuring docs sections
-- updating docs metadata that should appear in exported summaries
-
-## Helpful Links
+## Helpful links
 
 <a href="/llms.txt" class="download-link" data-file="llms.txt">Download llms.txt</a>
 

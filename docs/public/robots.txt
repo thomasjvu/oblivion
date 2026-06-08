@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://oblivion-docs.phantasy.bot/sitemap.xml
+Sitemap: https://oblivion-docs.pages.dev/sitemap.xml

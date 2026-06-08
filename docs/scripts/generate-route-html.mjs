@@ -133,6 +133,10 @@ async function generateRouteHtml() {
   const templateHtml = readFileSync(indexHtmlPath, 'utf8');
 
   for (const entry of routeEntries) {
+    if (/\.(txt|xml|json|yaml|yml|ico|svg|png|webp|woff2?)$/i.test(entry.routePath)) {
+      continue;
+    }
+
     const canonicalUrl = buildAbsoluteUrl(entry.canonicalPath, siteUrl) || entry.canonicalPath;
     const pageUrl = buildAbsoluteUrl(entry.canonicalPath, siteUrl) || entry.canonicalPath;
     const imageUrl = buildAbsoluteUrl(DEFAULT_OG_IMAGE_PATH, siteUrl) || DEFAULT_OG_IMAGE_PATH;

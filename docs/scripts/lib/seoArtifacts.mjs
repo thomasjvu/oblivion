@@ -189,6 +189,24 @@ export function createSeoRouteEntries(docsIndex, documentsByPath, options = {}) 
   }
 
   registerRoute({
+    routePath: '/llms.txt',
+    canonicalPath: '/llms.txt',
+    title: `llms.txt | ${siteName}`,
+    description: 'Machine-readable documentation index for AI tools and agents.',
+    type: 'article',
+    includeInSitemap: true,
+  });
+
+  registerRoute({
+    routePath: '/llms-full.txt',
+    canonicalPath: '/llms-full.txt',
+    title: `llms-full.txt | ${siteName}`,
+    description: 'Full-text documentation export for AI tools and agents.',
+    type: 'article',
+    includeInSitemap: true,
+  });
+
+  registerRoute({
     routePath: '/404.html',
     canonicalPath: '/404.html',
     title: `Not Found | ${siteName}`,

@@ -190,6 +190,12 @@ export const documentationTree = [
     ],
   },
   {
+    type: 'file',
+    name: 'LLMs.txt',
+    path: 'llms',
+    tags: ['llms', 'ai', 'exports'],
+  },
+  {
     type: 'directory',
     name: 'Legal',
     path: 'legal',

@@ -1,0 +1,9 @@
+{
+  "path": "llms",
+  "title": "LLMs.txt",
+  "description": "Oblivion publishes machine-readable documentation exports for AI tools, agents, and internal automation.",
+  "frontmatter": {},
+  "content": "# LLMs.txt\n\nOblivion publishes machine-readable documentation exports for AI tools, agents, and internal automation.\n\n## Generated files\n\n- `/llms.txt` — summary index with canonical doc links\n- `/llms-full.txt` — full text corpus for retrieval workflows\n\n## Why they exist\n\nThese files give AI systems a stable text entry point without crawling the interactive docs UI.\n\n## Updates\n\nExports refresh automatically when the docs site is rebuilt. Published pages in the docs tree are included in both files.\n\n## Helpful links\n\n<a href=\"/llms.txt\" class=\"download-link\" data-file=\"llms.txt\">Download llms.txt</a>\n\n<a href=\"/llms-full.txt\" class=\"download-link\" data-file=\"llms-full.txt\">Download llms-full.txt</a>\n\n<a href=\"#\" class=\"copy-link\" data-url=\"/llms.txt\">Copy llms.txt URL</a>\n\n## Preview\n\n{llms-preview}",
+  "contentFormat": "markdown",
+  "sourcePath": "src/docs/content/llms.md"
+}

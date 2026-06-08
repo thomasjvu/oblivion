@@ -24,7 +24,7 @@ test("docsUrl falls back to oblivion docs host", () => {
   try {
     assert.equal(
       docsUrl("/docs/user-guide/overview"),
-      "https://oblivion-docs.phantasy.bot/docs/user-guide/overview"
+      "https://oblivion-docs.pages.dev/docs/user-guide/overview"
     );
   } finally {
     if (previous !== undefined) {

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-08T03:01:29.478Z",
+  "generated": "2026-06-08T15:00:18.969Z",
   "paths": [
     "user-guide/overview",
     "user-guide/templates",
@@ -10,10 +10,11 @@
     "developers/openapi",
     "developers/hackathon-demo",
     "developers/security",
+    "llms",
     "legal/privacy",
     "legal/terms"
   ],
-  "count": 11,
+  "count": 12,
   "titles": {
     "user-guide/overview": "Oblivion — User Guide",
     "user-guide/templates": "Cleanup Templates",
@@ -24,6 +25,7 @@
     "developers/openapi": "Partner API Reference",
     "developers/hackathon-demo": "Hackathon Demo",
     "developers/security": "Trust & Security",
+    "llms": "LLMs.txt",
     "legal/privacy": "Privacy Policy",
     "legal/terms": "Terms of Service"
   }
