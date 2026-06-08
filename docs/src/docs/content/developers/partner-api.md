@@ -3,7 +3,7 @@
 Embed broker cleanup **without becoming a data custodian**. Raw identifiers stay in the **user's browser vault** (AES-256-GCM). Your servers get `caseId`, redacted labels, exposure URLs, and webhooks.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph Partner["Your backend"]
     API[Partner API key]
     WH[Webhook handler]
@@ -22,7 +22,8 @@ flowchart LR
 
   API --> Case
   Vault --> Case
-  Case --> Agent --> Gate
+  Case --> Agent
+  Agent --> Gate
   Gate --> UI
   UI --> Gate
   Agent --> WH

@@ -3,7 +3,7 @@
 30-minute path to a working people-search integration.
 
 ```mermaid
-flowchart LR
+flowchart TB
   A[1. Credentials] --> B[2. Webhooks]
   B --> C[3. SDK + vault]
   C --> D[4. Demo checklist]

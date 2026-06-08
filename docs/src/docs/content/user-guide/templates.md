@@ -5,17 +5,25 @@ Pick the goal that matches your cleanup. Each template asks for different identi
 [User guide](/docs/user-guide/overview)
 
 ```mermaid
-flowchart LR
-  A[Encrypt in browser] --> B[Trust check]
-  B --> C[Find exposures]
-  C --> D{Review matches?}
-  D -->|yes| E[Confirm links]
-  D -->|skip| F[Plan removal]
-  E --> F
-  F --> G[Draft request]
-  G --> H[You approve]
-  H --> I[Record or send]
-  I --> J[Schedule recheck]
+flowchart TB
+  subgraph intake["1 · Intake"]
+    A[Encrypt in browser] --> B[Trust check]
+  end
+
+  subgraph discover["2 · Discover"]
+    B --> C[Find exposures]
+    C --> D{Review matches?}
+    D -->|yes| E[Confirm links]
+    D -->|skip| F[Plan removal]
+    E --> F
+  end
+
+  subgraph act["3 · Act"]
+    F --> G[Draft request]
+    G --> H[You approve]
+    H --> I[Record or send]
+    I --> J[Schedule recheck]
+  end
 ```
 
 ---

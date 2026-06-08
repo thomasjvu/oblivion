@@ -7,7 +7,7 @@ Private cleanup agent for people-search listings, breach checks, and search supp
 Use the **agent panel** (right on desktop, bottom on mobile). Tap **Continue** when prompted.
 
 ```mermaid
-flowchart LR
+flowchart TB
   Start[Start case + vault] --> Discover[Find exposures]
   Discover --> Review[Confirm matches]
   Review --> Approve[Approve disclosure]

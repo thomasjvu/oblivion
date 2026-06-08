@@ -3,13 +3,13 @@
 Oblivion uses a **wallet credit balance** — not per-case chat caps. Pay with **USDC on Base** via x402 and scoped payment permissions. Credits fund Venice AI and live operator email relay. **Every disclosure still needs your explicit approval.**
 
 ```mermaid
-flowchart LR
+flowchart TB
   Wallet[Connect wallet] --> Buy[Buy with USDC]
-  Buy --> Starter["Starter pack: $5 for 500 credits"]
-  Buy --> Monitor["Monitor: $10/mo for 1200 credits"]
+  Buy --> Starter["Starter pack: $5 → 500 credits"]
+  Buy --> Monitor["Monitor: $10/mo → 1200 credits"]
   Starter --> Balance[Wallet balance]
   Monitor --> Balance
-  Balance --> Venice["Venice AI: 1 credit per 100 tokens"]
+  Balance --> Venice["Venice AI: 1 credit / 100 tokens"]
   Balance --> Email["Email relay: 25 credits"]
   Balance --> Approve[You approve each send]
 ```

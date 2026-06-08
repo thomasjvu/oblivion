@@ -5,10 +5,8 @@
 ```mermaid
 flowchart TB
   subgraph UI["Oblivion app"]
-    Start[Start case]
-    Vault[Browser vault]
-    Agent[Agent panel]
-    Approvals[Approval cards]
+    Start[Start case] --> Vault[Browser vault] --> Agent[Agent panel]
+    Agent --> Approvals[Approval cards]
     Settings[Settings]
     Trust[Trust tab]
   end
@@ -28,15 +26,14 @@ flowchart TB
     Relay[1Shot relayer]
   end
 
-  Start --> Vault --> Agent
-  Agent --> Policy --> Approvals --> Confirm
   Encrypt --> Agent
+  Agent --> Policy --> Approvals --> Confirm
   Redact --> Venice
   Settings --> Wallet
   Settings --> Pay --> Venice
   Settings --> Agents
   Settings --> Relay
-  Trust --> Gates
+  Trust --> Policy
 ```
 
 Checklist status: **Settings → Developer details** or `GET /api/hackathon/status?caseId=...`

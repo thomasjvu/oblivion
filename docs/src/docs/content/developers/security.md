@@ -13,7 +13,7 @@ flowchart TB
   subgraph Server["Oblivion server"]
     Cipher[Encrypted intake only]
     Policy[Policy check]
-    Redact[Redaction]
+    Redact[Redaction layer]
     Credits[Credit ledger]
     Record[Practice-run default]
   end
@@ -23,15 +23,12 @@ flowchart TB
     Plain[Managed plaintext window]
   end
 
-  Vault --> Cipher
-  Cipher --> Policy
+  Vault --> Cipher --> Policy
   Wallet --> Credits
-  Policy --> Confirm
-  Confirm --> Record
+  Policy --> Confirm --> Record
   Credits --> Record
-  Quote --> Plain
-  Plain --> Record
   Redact --> Record
+  Quote --> Plain --> Record
 ```
 
 ---

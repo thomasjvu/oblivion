@@ -19,7 +19,7 @@ Private cleanup agent for people-search listings, breach checks, and search supp
 Use the **agent panel** (right on desktop, bottom on mobile). Tap **Continue** when prompted.
 
 ```mermaid
-flowchart LR
+flowchart TB
   Start[Start case + vault] --> Discover[Find exposures]
   Discover --> Review[Confirm matches]
   Review --> Approve[Approve disclosure]
@@ -93,17 +93,25 @@ Pick the goal that matches your cleanup. Each template asks for different identi
 [User guide](/docs/user-guide/overview)
 
 ```mermaid
-flowchart LR
-  A[Encrypt in browser] --> B[Trust check]
-  B --> C[Find exposures]
-  C --> D{Review matches?}
-  D -->|yes| E[Confirm links]
-  D -->|skip| F[Plan removal]
-  E --> F
-  F --> G[Draft request]
-  G --> H[You approve]
-  H --> I[Record or send]
-  I --> J[Schedule recheck]
+flowchart TB
+  subgraph intake["1 · Intake"]
+    A[Encrypt in browser] --> B[Trust check]
+  end
+
+  subgraph discover["2 · Discover"]
+    B --> C[Find exposures]
+    C --> D{Review matches?}
+    D -->|yes| E[Confirm links]
+    D -->|skip| F[Plan removal]
+    E --> F
+  end
+
+  subgraph act["3 · Act"]
+    F --> G[Draft request]
+    G --> H[You approve]
+    H --> I[Record or send]
+    I --> J[Schedule recheck]
+  end
 ```
 
 ---
@@ -185,13 +193,13 @@ URL: /docs/pricing
 Oblivion uses a **wallet credit balance** — not per-case chat caps. Pay with **USDC on Base** via x402 and scoped payment permissions. Credits fund Venice AI and live operator email relay. **Every disclosure still needs your explicit approval.**
 
 ```mermaid
-flowchart LR
+flowchart TB
   Wallet[Connect wallet] --> Buy[Buy with USDC]
-  Buy --> Starter["Starter pack: $5 for 500 credits"]
-  Buy --> Monitor["Monitor: $10/mo for 1200 credits"]
+  Buy --> Starter["Starter pack: $5 → 500 credits"]
+  Buy --> Monitor["Monitor: $10/mo → 1200 credits"]
   Starter --> Balance[Wallet balance]
   Monitor --> Balance
-  Balance --> Venice["Venice AI: 1 credit per 100 tokens"]
+  Balance --> Venice["Venice AI: 1 credit / 100 tokens"]
   Balance --> Email["Email relay: 25 credits"]
   Balance --> Approve[You approve each send]
 ```
@@ -262,7 +270,7 @@ URL: /docs/developers/partner-api
 Embed broker cleanup **without becoming a data custodian**. Raw identifiers stay in the **user's browser vault** (AES-256-GCM). Your servers get `caseId`, redacted labels, exposure URLs, and webhooks.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph Partner["Your backend"]
     API[Partner API key]
     WH[Webhook handler]
@@ -281,7 +289,8 @@ flowchart LR
 
   API --> Case
   Vault --> Case
-  Case --> Agent --> Gate
+  Case --> Agent
+  Agent --> Gate
   Gate --> UI
   UI --> Gate
   Agent --> WH
@@ -406,7 +415,7 @@ URL: /docs/developers/partner-onboarding
 30-minute path to a working people-search integration.
 
 ```mermaid
-flowchart LR
+flowchart TB
   A[1. Credentials] --> B[2. Webhooks]
   B --> C[3. SDK + vault]
   C --> D[4. Demo checklist]
@@ -549,10 +558,8 @@ URL: /docs/developers/hackathon-demo
 ```mermaid
 flowchart TB
   subgraph UI["Oblivion app"]
-    Start[Start case]
-    Vault[Browser vault]
-    Agent[Agent panel]
-    Approvals[Approval cards]
+    Start[Start case] --> Vault[Browser vault] --> Agent[Agent panel]
+    Agent --> Approvals[Approval cards]
     Settings[Settings]
     Trust[Trust tab]
   end
@@ -572,15 +579,14 @@ flowchart TB
     Relay[1Shot relayer]
   end
 
-  Start --> Vault --> Agent
-  Agent --> Policy --> Approvals --> Confirm
   Encrypt --> Agent
+  Agent --> Policy --> Approvals --> Confirm
   Redact --> Venice
   Settings --> Wallet
   Settings --> Pay --> Venice
   Settings --> Agents
   Settings --> Relay
-  Trust --> Gates
+  Trust --> Policy
 ```
 
 Checklist status: **Settings → Developer details** or `GET /api/hackathon/status?caseId=...`
@@ -686,7 +692,7 @@ flowchart TB
   subgraph Server["Oblivion server"]
     Cipher[Encrypted intake only]
     Policy[Policy check]
-    Redact[Redaction]
+    Redact[Redaction layer]
     Credits[Credit ledger]
     Record[Practice-run default]
   end
@@ -696,15 +702,12 @@ flowchart TB
     Plain[Managed plaintext window]
   end
 
-  Vault --> Cipher
-  Cipher --> Policy
+  Vault --> Cipher --> Policy
   Wallet --> Credits
-  Policy --> Confirm
-  Confirm --> Record
+  Policy --> Confirm --> Record
   Credits --> Record
-  Quote --> Plain
-  Plain --> Record
   Redact --> Record
+  Quote --> Plain --> Record
 ```
 
 ---
