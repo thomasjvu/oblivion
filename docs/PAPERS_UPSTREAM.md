@@ -2,6 +2,8 @@
 
 The `docs/` directory is a [papers](https://github.com/thomasjvu/papers) documentation site with Oblivion-specific content under `src/docs/content/`.
 
+Only pages listed in `shared/documentation-config.js` (`documentationTree`) are published to the site, sitemap, and `llms.txt`. Other markdown under `src/docs/content/` is papers-template residue and is not public.
+
 ## Pull framework updates
 
 ```sh

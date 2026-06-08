@@ -66,7 +66,7 @@ Core cleanup (discovery, approvals, record-only steps) works **without** a walle
 - **Live operator email relay** — 25 credits per send when enabled
 - **x402 payment demos** — Smart Account / USDC on Base Sepolia
 
-Buy credits in **Settings → Payment rails**: **500 credits ($5)** starter or **1,200/month ($10)** monitor. See [Pricing](/docs/pricing).
+Buy credits in **Settings → Payment rails**: **Starter pack** — 500 credits ($5) — or **Monitor** — 1,200 credits/month ($10). See [Pricing](/docs/pricing).
 
 ---
 
@@ -88,91 +88,90 @@ URL: /docs/user-guide/templates
 
 # Cleanup Templates
 
-Seven **presets** define required identifiers, sources, disclosures, and typical timelines. Server is authoritative (`CLEANUP_PRESETS` in `cleanup.ts`); UI mirrors for selection only.
+Pick the goal that matches your cleanup. Each template asks for different identifiers and follows the same supervised workflow: discover, review, approve, then record or send.
 
-[User guide](/docs/user-guide/overview) · `GET /api/presets`
+[User guide](/docs/user-guide/overview)
 
 ```mermaid
 flowchart LR
-  A[Vault intake] --> B[Trust check]
-  B --> C[Discovery]
-  C --> D{Match review?}
+  A[Encrypt in browser] --> B[Trust check]
+  B --> C[Find exposures]
+  C --> D{Review matches?}
   D -->|yes| E[Confirm links]
-  D -->|skip| F[Removal path]
+  D -->|skip| F[Plan removal]
   E --> F
-  F --> G[Draft]
-  G --> H[Approve]
-  H --> I[Execute/record]
-  I --> J[Recheck]
+  F --> G[Draft request]
+  G --> H[You approve]
+  H --> I[Record or send]
+  I --> J[Schedule recheck]
 ```
 
 ---
 
 ## Pick a template
 
-| Goal | Preset | IDs needed | Match review |
-|------|--------|------------|--------------|
-| Remove Spokeo-style listings | `people-search-cleanup` | name, email, city/state | Yes |
-| Hide Google results | `search-result-suppression` | name, email | Skip |
-| California DROP | `california-drop` | name, email, address | Skip |
-| EU/UK erasure | `gdpr-erasure` | name, email | Skip |
-| Breach check | `breach-exposure` | email | Skip |
-| Urgent address/relative exposure | `high-risk-safety` | name, address, relative | Yes |
-| Copied content takedown | `content-takedown` | name, email, URL, work ref | Yes |
+| Goal | Template | What you provide | Review each match? |
+|------|----------|------------------|-------------------|
+| Remove people-search listings | People-search cleanup | Name, email, city/state | Yes |
+| Hide Google results | Search suppression | Name, email | No |
+| California DROP request | California DROP | Name, email, address | No |
+| EU/UK erasure | GDPR erasure | Name, email | No |
+| Breach check | Breach exposure | Email | No |
+| Urgent address or relative exposure | High-risk safety | Name, address, relative | Yes |
+| Copied content takedown | Content takedown | Name, email, URL, work reference | Yes |
+
+Integrators: preset IDs and API details are in the [Partner API](/docs/developers/partner-api).
 
 ---
 
-## Shared workflow (11 steps + complete)
+## What happens on every template
 
-| Step | What happens |
-|------|----------------|
-| **collect-minimum-identifiers** | Browser vault → ciphertext + redacted labels only |
-| **verify-trust** | Phala TDX quote; sensitive connectors blocked until pass |
-| **discover-candidates** | Brave, broker catalog, official guidance URLs |
-| **confirm-matches** | You confirm each link (skipped for some presets) |
-| **verify-removal-path** | Official removal / rights paths |
-| **draft-actions** | Template text; Venice may refine if configured |
-| **request-approval** | Disclosure cards — nothing sends until you approve |
-| **execute-approved-action** | Record-only by default; live needs TEE + approval |
-| **await-confirmation** | Track replies |
-| **schedule-recheck** | 14–90 days depending on preset |
-| **complete** | Done; recheck later for recurrence |
+| Phase | What you experience |
+|-------|---------------------|
+| **Encrypt** | Identifiers stay in your browser vault; the server sees ciphertext and redacted labels only |
+| **Trust check** | Production deployments verify hardware attestation before sensitive live sends |
+| **Discover** | Oblivion finds candidate listings, breach signals, or guidance URLs |
+| **Review** | You confirm or reject each match (some templates skip this) |
+| **Plan removal** | Official opt-out, suppression, or rights paths are identified |
+| **Draft** | Request text is prepared; AI can refine if you have credits |
+| **Approve** | You read each disclosure card — nothing sends without your confirmation |
+| **Execute** | Default is a logged practice run with handoff steps; live sends need trust verification + approval |
+| **Follow up** | Replies are tracked; recheck is scheduled (typically 14–90 days) |
+| **Complete** | Case finishes; you can return later if listings reappear |
 
-**Autonomy:** `approval-gated` (default) = one card per destination. `high-autonomy` = batched cards — still requires explicit approve.
+**Autonomy:** Default mode shows one approval per destination. High-autonomy batches cards — you still approve each batch explicitly.
 
 ---
 
-## Key connectors per preset
+## What each template focuses on
 
-| Preset | Connectors | Live / TEE |
-|--------|------------|------------|
-| people-search | broker sweep, guidance, opt-out live, DROP | opt-out live needs TEE |
-| search suppression | google-removal-plan | User handoff only |
-| california-drop | california-drop-guided | User handoff |
-| gdpr-erasure | gdpr-template, google-removal-plan | Record / handoff |
-| breach-exposure | hibp-email, hibp-password-range | email needs TEE; password prefix-only |
-| high-risk-safety | same family as people-search | opt-out live needs TEE |
-| content-takedown | dmca drafter, platform abuse | platform-abuse-live needs TEE |
+- **People-search cleanup** — broker listings, opt-out paths, California DROP guidance where relevant
+- **Search suppression** — Google removal planning; you complete submission on Google’s site
+- **California DROP** — guided state registry workflow
+- **GDPR erasure** — erasure templates plus search suppression planning
+- **Breach exposure** — email breach check; password check uses prefix-only ranges, never full passwords
+- **High-risk safety** — same discovery family as people-search with stricter match review
+- **Content takedown** — DMCA-style drafts and platform abuse paths
 
 ---
 
 ## Never automatic
 
-- Raw identifiers leaving the vault without approval
-- Live email/broker without TEE pass
-- Passwords, SSNs, breach-dump searches (policy-blocked)
-- Broad consent — each action binds destination, categories, purpose, expiry
+- Raw identifiers leaving the vault without your approval
+- Live email or broker submission without production trust verification
+- Passwords, SSNs, or breach-dump searches
+- Broad consent — each action names destination, categories, purpose, and expiry
 
 ---
 
-## Record-only vs live
+## Practice run vs live send
 
-| Mode | Behavior |
-|------|----------|
-| `record-only` (default) | Logged actions + handoff instructions |
-| `live` | TEE-gated connectors may transmit approval-bound data |
+| Mode | What it means |
+|------|----------------|
+| **Practice run** (default) | Actions are logged with clear handoff instructions for you to complete |
+| **Live send** | After you approve, Oblivion may transmit only the approved data — requires production trust verification |
 
-Sensitive (`requiresManagedPlaintext`): `hibp-email`, `broker-opt-out-live`, `platform-abuse-live` — need `GET /api/trust/attestation` → `verifierResult: "pass"`.
+[Open Oblivion](https://oblivion.phantasy.bot)
 
 ---
 
@@ -183,16 +182,16 @@ URL: /docs/pricing
 
 # Pricing
 
-Oblivion uses a **wallet credit balance** — not per-case chat caps. Pay with **USDC on Base** via x402 + scoped ERC-7710 permissions. Credits fund Venice AI and live operator email relay. **Every disclosure still needs your explicit approval.**
+Oblivion uses a **wallet credit balance** — not per-case chat caps. Pay with **USDC on Base** via x402 and scoped payment permissions. Credits fund Venice AI and live operator email relay. **Every disclosure still needs your explicit approval.**
 
 ```mermaid
 flowchart LR
-  Wallet[Connect wallet] --> Buy[x402 USDC purchase]
-  Buy --> Starter["credit-starter: $5 → 500 credits"]
-  Buy --> Monitor["credit-monitor: $10/mo → 1200 credits"]
+  Wallet[Connect wallet] --> Buy[Buy with USDC]
+  Buy --> Starter["Starter pack: $5 for 500 credits"]
+  Buy --> Monitor["Monitor: $10/mo for 1200 credits"]
   Starter --> Balance[Wallet balance]
   Monitor --> Balance
-  Balance --> Venice["Venice: 1 credit / 100 tokens"]
+  Balance --> Venice["Venice AI: 1 credit per 100 tokens"]
   Balance --> Email["Email relay: 25 credits"]
   Balance --> Approve[You approve each send]
 ```
@@ -203,12 +202,12 @@ flowchart LR
 
 ## Products
 
-| Product | Price | Credits | Endpoint |
-|---------|-------|---------|----------|
-| **credit-starter** | **$5 USDC** | **500** (one-time) | `POST /api/credits/purchase` |
-| **credit-monitor** | **$10 USDC/mo** | **1,200** (monthly refill) | `POST /api/credits/monitor` |
+| Product | Price | Credits | API |
+|---------|-------|---------|-----|
+| **Starter pack** (`credit-starter`) | **$5 USDC** | **500** (one-time) | `POST /api/credits/purchase` |
+| **Monitor** (`credit-monitor`) | **$10 USDC/mo** | **1,200** (monthly refill) | `POST /api/credits/monitor` |
 
-Buy in the app: **Settings → Payment rails**. ERC-7710 scoped payment permission required before settlement.
+Buy in the app: **Settings → Payment rails**. A scoped payment permission is required before settlement.
 
 ---
 
@@ -220,55 +219,31 @@ Buy in the app: **Settings → Payment rails**. ERC-7710 scoped payment permissi
 | Venice classify / draft / review | Same token metering |
 | Live operator email relay | 25 credits per send |
 
-**Token budget** scales with balance (roughly 120–4,000 max tokens per request). No fixed “5 chats” or “6 analyses” — usage is metered until credits run out.
+**Token budget** scales with balance (roughly 120–4,000 max tokens per request). Usage is metered until credits run out — there are no fixed per-plan chat caps.
 
-Core cleanup (discovery, approvals, record-only execution) works **without** credits. Venice AI and live email relay require a connected wallet with sufficient balance.
-
----
-
-## Check balance
-
-```sh
-curl -s "http://localhost:8080/api/credits/balance?walletAddress=0xYourWallet" | jq
-```
-
-Also: `GET /api/credits/catalog` and `GET /api/x402/products` (products + rates).
+Core cleanup (discovery, approvals, practice-run execution) works **without** credits. Venice AI and live email relay require a connected wallet with sufficient balance.
 
 ---
 
 ## How it works
 
 1. Connect wallet (sidebar)
-2. Open **Settings → Payment rails** → buy starter or subscribe to monitor
-3. x402 settles USDC → credits land on your wallet balance
+2. Open **Settings → Payment rails** → buy Starter pack or subscribe to Monitor
+3. USDC settles via x402 → credits land on your wallet balance
 4. Venice and live relay debit credits per use
 5. Approvals still gate every external disclosure
-
-Legacy session endpoints (`POST /api/x402/one-off`, `POST /api/agent/premium-task`) still exist; the UI uses `/api/credits/purchase` and `/api/credits/monitor`.
-
----
-
-## Env overrides (operators)
-
-| Variable | Default |
-|----------|---------|
-| `OBLIVION_STARTER_PACK_CREDITS` | 500 |
-| `OBLIVION_MONITOR_MONTHLY_CREDITS` | 1200 |
-| `OBLIVION_CREDITS_PER_100_TOKENS` | 1 |
-| `OBLIVION_EMAIL_RELAY_CREDITS` | 25 |
-| `OBLIVION_CREDITS_PER_USD` | 100 (partner invoice estimates) |
-
-Dev only: `OBLIVION_CREDITS_BYPASS=true` or `OBLIVION_AI_BYPASS_PAYMENT=true`.
 
 ---
 
 ## FAQ
 
-**Switch later?** Settings → Payment rails — starter top-up or monitor subscription.
+**Switch later?** Settings → Payment rails — Starter top-up or Monitor subscription.
 
 **Bypass approvals?** No — credits fund AI and relay capacity only.
 
 **Partner integrations?** See [Partner API](/docs/developers/partner-api) — separate metered pool, no wallet required.
+
+**Running your own server?** See [SECURITY.md](https://github.com/thomasjvu/oblivion/blob/main/SECURITY.md) and [README](https://github.com/thomasjvu/oblivion/blob/main/README.md) for operator configuration.
 
 [Open Oblivion](https://oblivion.phantasy.bot)
 
@@ -294,14 +269,14 @@ flowchart LR
   end
 
   subgraph User["User browser"]
-    Vault[vault-sdk encrypt]
-    UI[approval panel]
+    Vault[Vault SDK encrypt]
+    UI[Approval panel]
   end
 
   subgraph Oblivion["Oblivion /v1"]
-    Case[case + preset]
-    Agent[discover + run]
-    Gate[policy + approve]
+    Case[Case + template]
+    Agent[Discover + run]
+    Gate[Policy + approve]
   end
 
   API --> Case
@@ -314,22 +289,24 @@ flowchart LR
 
 [Onboarding runbook](/docs/developers/partner-onboarding) · OpenAPI: [`openapi-v1.yaml`](openapi-v1.yaml)
 
-**Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case/discovery/execute/AI — no user wallet required.
+**Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case, discovery, execute, and AI — no user wallet required.
 
 ---
 
 ## Quick start
 
-```sh
-OBLIVION_PARTNER_KEYS=acme:obl_live_your_secret_key
-```
+Configure partner API keys when you deploy Oblivion ([README](https://github.com/thomasjvu/oblivion/blob/main/README.md)). Use sandbox keys for development.
 
 1. `POST /v1/cases` — jurisdiction, `externalRef`
 2. **Browser:** `@oblivion/vault-sdk` → encrypt intake → `POST /v1/cases/:id/intake`
 3. `POST /v1/cases/:id/preset` → `/discover` → `/run`
-4. Surface approval cards — user types `userConfirmation` (≥8 chars). **API key cannot approve.**
+4. Surface approval cards — user types confirmation (≥8 chars). **API key cannot approve.**
 
 Demo: `examples/partner-demo/index.html`
+
+```sh
+curl -sS -H "Authorization: Bearer obl_live_..." http://localhost:8080/v1/partners/me
+```
 
 ---
 
@@ -341,18 +318,18 @@ Demo: `examples/partner-demo/index.html`
 | Intake | `encryptedIntake` + `redactedScope` | Key never leaves browser |
 | Discovery | URLs, scores, redacted snippets | — |
 | Approve | Destination, categories, purpose | User confirms |
-| Execute | Status, `recorded` / `live` | Browser handoff after approve |
+| Execute | Status, recorded or live | Browser handoff after approve |
 
 `GET /v1/trust/attestation` — no auth required.
 
 ---
 
-## Presets (v1)
+## Templates (v1)
 
 - `people-search-cleanup` — broker discovery + opt-out
-- `breach-exposure` — HIBP email + password range (prefix-only)
+- `breach-exposure` — breach email check + password range (prefix-only)
 
-Live broker submission needs TEE `pass` + user approval.
+Live broker submission needs production trust verification and user approval.
 
 ---
 
@@ -362,9 +339,9 @@ Live broker submission needs TEE `pass` + user approval.
 |--------|---------|
 | `OblivionApprovalPanel` | Disclosure cards + user confirmation |
 | `OblivionStatusPanel` | Phase, pending approvals, recheck |
-| `OblivionStatusBadge` | TEE / local runtime indicator |
+| `OblivionStatusBadge` | Trust / runtime indicator |
 
-**Sandbox:** `OBLIVION_PARTNER_SANDBOX_KEYS` → `environment: "sandbox"` in `GET /v1/partners/me`
+**Sandbox:** use sandbox-issued keys; `GET /v1/partners/me` returns `environment: "sandbox"`.
 
 **Rotate:** `POST /v1/partners/me/rotate-key` — new key returned once.
 
@@ -376,7 +353,7 @@ Live broker submission needs TEE `pass` + user approval.
 |--------|------|---------|
 | `POST` | `/v1/cases` | Create (idempotent on `externalRef`) |
 | `POST` | `/v1/cases/:id/intake` | Encrypted intake (browser) |
-| `POST` | `/v1/cases/:id/preset` | Start preset |
+| `POST` | `/v1/cases/:id/preset` | Start template |
 | `POST` | `/v1/cases/:id/discover` | Exposure discovery |
 | `POST` | `/v1/cases/:id/run` | One agent step |
 | `POST` | `/v1/cases/:id/run-until-blocked` | Until approval/blocked/complete |
@@ -390,6 +367,8 @@ Live broker submission needs TEE `pass` + user approval.
 | `GET` | `/v1/partners/me/usage` | Metering |
 | `POST` | `/v1/billing/invoices/close` | Close period invoice |
 
+Full request/response shapes: [OpenAPI v1](/openapi-v1.yaml)
+
 ---
 
 ## Webhooks
@@ -402,23 +381,12 @@ Retries: `GET /v1/webhooks/deliveries?status=failed` · `POST .../retry`
 
 ---
 
-## Billing (credit pool)
-
-| Meter | Default credits |
-|-------|-----------------|
-| Case create | 10 |
-| Discovery | 5 |
-| Execute | 15 |
-| AI (Venice) | 2 / 100 tokens (min 2) |
-
----
-
 ## Never do
 
 - Decrypt `encryptedIntake` server-side
 - Approve with partner API key only
 - Auto-approve or bypass gates
-- Send raw PII to your LLM/analytics
+- Send raw PII to your LLM or analytics
 
 ```sh
 npm install @oblivion/partner-sdk @oblivion/vault-sdk
@@ -444,17 +412,13 @@ flowchart LR
   C --> D[4. Demo checklist]
 ```
 
-**Prerequisites:** Oblivion API (local or Phala) · HTTPS webhook URL (or dev inbox) · browser page for vault + approvals
+**Prerequisites:** Oblivion API (local or hosted) · HTTPS webhook URL (or dev inbox) · browser page for vault + approvals
 
 ---
 
 ## 1. Credentials (5 min)
 
-```sh
-OBLIVION_PARTNER_KEYS=yourco:obl_live_...
-# or sandbox:
-OBLIVION_PARTNER_SANDBOX_KEYS=yourco-sandbox:obl_sandbox_...
-```
+Issue partner API keys when you deploy Oblivion ([README](https://github.com/thomasjvu/oblivion/blob/main/README.md)). Use sandbox keys for local development.
 
 ```sh
 curl -s http://localhost:8080/v1/partners/me -H "Authorization: Bearer obl_live_..."
@@ -546,7 +510,7 @@ The Oblivion partner API is documented in the integration guide and formalized i
 Production partner routes use `/v1/*` on your Oblivion deployment. Local development defaults to `http://localhost:8080`.
 
 ```sh
-curl -sS -H "Authorization: Bearer $OBLIVION_PARTNER_KEY" \
+curl -sS -H "Authorization: Bearer obl_live_..." \
   http://localhost:8080/v1/partners/me
 ```
 
@@ -563,121 +527,62 @@ URL: /docs/developers/hackathon-demo
 
 # Hackathon Demo
 
-Private identity cleanup: encrypted intake, explicit approvals, crypto-native permissions. **Every adapter runs behind the same gates** — vault, propose → approve → execute, redaction, attestation. No checklist bypass.
+**3-minute judge walkthrough** for private identity cleanup: encrypted intake, explicit approvals, and crypto-native payment rails. Every integration demo runs behind the same safety gates — no checklist bypass.
 
 ```mermaid
 flowchart TB
-  subgraph uiLayer["Browser UI"]
-    Landing[Landing + presets]
-    Wallet[Connect wallet / Smart Account]
-    Agent[Agent dock + autopilot]
+  subgraph UI["Oblivion app"]
+    Start[Start case]
+    Vault[Browser vault]
+    Agent[Agent panel]
     Approvals[Approval cards]
-    Settings["Settings - Developer details"]
+    Settings[Settings]
     Trust[Trust tab]
   end
 
-  subgraph gatesLayer["Safety gates"]
-    Vault[Browser vault AES-GCM intake]
-    Policy[policy evaluateProposedAction]
-    Approve[Explicit userConfirmation]
-    Redact[redactText + sanitizeForLog]
-    TEE[assertSensitiveExecutionAllowed]
+  subgraph Gates["Safety gates"]
+    Encrypt[Encrypt intake]
+    Policy[Policy check]
+    Confirm[Your confirmation]
+    Redact[Redact logs and prompts]
   end
 
-  subgraph coreLayer["Core agent"]
-    Plan[AgentPlan + CLEANUP_PRESETS]
-    Orch[runCleanupAgentStep]
-    Exec[executeApprovedAction]
-    Conn[connectorRuntime live connectors]
+  subgraph Integrations["Hackathon tracks"]
+    Wallet[MetaMask Smart Account]
+    Pay[x402 credits]
+    Venice[Venice AI]
+    Agents[Sub-agent delegation]
+    Relay[1Shot relayer]
   end
 
-  subgraph mmLayer["MetaMask Smart Accounts"]
-    MMClient[wallet_sendCalls]
-    MMServer["POST metamask demo-session"]
-    E7702[EIP-7702 authorization grant]
-    E7715[ERC-7715 advanced permission]
-  end
-
-  subgraph payLayer["x402 + ERC-7710"]
-    X402Prep["POST credits purchase or monitor"]
-    X402Pay[x402Pay PAYMENT-SIGNATURE]
-    Credits[Wallet credit balance]
-    E7710[ERC-7710 PaymentAgent scope]
-  end
-
-  subgraph veniceLayer["Venice AI"]
-    VClassify[POST ai classify-case]
-    VDraft[POST ai draft-request]
-    VReview[POST ai review-approval]
-    VChat[POST agent chat]
-  end
-
-  subgraph a2aLayer["A2A redelegation"]
-    Delegate[POST agents delegate]
-    Scout[ScoutAgent]
-    Draft[DraftAgent]
-    Verifier[VerifierAgent]
-    Payment[PaymentAgent]
-  end
-
-  subgraph shotLayer["1Shot relayer"]
-    Relay[POST 1shot relay]
-    Webhook[POST 1shot webhook]
-    RelayerEvents[Relayer timeline + table]
-  end
-
-  VRedact[Redacted prompts only]
-
-  Landing --> Agent
-  Agent --> Plan --> Orch
-  Orch --> Approvals
-  Approvals --> Policy --> Approve --> Exec
-  Exec --> TEE --> Conn
-
-  Vault --> Orch
-  Redact --> VRedact
-  Redact --> Conn
-
-  Wallet --> MMClient --> MMServer --> E7702 --> E7715
-  Settings --> X402Prep --> E7710
-  Settings --> X402Prep --> X402Pay --> Credits --> E7710
-
-  Agent --> VClassify
-  Agent --> VDraft
-  Agent --> VReview
-  Agent --> VChat
-  VClassify --> VRedact
-  VDraft --> VRedact
-  VReview --> VRedact
-  VChat --> VRedact
-  Credits --> VChat
-
-  Settings --> Delegate
-  Delegate --> Scout
-  Delegate --> Draft
-  Delegate --> Verifier
-  Delegate --> Payment
-  Settings --> Relay --> RelayerEvents
-  Relay --> Webhook
-
-  Trust --> TEE
+  Start --> Vault --> Agent
+  Agent --> Policy --> Approvals --> Confirm
+  Encrypt --> Agent
+  Redact --> Venice
+  Settings --> Wallet
+  Settings --> Pay --> Venice
+  Settings --> Agents
+  Settings --> Relay
+  Trust --> Gates
 ```
 
-`GET /api/integrations/status` for live JSON snapshot.
+Checklist status: **Settings → Developer details** or `GET /api/hackathon/status?caseId=...`
 
 ---
 
-## Track matrix
+## 3-minute script
 
-| Track | Entry | Live when | Demo fallback |
-|-------|-------|-----------|---------------|
-| **Best Agent** | Presets, agent dock | Always | `record-only` executor |
-| **MetaMask** | Connect + Smart Account | `WALLET_LIVE_MODE=true` | Demo EIP-7702/7715 grants |
-| **x402 credits** | Payment rails | `X402_PAY_TO` + facilitator | `authorized` session without settlement |
-| **ERC-7710** | Scoped payment permission | Same as x402 | Demo delegation objects |
-| **Venice AI** | Classify / Draft / Chat | `VENICE_API_KEY` + wallet credits | 503 without key; 402 without credits |
-| **A2A** | Delegate sub-agents | `/api/agents/delegate` | In-memory scoped grants |
-| **1Shot** | Relay payment | `ONESHOT_API_KEY` | Finish-pending events |
+| Time | Show |
+|------|------|
+| 0:00–0:30 | Problem + encrypted vault intake |
+| 0:30–1:00 | Connect MetaMask Smart Account |
+| 1:00–1:20 | Finish pending tracks (developer checklist) |
+| 1:20–1:45 | Buy credits via x402 (if configured) |
+| 1:45–2:05 | Approval gate — read disclosure, confirm |
+| 2:05–2:25 | Execute (practice run or live) |
+| 2:25–2:45 | Venice AI + sub-agent delegation |
+| 2:45–2:55 | 1Shot relay (if live) |
+| 2:55–3:00 | Trust tab — attestation and safety invariants |
 
 ---
 
@@ -687,127 +592,91 @@ flowchart TB
 sequenceDiagram
   participant Judge
   participant UI as Oblivion UI
-  participant API as Node API
+  participant API as Oblivion API
   participant MM as MetaMask
   participant X402 as x402 facilitator
   participant Venice as Venice.ai
   participant Shot as 1Shot relayer
 
-  Judge->>UI: Create case + vault intake
+  Judge->>UI: Create case and vault intake
   Judge->>UI: Connect wallet
-  UI->>MM: wallet_sendCalls (if live)
-  UI->>API: POST /api/metamask/demo-session
+  UI->>MM: Smart Account calls (if live)
+  UI->>API: Register demo session
   Judge->>UI: Finish pending tracks
-  UI->>API: POST /api/hackathon/complete-pending
-  API->>Venice: classify (redacted)
-  Judge->>UI: Buy credits via x402 (if configured)
-  UI->>API: POST credits purchase, HTTP 402, PAYMENT-SIGNATURE
-  API->>API: settleCreditsForProduct credits wallet
-  Judge->>UI: Approve + Execute
+  UI->>API: Complete pending integrations
+  API->>Venice: Classify case (redacted)
+  Judge->>UI: Buy credits (if configured)
+  UI->>X402: USDC payment signature
+  API->>API: Credit wallet balance
+  Judge->>UI: Approve then execute
   opt Live 1Shot
-    UI->>API: POST /api/1shot/relay
+    UI->>API: Relay payment
     API->>Shot: JSON-RPC
   end
-  Judge->>API: GET /api/hackathon/status
+  Judge->>API: Fetch hackathon status
 ```
 
 ---
 
-## 3-minute script
+## Track matrix
 
-| Time | Show |
-|------|------|
-| 0:00–0:30 | Problem + encrypted intake |
-| 0:30–1:00 | MetaMask Smart Account |
-| 1:00–1:20 | Finish pending tracks (checklist) |
-| 1:20–1:45 | x402 pay (if configured) |
-| 1:45–2:05 | Approval gate |
-| 2:05–2:25 | Execute (record or live) |
-| 2:25–2:45 | Venice + A2A delegation |
-| 2:45–2:55 | 1Shot relay |
-| 2:55–3:00 | Trust tab / TEE invariant |
+| Track | Where to start | Demo mode | Live mode |
+|-------|----------------|-----------|-----------|
+| **Best Agent** | Presets + agent panel | Always works | Practice-run execution |
+| **MetaMask** | Connect wallet | Demo grants shown | Smart Account live calls |
+| **x402 credits** | Settings → Payment rails | Authorized session | Real USDC settlement |
+| **ERC-7710** | Payment rails permission | Demo delegation | Scoped live permission |
+| **Venice AI** | Agent chat / classify | Blocked without API key | Needs credits + key |
+| **A2A delegation** | Settings → delegate | In-memory scoped grants | Same API path |
+| **1Shot relay** | Settings → relay | Finish-pending events | Live JSON-RPC relay |
 
 ---
 
-## Environment (live tracks)
+## What to say about safety
 
-```sh
-VENICE_API_KEY=...
-X402_PAY_TO=0x...
-X402_FACILITATOR_URL=https://x402.org/facilitator
-WALLET_LIVE_MODE=true
-ONESHOT_API_KEY=...
-OBLIVION_EXECUTOR_MODE=live
-PHALA_ATTESTATION_URL=...
-```
-
-**Probes:**
-
-```sh
-curl -s localhost:8080/api/integrations/status | jq
-curl -s localhost:8080/api/x402/config | jq
-curl -s "localhost:8080/api/hackathon/status?caseId=CASE_ID" | jq
-```
-
-**Tests:** `npm test -- test/api/hackathon.test.ts test/domain/hackathon.test.ts`
+- **Demo data only** — use synthetic identity; never real SSNs or passwords in prompts or logs
+- **Local dev trust** — attestation shows not-configured until production trust center; sensitive live connectors are blocked by design
+- **Delegation** — scoped in-app grants for the demo, not a full external agent wire protocol
+- **Credits** — Starter pack (500 credits) and Monitor (1,200/month) fund Venice; approvals still required for every send
 
 ---
 
-## Key routes
+## Live tracks (operators)
 
-| Route | Purpose |
-|-------|---------|
-| `GET /api/integrations/status` | `liveReady.*` flags |
-| `POST /api/metamask/demo-session` | EIP-7702 + ERC-7715 |
-| `GET /api/credits/catalog` | Products + debit rates |
-| `POST /api/credits/purchase` \| `monitor` | x402 → wallet credits |
-| `GET /api/credits/balance` | Wallet credit balance |
-| `POST /api/ai/classify-case` \| `draft-request` \| `review-approval` | Venice (redacted) |
-| `POST /api/agent/chat` | Venice chat (credit-metered) |
-| `POST /api/agents/delegate` | A2A set |
-| `POST /api/1shot/relay` | Live relayer |
-| `POST /api/hackathon/complete-pending` | Batch-complete tracks |
-| `GET /api/hackathon/status?caseId=` | Checklist booleans |
+If you are hosting the demo with live integrations, configure API keys and payment rails per the repo [README](https://github.com/thomasjvu/oblivion/blob/main/README.md). Poll `GET /api/integrations/status` and `GET /api/hackathon/status?caseId=...` to verify readiness.
 
----
-
-## Safety + honesty
-
-- **Demo data only** — synthetic identity; no real SSNs/passwords in logs or Venice prompts
-- **Phala in local dev** — `verifierResult: not-configured` until prod trust center; sensitive connectors **blocked by design**
-- **A2A** — in-domain scoped grants, not external wire protocol
-- **x402** — settlement credits the wallet (`credit-starter` 500, `credit-monitor` 1200/mo); Venice debits per token use
+[Open Oblivion](https://oblivion.phantasy.bot)
 
 ---
 
 
-### Security
+### Trust & Security
 
 URL: /docs/developers/security
 
-# Security Model
+# Trust & Security
 
-Oblivion minimizes trust surface area. Third-party services (brokers, search engines, HIBP) may receive identifiers **only after you approve** a specific action.
+Oblivion minimizes trust surface area. Third-party services (brokers, search engines, breach checkers) may receive identifiers **only after you approve** a specific action.
 
 ```mermaid
 flowchart TB
-  subgraph Browser["Browser (user-held)"]
-    Vault[AES-GCM vault]
-    Confirm[userConfirmation]
+  subgraph Browser["Your browser"]
+    Vault[Encrypted vault]
+    Confirm[Your confirmation]
     Wallet[Wallet address]
   end
 
   subgraph Server["Oblivion server"]
-    Cipher[encryptedIntake only]
-    Policy[policy.ts]
-    Redact[redactText + sanitizeForLog]
-    Credits[Wallet credit ledger]
-    Record[record-only default]
+    Cipher[Encrypted intake only]
+    Policy[Policy check]
+    Redact[Redaction]
+    Credits[Credit ledger]
+    Record[Practice-run default]
   end
 
-  subgraph TEE["Phala CVM (production)"]
-    Quote[Intel TDX quote]
-    Plain[managed plaintext window]
+  subgraph TEE["Trusted environment (production)"]
+    Quote[Hardware attestation]
+    Plain[Managed plaintext window]
   end
 
   Vault --> Cipher
@@ -823,53 +692,46 @@ flowchart TB
 
 ---
 
-## Managed Oblivion
+## How Oblivion protects you
 
 | Control | What it does |
 |---------|----------------|
-| Client vault | Raw identifiers encrypted before persistence |
-| Server storage | Ciphertext + minimal redacted metadata |
-| Policy | Blocks actions before LLM/tool use |
-| Phala CVM | Production deployment target |
-| Trust Center | Attestation, compose hash, image digests, source commit |
-| Runtime guard | Sensitive connectors blocked unless TEE pass |
-| Record-only default | Live connectors behind approval gates |
-| Wallet credits | Venice AI + email relay metered; no PII in ledger metadata |
-
-## Installable skill
-
-`skills/clean-online-identity/SKILL.md` is a portable workflow for other agents. It does **not** prove the host agent, logs, or model provider are private.
-
-## Never store
-
-Passwords · full SSNs · government IDs · payment cards · recovery codes · unredacted identity documents
-
-## Approval boundary
-
-Every sensitive action binds: destination · action type · identifier categories · data disclosed · purpose · risk · expiry · **user confirmation**. Broad consent is rejected.
+| Browser vault | Raw identifiers encrypted before anything is stored server-side |
+| Server storage | Ciphertext plus minimal redacted metadata — not readable without your key |
+| Policy | Blocks disallowed actions before AI or external tools run |
+| Approval gates | Every sensitive send requires your explicit confirmation |
+| Trust center | Hardware attestation before live sensitive connectors in production |
+| Practice-run default | Live external sends stay behind approval and trust checks |
+| Wallet credits | AI and email relay are metered; ledger entries contain no PII |
 
 ---
 
-## Production checklist
+## Approval boundary
 
-1. **Build + pin** — digest-pinned image (`@sha256:`)
-2. **Deploy CVM** — `docker-compose.phala.yml`, secrets in Phala encrypted store
-3. **Sync trust** — `npm run phala:sync-trust` → bake into `-prod-trust` image
-4. **Verify** — `GET /api/trust/attestation` → `verifierResult: "pass"`, `composeHashMatches`, `hardwareQuoteVerified`
-5. **Integrations** — `GET /api/integrations/status` for `liveReady.*`
-6. **Live executor** (optional) — `OBLIVION_EXECUTOR_MODE=live` only after attestation pass
-7. **Never** `OBLIVION_AI_BYPASS_PAYMENT` or `OBLIVION_CREDITS_BYPASS` in production
+Every sensitive action binds: destination · action type · identifier categories · data disclosed · purpose · risk · expiry · **your confirmation**. Broad or vague consent is rejected.
 
-### Live secrets
+---
 
-| Secret | Enables |
-|--------|---------|
-| `BRAVE_SEARCH_API_KEY` | Exposure discovery |
-| `VENICE_API_KEY` | Classify / draft / chat |
-| `X402_PAY_TO` + facilitator | Real x402 settlement |
-| `ONESHOT_API_KEY` | 1Shot relay |
-| `HIBP_API_KEY` | Breach email (TEE-gated) |
-| `RESEND_API_KEY` / `SMTP_*` | Broker/platform email |
+## Never store in Oblivion
+
+Passwords · full SSNs · government IDs · payment cards · recovery codes · unredacted identity documents
+
+---
+
+## Portable agent skill
+
+The repo includes an installable cleanup workflow skill for other AI agents. Using it does **not** guarantee the host agent, logs, or model provider are private — review their policies separately.
+
+---
+
+## Self-hosting & production
+
+Deploying Oblivion yourself? Production checklists, secrets, attestation, and executor modes are documented in the open-source repo:
+
+- [SECURITY.md](https://github.com/thomasjvu/oblivion/blob/main/SECURITY.md) — production requirements and trust model
+- [README.md](https://github.com/thomasjvu/oblivion/blob/main/README.md) — setup and configuration
+
+Partners can verify deployment trust without authentication: `GET /v1/trust/attestation`
 
 ---
 

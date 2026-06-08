@@ -18,7 +18,7 @@ The Oblivion partner API is documented in the integration guide and formalized i
 Production partner routes use `/v1/*` on your Oblivion deployment. Local development defaults to `http://localhost:8080`.
 
 ```sh
-curl -sS -H "Authorization: Bearer $OBLIVION_PARTNER_KEY" \
+curl -sS -H "Authorization: Bearer obl_live_..." \
   http://localhost:8080/v1/partners/me
 ```
 

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-08T01:51:06.855Z",
+  "generated": "2026-06-08T02:40:31.313Z",
   "paths": [
     "user-guide/overview",
     "user-guide/templates",
@@ -21,7 +21,7 @@
     "developers/partner-onboarding": "Partner Onboarding",
     "developers/api-reference": "Partner API Reference",
     "developers/hackathon-demo": "Hackathon Demo",
-    "developers/security": "Security Model",
+    "developers/security": "Trust & Security",
     "legal/privacy": "Privacy Policy",
     "legal/terms": "Terms of Service"
   }

@@ -54,7 +54,7 @@ Core cleanup (discovery, approvals, record-only steps) works **without** a walle
 - **Live operator email relay** — 25 credits per send when enabled
 - **x402 payment demos** — Smart Account / USDC on Base Sepolia
 
-Buy credits in **Settings → Payment rails**: **500 credits ($5)** starter or **1,200/month ($10)** monitor. See [Pricing](/docs/pricing).
+Buy credits in **Settings → Payment rails**: **Starter pack** — 500 credits ($5) — or **Monitor** — 1,200 credits/month ($10). See [Pricing](/docs/pricing).
 
 ---
 

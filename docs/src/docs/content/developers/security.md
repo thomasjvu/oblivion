@@ -1,26 +1,26 @@
-# Security Model
+# Trust & Security
 
-Oblivion minimizes trust surface area. Third-party services (brokers, search engines, HIBP) may receive identifiers **only after you approve** a specific action.
+Oblivion minimizes trust surface area. Third-party services (brokers, search engines, breach checkers) may receive identifiers **only after you approve** a specific action.
 
 ```mermaid
 flowchart TB
-  subgraph Browser["Browser (user-held)"]
-    Vault[AES-GCM vault]
-    Confirm[userConfirmation]
+  subgraph Browser["Your browser"]
+    Vault[Encrypted vault]
+    Confirm[Your confirmation]
     Wallet[Wallet address]
   end
 
   subgraph Server["Oblivion server"]
-    Cipher[encryptedIntake only]
-    Policy[policy.ts]
-    Redact[redactText + sanitizeForLog]
-    Credits[Wallet credit ledger]
-    Record[record-only default]
+    Cipher[Encrypted intake only]
+    Policy[Policy check]
+    Redact[Redaction]
+    Credits[Credit ledger]
+    Record[Practice-run default]
   end
 
-  subgraph TEE["Phala CVM (production)"]
-    Quote[Intel TDX quote]
-    Plain[managed plaintext window]
+  subgraph TEE["Trusted environment (production)"]
+    Quote[Hardware attestation]
+    Plain[Managed plaintext window]
   end
 
   Vault --> Cipher
@@ -36,50 +36,43 @@ flowchart TB
 
 ---
 
-## Managed Oblivion
+## How Oblivion protects you
 
 | Control | What it does |
 |---------|----------------|
-| Client vault | Raw identifiers encrypted before persistence |
-| Server storage | Ciphertext + minimal redacted metadata |
-| Policy | Blocks actions before LLM/tool use |
-| Phala CVM | Production deployment target |
-| Trust Center | Attestation, compose hash, image digests, source commit |
-| Runtime guard | Sensitive connectors blocked unless TEE pass |
-| Record-only default | Live connectors behind approval gates |
-| Wallet credits | Venice AI + email relay metered; no PII in ledger metadata |
-
-## Installable skill
-
-`skills/clean-online-identity/SKILL.md` is a portable workflow for other agents. It does **not** prove the host agent, logs, or model provider are private.
-
-## Never store
-
-Passwords · full SSNs · government IDs · payment cards · recovery codes · unredacted identity documents
-
-## Approval boundary
-
-Every sensitive action binds: destination · action type · identifier categories · data disclosed · purpose · risk · expiry · **user confirmation**. Broad consent is rejected.
+| Browser vault | Raw identifiers encrypted before anything is stored server-side |
+| Server storage | Ciphertext plus minimal redacted metadata — not readable without your key |
+| Policy | Blocks disallowed actions before AI or external tools run |
+| Approval gates | Every sensitive send requires your explicit confirmation |
+| Trust center | Hardware attestation before live sensitive connectors in production |
+| Practice-run default | Live external sends stay behind approval and trust checks |
+| Wallet credits | AI and email relay are metered; ledger entries contain no PII |
 
 ---
 
-## Production checklist
+## Approval boundary
 
-1. **Build + pin** — digest-pinned image (`@sha256:`)
-2. **Deploy CVM** — `docker-compose.phala.yml`, secrets in Phala encrypted store
-3. **Sync trust** — `npm run phala:sync-trust` → bake into `-prod-trust` image
-4. **Verify** — `GET /api/trust/attestation` → `verifierResult: "pass"`, `composeHashMatches`, `hardwareQuoteVerified`
-5. **Integrations** — `GET /api/integrations/status` for `liveReady.*`
-6. **Live executor** (optional) — `OBLIVION_EXECUTOR_MODE=live` only after attestation pass
-7. **Never** `OBLIVION_AI_BYPASS_PAYMENT` or `OBLIVION_CREDITS_BYPASS` in production
+Every sensitive action binds: destination · action type · identifier categories · data disclosed · purpose · risk · expiry · **your confirmation**. Broad or vague consent is rejected.
 
-### Live secrets
+---
 
-| Secret | Enables |
-|--------|---------|
-| `BRAVE_SEARCH_API_KEY` | Exposure discovery |
-| `VENICE_API_KEY` | Classify / draft / chat |
-| `X402_PAY_TO` + facilitator | Real x402 settlement |
-| `ONESHOT_API_KEY` | 1Shot relay |
-| `HIBP_API_KEY` | Breach email (TEE-gated) |
-| `RESEND_API_KEY` / `SMTP_*` | Broker/platform email |
+## Never store in Oblivion
+
+Passwords · full SSNs · government IDs · payment cards · recovery codes · unredacted identity documents
+
+---
+
+## Portable agent skill
+
+The repo includes an installable cleanup workflow skill for other AI agents. Using it does **not** guarantee the host agent, logs, or model provider are private — review their policies separately.
+
+---
+
+## Self-hosting & production
+
+Deploying Oblivion yourself? Production checklists, secrets, attestation, and executor modes are documented in the open-source repo:
+
+- [SECURITY.md](https://github.com/thomasjvu/oblivion/blob/main/SECURITY.md) — production requirements and trust model
+- [README.md](https://github.com/thomasjvu/oblivion/blob/main/README.md) — setup and configuration
+
+Partners can verify deployment trust without authentication: `GET /v1/trust/attestation`

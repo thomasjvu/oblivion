@@ -9,17 +9,13 @@ flowchart LR
   C --> D[4. Demo checklist]
 ```
 
-**Prerequisites:** Oblivion API (local or Phala) · HTTPS webhook URL (or dev inbox) · browser page for vault + approvals
+**Prerequisites:** Oblivion API (local or hosted) · HTTPS webhook URL (or dev inbox) · browser page for vault + approvals
 
 ---
 
 ## 1. Credentials (5 min)
 
-```sh
-OBLIVION_PARTNER_KEYS=yourco:obl_live_...
-# or sandbox:
-OBLIVION_PARTNER_SANDBOX_KEYS=yourco-sandbox:obl_sandbox_...
-```
+Issue partner API keys when you deploy Oblivion ([README](https://github.com/thomasjvu/oblivion/blob/main/README.md)). Use sandbox keys for local development.
 
 ```sh
 curl -s http://localhost:8080/v1/partners/me -H "Authorization: Bearer obl_live_..."

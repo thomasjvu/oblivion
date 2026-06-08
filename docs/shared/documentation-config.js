@@ -62,7 +62,7 @@ export const homepageConfig = {
     },
     {
       title: 'Trust center',
-      description: 'Attestation, compose hash, and TEE verification before sensitive connector execution.',
+      description: 'Hardware attestation before sensitive live sends in production.',
       icon: 'pixelarticons:debug-check',
     },
   ],
@@ -156,7 +156,7 @@ export const documentationTree = [
       },
       {
         type: 'file',
-        name: 'Security.md',
+        name: 'Trust & Security.md',
         path: 'developers/security',
         tags: ['security', 'trust', 'tee'],
       },
