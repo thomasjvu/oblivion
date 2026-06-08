@@ -2,62 +2,66 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://oblivion-docs.pages.dev/</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/user-guide/overview</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/user-guide/templates</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/pricing</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
+  </url>
+  <url>
+    <loc>https://oblivion-docs.pages.dev/docs/developers/consumer-api</loc>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/partner-api</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/partner-onboarding</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/api-reference</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/openapi</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/hackathon-demo</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/developers/security</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/llms</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/legal/privacy</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/docs/legal/terms</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/llms.txt</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
   <url>
     <loc>https://oblivion-docs.pages.dev/llms-full.txt</loc>
-    <lastmod>2026-06-08T17:55:18.598Z</lastmod>
+    <lastmod>2026-06-08T19:08:47.987Z</lastmod>
   </url>
 </urlset>

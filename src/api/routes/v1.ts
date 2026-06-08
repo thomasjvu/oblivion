@@ -2,17 +2,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { assertPartnerOwnsCase, requirePartnerAuth } from "../auth.js";
 import { HttpError } from "../errors.js";
 import { readJson, readRawBody, sendJson } from "../http.js";
-import {
-  buildAgentPlanView,
-  CLEANUP_PRESETS,
-  createAgentPlan,
-  getPreset,
-  presetUsesBrokerDiscovery,
-  presetUsesContentDiscovery
-} from "../../domain/cleanup.js";
-import { createCaseRecord, sanitizeScope, validateEncryptedBlob } from "../../domain/cases.js";
+import { buildAgentPlanView, CLEANUP_PRESETS } from "../../domain/cleanup.js";
+import { createCaseRecord } from "../../domain/cases.js";
 import { buildAttestationProof, type TrustCenterConfig } from "../../domain/attestation.js";
-import { createTimelineEvent } from "../../domain/hackathon.js";
+
 import { findPartnerCaseByExternalRef, runPartnerAgentUntilBlocked } from "../../domain/partnerAgent.js";
 import { buildPartnerCaseExport, listPartnerDataAccess, recordPartnerDataAccess } from "../../domain/partnerAudit.js";
 import {
@@ -26,16 +19,8 @@ import { partnerPresetAllowlist, rotatePartnerApiKey } from "../../domain/partne
 import { buildPartnerCaseStatus, buildPartnerRiskSummary } from "../../domain/partnerStatus.js";
 import { buildPartnerRuntimeBadge } from "../../domain/partnerRuntime.js";
 import { purgeCaseData } from "../../domain/purgeCase.js";
-import {
-  applyFindingDecision,
-  describeDiscoveryPlan,
-  discoverExposureCandidates,
-  discoveryReadinessMessage
-} from "../../domain/exposureDiscovery.js";
-import { canExecuteWithApproval } from "../../domain/policy.js";
-import { buildStatus, runCleanupAgentStep } from "../../domain/orchestration.js";
-import { redactText } from "../../domain/redaction.js";
-import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "../../domain/executor.js";
+import { runCleanupAgentStep } from "../../domain/agentRunner.js";
+import { buildStatus } from "../../domain/orchestration.js";
 import {
   dispatchPartnerWebhook,
   emitCaseDeletedWebhook,
@@ -49,17 +34,24 @@ import {
   verifyWebhookSignature
 } from "../../domain/webhooks.js";
 import type {
-  AutonomyMode,
   AuthorityBasis,
-  EncryptedBlob,
   IdentifierCategory,
   Jurisdiction,
   PartnerWebhookEvent,
-  PresetId,
   RedactedScope,
   RiskLevel
 } from "../../domain/types.js";
 import type { MemoryStore } from "../../storage/memoryStore.js";
+import {
+  handleApplyPreset,
+  handleApprove,
+  handleCaseDiscover,
+  handleCaseIntake,
+  handleExecute,
+  handleFindingDecision,
+  type ApplyPresetBody,
+  type IntakeBody
+} from "../handlers/caseHandlers.js";
 
 export interface V1Context {
   store: MemoryStore;
@@ -73,26 +65,6 @@ interface CreateV1CaseBody {
   externalRef?: string;
   callbackUrl?: string;
   retentionDays?: number;
-}
-
-interface IntakeBody {
-  encryptedIntake: EncryptedBlob;
-  redactedScope: RedactedScope;
-}
-
-interface ApplyPresetBody {
-  presetId: PresetId;
-  autonomyMode?: AutonomyMode;
-}
-
-interface ApproveBody {
-  userConfirmation: string;
-}
-
-interface ExecuteActionBody {
-  hashPrefix?: string;
-  emailLabel?: string;
-  sourceUrl?: string;
 }
 
 interface WebhookBody {
@@ -371,7 +343,7 @@ export async function handleV1Request(
       }
     }
     meterPartnerUsage(store, partner, "case");
-    const caseRecord = createCaseRecord({
+    const { caseRecord } = createCaseRecord({
       ...body,
       partnerId: partner.id
     });
@@ -417,10 +389,7 @@ export async function handleV1Request(
     const body = await readJson<IntakeBody>(request);
     const caseRecord = store.getCaseOrThrow(intakeMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    validateEncryptedBlob(body.encryptedIntake);
-    caseRecord.encryptedIntake = body.encryptedIntake;
-    caseRecord.redactedScope = sanitizeScope(body.redactedScope);
-    caseRecord.updatedAt = new Date().toISOString();
+    handleCaseIntake(store, caseRecord, body);
     sendJson(response, 200, { case: summarizePartnerCase(caseRecord), status: buildStatus(store, caseRecord.id) });
     return true;
   }
@@ -432,27 +401,10 @@ export async function handleV1Request(
     if (!allowlist.has(body.presetId)) throw new HttpError(422, "preset-not-available-for-partners");
     const caseRecord = store.getCaseOrThrow(presetMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    const plan = createAgentPlan({
-      caseRecord,
-      presetId: body.presetId,
-      autonomyMode: body.autonomyMode
-    });
-    store.agentPlans.set(plan.id, plan);
-    const preset = getPreset(plan.presetId);
-    const timeline = createTimelineEvent(
-      caseRecord.id,
-      "OblivionRoot",
-      "Preset selected",
-      `${preset.title} started in ${plan.autonomyMode} mode.`
-    );
-    store.agentTimeline.set(timeline.id, timeline);
-    await emitCaseWebhook(store, caseRecord.id, "case.phase_changed", {
-      currentStep: plan.currentStep,
-      presetId: plan.presetId
-    });
+    const { preset, plan } = await handleApplyPreset(store, caseRecord, body, { emitWebhook: true });
     sendJson(response, 201, {
       preset,
-      plan: buildAgentPlanView(plan),
+      plan,
       partnerStatus: buildPartnerCaseStatus(store, caseRecord.id)
     });
     return true;
@@ -587,35 +539,17 @@ export async function handleV1Request(
     assertPartnerOwnsCase(partner, caseRecord);
     meterPartnerUsage(store, partner, "discover", caseRecord.id);
     const body = await readJson<{ pastedUrls?: string[] }>(request);
-    const existingUrls = store.exposuresForCase(caseRecord.id).map((item) => item.sourceUrl);
     const plan = store.agentPlanForCase(caseRecord.id);
-    const presetId = plan?.presetId;
-    const discovered = await discoverExposureCandidates({
-      caseId: caseRecord.id,
+    const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(
       store,
-      scope: caseRecord.redactedScope,
-      pastedUrls: body.pastedUrls,
-      existingUrls,
-      brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
-      contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
-    });
-    for (const exposure of discovered) {
-      store.exposures.set(exposure.id, exposure);
-      await emitCaseWebhook(store, caseRecord.id, "exposure.discovered", {
-        exposureId: exposure.id,
-        sourceUrl: exposure.sourceUrl,
-        matchScore: exposure.matchScore
-      });
-    }
+      caseRecord,
+      body,
+      plan?.presetId
+    );
     sendJson(response, 201, {
       discovered,
-      discovery: discoveryReadinessMessage(),
-      discoveryPlan: describeDiscoveryPlan({
-        scope: caseRecord.redactedScope,
-        pastedUrlCount: body.pastedUrls?.length ?? 0,
-        brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
-        contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
-      }),
+      discovery,
+      discoveryPlan,
       partnerStatus: buildPartnerCaseStatus(store, caseRecord.id)
     });
     return true;
@@ -625,12 +559,12 @@ export async function handleV1Request(
   if (method === "POST" && exposureDecisionMatch) {
     const caseRecord = store.getCaseOrThrow(exposureDecisionMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    const exposure = store.exposures.get(exposureDecisionMatch[2]);
-    if (!exposure || exposure.caseId !== caseRecord.id) throw new HttpError(404, "exposure-not-found");
     const decision = exposureDecisionMatch[3] === "confirm" ? "confirmed" : "rejected";
-    const updated = applyFindingDecision(exposure, decision);
-    store.exposures.set(updated.id, updated);
-    sendJson(response, 200, { exposure: updated, partnerStatus: buildPartnerCaseStatus(store, caseRecord.id) });
+    const { exposure } = handleFindingDecision(store, caseRecord, exposureDecisionMatch[2], decision, {
+      notFoundError: "exposure-not-found",
+      createTimeline: false
+    });
+    sendJson(response, 200, { exposure, partnerStatus: buildPartnerCaseStatus(store, caseRecord.id) });
     return true;
   }
 
@@ -649,55 +583,25 @@ export async function handleV1Request(
 
   const approveMatch = pathname.match(/^\/v1\/approvals\/([^/]+)\/approve$/);
   if (method === "POST" && approveMatch) {
-    const approval = store.approvals.get(approveMatch[1]);
-    if (!approval) throw new HttpError(404, "approval-not-found");
-    const caseRecord = store.getCaseOrThrow(approval.caseId);
+    const body = await readJson<{ userConfirmation: string }>(request);
+    const { approval, caseId } = await handleApprove(store, approveMatch[1], body);
+    const caseRecord = store.getCaseOrThrow(caseId);
     assertPartnerOwnsCase(partner, caseRecord);
-    const body = await readJson<ApproveBody>(request);
-    if (!body.userConfirmation || body.userConfirmation.length < 8) {
-      throw new HttpError(422, "user-confirmation-required");
-    }
-    approval.status = "approved";
-    approval.approvedAt = new Date().toISOString();
-    approval.userConfirmation = redactText(body.userConfirmation);
-    for (const action of store.actions.values()) {
-      if (action.approvalId === approval.id) action.executionStatus = "ready";
-    }
-    await emitCaseWebhook(store, caseRecord.id, "approval.approved", { approvalId: approval.id });
     sendJson(response, 200, { approval, partnerStatus: buildPartnerCaseStatus(store, caseRecord.id) });
     return true;
   }
 
   const executeMatch = pathname.match(/^\/v1\/actions\/([^/]+)\/execute$/);
   if (method === "POST" && executeMatch) {
-    const action = store.actions.get(executeMatch[1]);
-    if (!action) throw new HttpError(404, "action-not-found");
-    const caseRecord = store.getCaseOrThrow(action.caseId);
-    assertPartnerOwnsCase(partner, caseRecord);
-    const approval = store.approvals.get(action.approvalId);
-    if (!approval) throw new HttpError(409, "approval-missing");
-    const decision = canExecuteWithApproval(approval);
-    if (!decision.allowed) throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
-    meterPartnerUsage(store, partner, "execute", caseRecord.id);
-    const body = await readJson<ExecuteActionBody>(request);
-    const executed = await executeApprovedAction({
+    const body = await readJson<{ hashPrefix?: string; emailLabel?: string; sourceUrl?: string }>(request);
+    const { action, executed, caseRecord } = await handleExecute(
       store,
-      action,
-      approval,
-      trustCenterConfig: await loadTrustCenterConfig(),
-      operatorEmailRelay: caseRecord.casePreferences?.operatorEmailRelay !== false,
-      handoff: body
-    });
-    action.executionStatus = resolveExecutionStatusAfterExecute(executed);
-    action.executedAt = new Date().toISOString();
-    action.executionRecord = executed.executionRecord;
-    approval.status = "used";
-    await emitCaseWebhook(store, caseRecord.id, "action.executed", {
-      actionId: action.id,
-      brokerId: action.brokerId,
-      status: action.executionStatus,
-      mode: executed.mode
-    });
+      executeMatch[1],
+      body,
+      loadTrustCenterConfig
+    );
+    assertPartnerOwnsCase(partner, caseRecord);
+    meterPartnerUsage(store, partner, "execute", caseRecord.id);
     sendJson(response, 200, {
       action,
       executorMode: executed.mode,

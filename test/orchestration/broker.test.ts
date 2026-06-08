@@ -6,7 +6,7 @@ import {
   createBreachExposureApprovals,
   createBrokerOptOutApprovals,
   createContentTakedownApprovals
-} from "../../src/domain/orchestration.js";
+} from "../../src/domain/approvals.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 import type { Exposure } from "../../src/domain/types.js";
 

@@ -24499,7 +24499,54 @@ function agentEndpointForMode(mode) {
 }
 
 // public/src/apiClient.js
+var CASE_TOKENS_KEY = "oblivion.caseTokens";
 var cachedApiOrigin = null;
+var caseTokensCache = null;
+function loadCaseTokens() {
+  if (caseTokensCache) return caseTokensCache;
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(CASE_TOKENS_KEY) : null;
+    caseTokensCache = raw ? JSON.parse(raw) : {};
+  } catch {
+    caseTokensCache = {};
+  }
+  return caseTokensCache;
+}
+function saveCaseTokens() {
+  if (!caseTokensCache || typeof localStorage === "undefined") return;
+  localStorage.setItem(CASE_TOKENS_KEY, JSON.stringify(caseTokensCache));
+}
+function getCaseToken(caseId) {
+  if (!caseId) return void 0;
+  return loadCaseTokens()[caseId];
+}
+function setCaseToken(caseId, token) {
+  if (!caseId || !token) return;
+  loadCaseTokens()[caseId] = token;
+  saveCaseTokens();
+}
+function removeCaseToken(caseId) {
+  if (!caseId) return;
+  loadCaseTokens();
+  delete caseTokensCache[caseId];
+  saveCaseTokens();
+}
+function caseIdFromPath(path) {
+  const match = String(path).match(/^\/api\/cases\/([^/]+)/);
+  return match?.[1];
+}
+function authHeadersForRequest(path, options = {}) {
+  const headers = { ...options.headers || {} };
+  let caseId = caseIdFromPath(path);
+  if (!caseId && options.body && typeof options.body === "object" && options.body.caseId) {
+    caseId = options.body.caseId;
+  }
+  if (caseId) {
+    const token = getCaseToken(caseId);
+    if (token) headers.authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
 function apiOrigin() {
   if (cachedApiOrigin !== null) return cachedApiOrigin;
   const configured = typeof window !== "undefined" ? window.OBLIVION_API_ORIGIN : "";
@@ -24512,9 +24559,10 @@ function apiUrl(path) {
   return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
 }
 async function apiRequest(path, options = {}) {
+  const headers = options.body ? { "content-type": "application/json", ...authHeadersForRequest(path, options) } : authHeadersForRequest(path, options);
   const response = await fetch(apiUrl(path), {
     method: options.method || "GET",
-    headers: options.body ? { "content-type": "application/json", ...options.headers || {} } : options.headers,
+    headers,
     body: options.body ? JSON.stringify(options.body) : void 0
   });
   const json = await response.json();
@@ -24531,6 +24579,48 @@ async function loadApiConfig() {
   } catch {
     return null;
   }
+}
+
+// src/domain/redaction.ts
+var EMAIL_RE2 = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+var PHONE_RE = /(?:\+?1[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g;
+var SSN_RE = /\b\d{3}-?\d{2}-?\d{4}\b/g;
+var CARD_RE = /\b(?:\d[ -]*?){13,19}\b/g;
+function redactText(input) {
+  return input.replace(EMAIL_RE2, (value) => redactEmail(value)).replace(PHONE_RE, "[phone:redacted]").replace(SSN_RE, "[ssn:blocked]").replace(CARD_RE, "[payment:blocked]");
+}
+function redactEmail(email) {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "[email:redacted]";
+  const first = local.slice(0, 1);
+  return `${first}${"*".repeat(Math.max(2, local.length - 1))}@${domain}`;
+}
+
+// src/domain/intakeScope.ts
+function redactedScopeFromIntake(parsed) {
+  const labels = [];
+  if (parsed.legalName) labels.push("legal-name");
+  if (parsed.email || parsed.contactEmail) labels.push("email");
+  if (parsed.cityState) labels.push("city-state");
+  if (parsed.address) labels.push("address");
+  if (parsed.relative) labels.push("relative");
+  const personLabel = parsed.legalName ? `${String(parsed.legalName).trim().split(/\s+/).map((part) => part[0]).join(".")}.` : "User";
+  return {
+    personLabel: redactText(personLabel),
+    aliases: (parsed.aliases ?? []).map(redactText),
+    approvedIdentifierLabels: labels.length ? labels.map(redactText) : ["email"],
+    sensitiveConstraints: (parsed.sensitiveConstraints ?? []).map(redactText)
+  };
+}
+
+// public/src/intakeScope.js
+function redactedScopeFromIntake2(parsed) {
+  return redactedScopeFromIntake({
+    legalName: parsed.personLabel,
+    aliases: parsed.aliases,
+    cityState: parsed.region,
+    sensitiveConstraints: parsed.region ? [parsed.region] : []
+  });
 }
 
 // public/src/oneShotRelayer.js
@@ -32484,27 +32574,6 @@ function personLabelFromIntake(text) {
   if (forMatch) return forMatch[1].trim();
   return trimmed.length > 52 ? `${trimmed.slice(0, 49).trim()}\u2026` : trimmed;
 }
-function redactedScopeFromIntake(parsed) {
-  const text = parsed.intakeText || "";
-  const aliases = [...parsed.aliases || []];
-  const approvedIdentifierLabels = [];
-  if (parsed.personLabel && parsed.personLabel !== "Private case") {
-    approvedIdentifierLabels.push("legal-name");
-  }
-  if (parsed.region || /(massachusetts|\bma\b|city-state|address|phone)/i.test(text)) {
-    approvedIdentifierLabels.push("city-state");
-  }
-  if (/(email)/i.test(text)) approvedIdentifierLabels.push("email");
-  const sensitiveConstraints = [];
-  if (parsed.region) sensitiveConstraints.push(parsed.region);
-  else if (/massachusetts/i.test(text)) sensitiveConstraints.push("Massachusetts");
-  return {
-    personLabel: parsed.personLabel,
-    aliases,
-    approvedIdentifierLabels,
-    sensitiveConstraints
-  };
-}
 var URL_IN_TEXT_RE = /https?:\/\/[^\s<>"']+/gi;
 function urlsFromText(text) {
   return [...new Set((String(text || "").match(URL_IN_TEXT_RE) || []).map((item) => item.trim()))];
@@ -32547,76 +32616,6 @@ function needsExposureDiscovery() {
   const total = state.currentStatus?.findings?.length ?? 0;
   return pending === 0 && total === 0;
 }
-function presetUsesBrokerDiscoveryClient(presetId) {
-  return presetId === "people-search-cleanup" || presetId === "high-risk-safety";
-}
-function presetUsesContentDiscoveryClient(presetId) {
-  return presetId === "content-takedown";
-}
-function buildDiscoveryPlanView() {
-  const scope = currentCase()?.redactedScope;
-  const presetId = state.agentPlan?.presetId || state.selectedPresetId;
-  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
-  const veniceReady = Boolean(state.integrationsStatus?.liveReady?.venice);
-  const pastedUrls = discoveryUrlHints();
-  const pastedCount = pastedUrls.length;
-  const brokerSweep = presetUsesBrokerDiscoveryClient(presetId);
-  const contentTakedown = presetUsesContentDiscoveryClient(presetId);
-  const name = scope?.personLabel?.trim() || "";
-  const methods = [];
-  if (pastedCount > 0) {
-    methods.push({
-      id: "pasted-urls",
-      label: "Your pasted links",
-      detail: `Import ${pastedCount} URL(s) you provided and match them to known brokers.`,
-      enabled: true
-    });
-  }
-  if (braveReady && brokerSweep && !contentTakedown && name) {
-    methods.push({
-      id: "broker-sweep",
-      label: "Broker sweep",
-      detail: `Site-scoped Brave search on ~12 tier-1 brokers (Spokeo, Whitepages, BeenVerified, \u2026) for \u201C${name}\u201D.`,
-      enabled: true
-    });
-  }
-  if (braveReady && name && !contentTakedown) {
-    const aliasPart = scope?.aliases?.length ? ` ${scope.aliases.join(" ")}` : "";
-    methods.push({
-      id: "web-search",
-      label: "Web search",
-      detail: `Broader Brave query: ${name}${aliasPart} people search background check listing`,
-      enabled: true
-    });
-  }
-  if (contentTakedown && braveReady && name) {
-    methods.push({
-      id: "web-search",
-      label: "Content search",
-      detail: `Brave query for takedown targets related to \u201C${name}\u201D.`,
-      enabled: true
-    });
-  }
-  if (methods.some((item) => item.id === "broker-sweep" || item.id === "web-search" || item.id === "pasted-urls")) {
-    methods.push({
-      id: "match-scoring",
-      label: "Match scoring",
-      detail: veniceReady ? "Venice ranks each candidate against your redacted name and labels (no vault plaintext)." : "Heuristic scoring from redacted name, location labels, and broker host patterns.",
-      enabled: true
-    });
-  }
-  if (!braveReady && pastedCount === 0) {
-    methods.push({
-      id: "manual-only",
-      label: "Automated search off",
-      detail: "Set BRAVE_SEARCH_API_KEY on the server, or paste profile URLs you already found.",
-      enabled: false
-    });
-  }
-  const canAutoDiscover = braveReady || pastedCount > 0;
-  const summary = canAutoDiscover ? "Discover runs the steps below using only redacted case labels \u2014 never raw vault data." : "Paste at least one profile URL below, or enable Brave search on the server.";
-  return { methods, canAutoDiscover, summary };
-}
 function renderDiscoveryPlan() {
   const section = $("#findings-discovery");
   const planEl = $("#findings-discovery-plan");
@@ -32626,8 +32625,22 @@ function renderDiscoveryPlan() {
   const hasCase = Boolean(state.currentCaseId && state.currentStatus);
   section.hidden = !hasCase;
   if (!hasCase) return;
-  const plan = state.discoveryPlan || buildDiscoveryPlanView();
+  const plan = state.discoveryPlan;
   const reviewables = (state.currentStatus?.findings || []).filter((item) => item.matchStatus !== "rejected");
+  if (!plan) {
+    planEl.innerHTML = state.discoveryBusy ? `<p class="findings-discovery-summary muted small">Loading discovery plan\u2026</p>` : `<p class="findings-discovery-summary muted small">Discovery plan will appear after you run Discover listings.</p>`;
+    if (discoverBtn) {
+      discoverBtn.disabled = state.discoveryBusy;
+      setButtonLabel(
+        discoverBtn,
+        state.discoveryBusy ? "Searching\u2026" : reviewables.length ? "Search again" : "Discover listings"
+      );
+    }
+    if (statusEl) {
+      statusEl.textContent = state.discoveryBusy ? "Running broker sweep and web search\u2026" : "";
+    }
+    return;
+  }
   const onReviewStep = currentGuideStep() === 2 || state.agentPlan?.currentStep === "discover-candidates" || state.agentPlan?.currentStep === "confirm-matches" || (state.agentNext?.blockedReasons || []).includes("discovery-needed");
   planEl.innerHTML = `
     <p class="findings-discovery-summary muted small">${escapeHtml(plan.summary)}</p>
@@ -32801,14 +32814,22 @@ function saveLocalCases() {
     riskLevel: item.riskLevel,
     authorityBasis: item.authorityBasis,
     redactedScope: item.redactedScope,
-    updatedAt: item.updatedAt
+    updatedAt: item.updatedAt,
+    accessToken: getCaseToken(item.id) || item.accessToken
   }));
   localStorage.setItem("oblivion.caseSummaries", JSON.stringify(summaries));
+  for (const item of summaries) {
+    if (item.accessToken) setCaseToken(item.id, item.accessToken);
+  }
   if (state.currentCaseId) localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
 }
 function loadLocalCases() {
   try {
-    return JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
+    const summaries = JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
+    for (const item of summaries) {
+      if (item.accessToken) setCaseToken(item.id, item.accessToken);
+    }
+    return summaries;
   } catch {
     return [];
   }
@@ -32827,16 +32848,7 @@ function syncAppRoute() {
   state.appOpen = location.hash === "#app";
 }
 async function refreshCases() {
-  const localCases = loadLocalCases();
-  try {
-    const remote = await request("/api/cases");
-    const byId = new Map(localCases.map((item) => [item.id, item]));
-    for (const item of remote.cases) byId.set(item.id, item);
-    state.cases = [...byId.values()];
-    saveLocalCases();
-  } catch {
-    state.cases = localCases;
-  }
+  state.cases = loadLocalCases();
   if (state.appOpen && state.currentCaseId) {
     await loadCase(state.currentCaseId, { silent: true, openApp: false });
   } else {
@@ -34061,11 +34073,6 @@ function renderPayments() {
           `;
     }).join("") : `<div class="empty">Payment products are loading.</div>`;
     grid.innerHTML = x402Notice + grid.innerHTML;
-    grid.querySelectorAll("[data-pay-product]").forEach((button) => {
-      button.addEventListener("click", () => {
-        preparePayment(button.dataset.payMode).catch(write);
-      });
-    });
   }
   const entitlementEl = $("#ai-entitlement-status");
   if (entitlementEl) {
@@ -34144,9 +34151,6 @@ function renderApprovals() {
           <button class="secondary" data-approve-id="${approval.id}">Approve</button>
         </div>
       `).join("") : `<div class="empty">No approval waiting. Choose one agent task first.</div>`;
-  document.querySelectorAll("[data-approve-id]").forEach((button) => {
-    button.addEventListener("click", () => approve(button.dataset.approveId));
-  });
 }
 function renderActions() {
   const actions = [
@@ -34162,9 +34166,6 @@ function renderActions() {
           ${action.executionStatus === "ready" ? `<button data-execute-id="${action.id}">${executeActionLabel()}</button>` : `<span class="${pillClass(action.executionStatus)}">${escapeHtml(action.executionStatus)}</span>`}
         </div>
       `).join("") : `<div class="empty">No actions yet. Approved tasks will appear here.</div>`;
-  document.querySelectorAll("[data-execute-id]").forEach((button) => {
-    button.addEventListener("click", () => executeAction(button.dataset.executeId));
-  });
 }
 function renderTabs() {
   syncRouteTabVisibility();
@@ -34295,6 +34296,7 @@ async function createCase(options = {}) {
     }
   });
   const caseId = created.case.id;
+  if (created.accessToken) setCaseToken(caseId, created.accessToken);
   const intakeText = parsed.intakeText;
   if (!state.vaultKey) state.vaultKey = await createVaultKey();
   const encryptedIntake = await encryptPayload(
@@ -34307,7 +34309,7 @@ async function createCase(options = {}) {
     method: "POST",
     body: {
       encryptedIntake,
-      redactedScope: redactedScopeFromIntake(parsed)
+      redactedScope: redactedScopeFromIntake2(parsed)
     }
   });
   state.currentCaseId = caseId;
@@ -34665,6 +34667,7 @@ async function deleteCaseById(caseId, options = {}) {
     body: { caseId }
   });
   state.cases = state.cases.filter((item) => item.id !== caseId);
+  removeCaseToken(caseId);
   if (state.currentCaseId === caseId) {
     state.currentCaseId = "";
     state.currentStatus = null;
@@ -35485,6 +35488,13 @@ function setupDelegates() {
     actionTable.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-execute-id]");
       if (btn) executeAction(btn.dataset.executeId);
+    });
+  }
+  const paymentRailsGrid = $("#payment-rails-grid");
+  if (paymentRailsGrid) {
+    paymentRailsGrid.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pay-product]");
+      if (btn) preparePayment(btn.dataset.payMode).catch(write);
     });
   }
   const caseList = $("#case-list");

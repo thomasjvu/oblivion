@@ -1,8 +1,16 @@
 import type { IncomingMessage } from "node:http";
+import { verifyCaseAccessToken } from "../domain/caseAccess.js";
 import { partnerFromAuthorization } from "../domain/partners.js";
 import type { CaseRecord, PartnerRecord } from "../domain/types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError } from "./errors.js";
+
+export function extractBearerToken(request: IncomingMessage): string | undefined {
+  const auth = request.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) return undefined;
+  const token = auth.slice(7).trim();
+  return token || undefined;
+}
 
 export function resolvePartnerAuth(
   request: IncomingMessage,
@@ -23,12 +31,39 @@ export function assertPartnerOwnsCase(partner: PartnerRecord, caseRecord: CaseRe
   }
 }
 
+export function assertConsumerCaseRoute(caseRecord: CaseRecord): void {
+  if (caseRecord.partnerId) {
+    throw new HttpError(403, "partner-case-use-v1-api");
+  }
+}
+
+export function requireCaseAccess(request: IncomingMessage, caseRecord: CaseRecord): void {
+  assertConsumerCaseRoute(caseRecord);
+  const token = extractBearerToken(request);
+  if (!token || !verifyCaseAccessToken(token, caseRecord.accessTokenHash)) {
+    throw new HttpError(401, "case-access-token-required");
+  }
+}
+
+export function getCaseWithAccess(
+  request: IncomingMessage,
+  store: MemoryStore,
+  caseId: string
+): CaseRecord {
+  const caseRecord = store.getCaseOrThrow(caseId);
+  requireCaseAccess(request, caseRecord);
+  return caseRecord;
+}
+
 export function assertCaseExportAllowed(
   request: IncomingMessage,
   store: MemoryStore,
   caseRecord: CaseRecord
 ): void {
-  if (!caseRecord.partnerId) return;
-  const partner = requirePartnerAuth(request, store);
-  assertPartnerOwnsCase(partner, caseRecord);
+  if (caseRecord.partnerId) {
+    const partner = requirePartnerAuth(request, store);
+    assertPartnerOwnsCase(partner, caseRecord);
+    return;
+  }
+  requireCaseAccess(request, caseRecord);
 }

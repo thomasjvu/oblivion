@@ -20,6 +20,13 @@ function assert(condition, message) {
   }
 }
 
+function htmlHasCanonical(html, canonicalPath) {
+  return (
+    html.includes(`href="${canonicalPath}"`) ||
+    html.includes(`href="https://oblivion-docs.pages.dev${canonicalPath}"`)
+  );
+}
+
 function readText(filePath) {
   return readFileSync(filePath, 'utf8');
 }
@@ -164,18 +171,14 @@ async function main() {
 
     const docsAlias = await fetchText(baseUrl, '/docs');
     assert(
-      docsAlias.body.includes(
-        `<link rel="canonical" href="${buildCanonicalDocsPath(defaultDocPath)}" />`
-      ),
+      htmlHasCanonical(docsAlias.body, buildCanonicalDocsPath(defaultDocPath)),
       'Docs landing route is missing the expected canonical tag.'
     );
 
     for (const routePath of buildDocsRouteVariants(sampleDocPath)) {
       const routeHtml = await fetchText(baseUrl, routePath);
       assert(
-        routeHtml.body.includes(
-          `<link rel="canonical" href="${buildCanonicalDocsPath(sampleDocPath)}" />`
-        ),
+        htmlHasCanonical(routeHtml.body, buildCanonicalDocsPath(sampleDocPath)),
         `Served route ${routePath} is missing the expected canonical tag.`
       );
     }

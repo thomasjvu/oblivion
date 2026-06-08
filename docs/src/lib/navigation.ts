@@ -1,7 +1,7 @@
-import { documentationTree } from '../../shared/documentation-config.js';
+import { documentationTree as sharedDocumentationTree } from '../../shared/documentation-config.js';
 import type { FileItem } from '../types/documentation';
 
-export { documentationTree };
+export const documentationTree = sharedDocumentationTree as FileItem[];
 
 export function flattenNavigation(items: FileItem[]): Array<{ path: string; title: string }> {
   const result: Array<{ path: string; title: string }> = [];

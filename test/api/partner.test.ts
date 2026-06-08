@@ -1,57 +1,12 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import test from "node:test";
-import { createApp } from "../../src/api/app.js";
-import { hashPartnerApiKey } from "../../src/domain/partners.js";
-import type { PartnerRecord } from "../../src/domain/types.js";
 import { encryptedBlob } from "../helpers/http.js";
-
-const TEST_KEY = "obl_test_partner_secret";
-const TEST_PARTNER_ID = "testpartner";
-
-function seedTestPartner(store: ReturnType<typeof createApp>["store"]) {
-  const now = new Date().toISOString();
-  const partner: PartnerRecord = {
-    id: TEST_PARTNER_ID,
-    name: "Test Partner",
-    apiKeyHash: hashPartnerApiKey(TEST_KEY),
-    environment: "production",
-    balanceCredits: 500,
-    webhookEvents: ["case.created", "approval.pending", "action.executed", "recheck.due", "case.completed", "case.deleted"],
-    createdAt: now,
-    updatedAt: now
-  };
-  store.partners.set(partner.id, partner);
-}
-
-async function partnerFetch(
-  base: string,
-  path: string,
-  options: { method?: string; body?: unknown; expectedStatus?: number } = {}
-) {
-  const response = await fetch(`${base}${path}`, {
-    method: options.method ?? "GET",
-    headers: {
-      authorization: `Bearer ${TEST_KEY}`,
-      "content-type": "application/json"
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-  const json = await response.json();
-  if (options.expectedStatus) assert.equal(response.status, options.expectedStatus, JSON.stringify(json));
-  return { response, json };
-}
+import { DEFAULT_TEST_KEY, DEFAULT_TEST_PARTNER_ID, partnerFetch, startPartnerServer } from "../helpers/partner.js";
 
 test("partner v1 API creates scoped case and rejects unauthenticated export", async () => {
   const previous = process.env.OBLIVION_PARTNER_KEYS;
   delete process.env.OBLIVION_PARTNER_KEYS;
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  assert.equal(typeof address, "object");
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
 
   try {
     const unauthorized = await fetch(`${base}/v1/cases`, { method: "GET" });
@@ -62,7 +17,7 @@ test("partner v1 API creates scoped case and rejects unauthenticated export", as
       body: { jurisdiction: "US", authorityBasis: "self", externalRef: "user_99" },
       expectedStatus: 201
     });
-    assert.equal(created.json.case.partnerId, TEST_PARTNER_ID);
+    assert.equal(created.json.case.partnerId, DEFAULT_TEST_PARTNER_ID);
     assert.equal(created.json.case.externalRef, "user_99");
 
     const caseId = created.json.case.id as string;
@@ -100,8 +55,8 @@ test("partner v1 API creates scoped case and rejects unauthenticated export", as
     assert.equal(list.json.cases.length, 1);
 
     const consumerList = await fetch(`${base}/api/cases`);
-    const consumerJson = await consumerList.json();
-    assert.equal(consumerJson.cases.length, 0);
+    assert.equal(consumerList.status, 401);
+    assert.equal((await consumerList.json()).error, "case-list-not-available");
   } finally {
     server.close();
     if (previous) process.env.OBLIVION_PARTNER_KEYS = previous;
@@ -109,12 +64,7 @@ test("partner v1 API creates scoped case and rejects unauthenticated export", as
 });
 
 test("partner idempotent create and webhook inbox", async () => {
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
   try {
     const first = await partnerFetch(base, "/v1/cases", {
       method: "POST",
@@ -144,12 +94,7 @@ test("partner idempotent create and webhook inbox", async () => {
 });
 
 test("partner delete case removes partner-scoped record", async () => {
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
   try {
     const created = await partnerFetch(base, "/v1/cases", {
       method: "POST",
@@ -166,12 +111,7 @@ test("partner delete case removes partner-scoped record", async () => {
 });
 
 test("partner rotate-key returns new api key", async () => {
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
   try {
     const rotated = await partnerFetch(base, "/v1/partners/me/rotate-key", {
       method: "POST",
@@ -180,7 +120,7 @@ test("partner rotate-key returns new api key", async () => {
     });
     assert.match(rotated.json.apiKey, /^obl_live_/);
     const oldKeyStillWorks = await fetch(`${base}/v1/partners/me`, {
-      headers: { authorization: `Bearer ${TEST_KEY}` }
+      headers: { authorization: `Bearer ${DEFAULT_TEST_KEY}` }
     });
     assert.equal(oldKeyStillWorks.status, 401);
     const newKeyWorks = await fetch(`${base}/v1/partners/me`, {
@@ -193,12 +133,7 @@ test("partner rotate-key returns new api key", async () => {
 });
 
 test("partner presets endpoint returns allowlisted catalog", async () => {
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
   try {
     const presets = await partnerFetch(base, "/v1/presets", { expectedStatus: 200 });
     const ids = presets.json.presets.map((preset: { id: string }) => preset.id);
@@ -211,12 +146,7 @@ test("partner presets endpoint returns allowlisted catalog", async () => {
 });
 
 test("partner preset allowlist blocks unsupported presets", async () => {
-  const { server, store } = createApp();
-  seedTestPartner(store);
-  server.listen(0);
-  await once(server, "listening");
-  const address = server.address();
-  const base = `http://127.0.0.1:${(address as { port: number }).port}`;
+  const { server, base } = await startPartnerServer();
   try {
     const created = await partnerFetch(base, "/v1/cases", {
       method: "POST",

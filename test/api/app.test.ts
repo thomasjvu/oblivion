@@ -140,9 +140,9 @@ test("case lifecycle enforces approval before execution", async () => {
     assert.equal(readBack.case.id, caseId);
     assert.equal(readBack.status.scope.personLabel, "User");
 
-    const caseList = await get(base, "/api/cases");
-    assert.equal(caseList.cases.length, 1);
-    assert.equal(caseList.cases[0].id, caseId);
+    const caseListBlocked = await fetch(`${base}/api/cases`);
+    assert.equal(caseListBlocked.status, 401);
+    assert.equal((await caseListBlocked.json()).error, "case-list-not-available");
 
     const proposed = await post(base, "/api/actions/propose", {
       caseId,

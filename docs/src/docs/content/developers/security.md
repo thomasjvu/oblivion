@@ -53,6 +53,20 @@ Every sensitive action binds: destination · action type · identifier categorie
 
 ---
 
+## API authentication
+
+| Surface | Credential | Notes |
+|---------|------------|-------|
+| Consumer `/api/*` | Case access token | Returned once at `POST /api/cases`; `Authorization: Bearer` on all other case routes |
+| Partner `/v1/*` | Partner API key | Partner cases cannot use consumer `/api/*` |
+| Trust | None | `GET /api/trust/attestation`, `GET /v1/trust/attestation` |
+
+The browser stores tokens in `localStorage` (`oblivion.caseTokens`). There is no open case listing endpoint — the app keeps local summaries and fetches cases individually.
+
+Details: [Consumer API](/docs/developers/consumer-api) · [Partner API](/docs/developers/partner-api)
+
+---
+
 ## Never store in Oblivion
 
 Passwords · full SSNs · government IDs · payment cards · recovery codes · unredacted identity documents

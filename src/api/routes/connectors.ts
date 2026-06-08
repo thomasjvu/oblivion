@@ -8,6 +8,7 @@ import { canExecuteWithApproval } from "../../domain/policy.js";
 import { assertSensitiveExecutionAllowed } from "../../domain/runtimeGuard.js";
 import { sourceVerificationFor } from "../../domain/sourceVerification.js";
 import type { MemoryStore } from "../../storage/memoryStore.js";
+import { getCaseWithAccess } from "../auth.js";
 import { HttpError } from "../errors.js";
 import { readJson, sendJson } from "../http.js";
 
@@ -41,7 +42,7 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
 
   if (method === "POST" && url.pathname === "/api/connectors/hibp/password-range") {
     const body = await readJson<HibpPasswordRangeBody>(request);
-    const caseRecord = store.getCaseOrThrow(body.caseId);
+    const caseRecord = getCaseWithAccess(context.request, store, body.caseId);
     if (!/^[A-Fa-f0-9]{5}$/.test(body.hashPrefix)) {
       throw new HttpError(422, "sha1-hash-prefix-required");
     }
@@ -82,7 +83,7 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
 
   if (method === "POST" && url.pathname === "/api/connectors/hibp/email-check") {
     const body = await readJson<HibpEmailBody>(request);
-    const caseRecord = store.getCaseOrThrow(body.caseId);
+    const caseRecord = getCaseWithAccess(context.request, store, body.caseId);
     const approval = body.approvalId ? store.approvals.get(body.approvalId) : null;
     if (!approval || approval.caseId !== caseRecord.id || approval.actionType !== "hibp-email-check") {
       throw new HttpError(403, "hibp-email-approval-required");
@@ -127,7 +128,7 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
 
   if (method === "POST" && url.pathname === "/api/connectors/google/removal-plan") {
     const body = await readJson<GoogleRemovalPlanBody>(request);
-    const caseRecord = store.getCaseOrThrow(body.caseId);
+    const caseRecord = getCaseWithAccess(context.request, store, body.caseId);
     const result = createGoogleRemovalPlan(caseRecord.id, body.sourceUrl);
     recordSourceCheck(store, caseRecord.id, "google-removal-plan");
     store.connectorResults.set(result.id, result);

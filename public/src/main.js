@@ -3,7 +3,8 @@ import { buildExecuteHandoff } from './executeHandoff.js';
 import { expandNameTerms, maskPrivacyText } from './privacyFilter.js';
 import { tryLiveSmartAccountUpgrade } from './metamaskSmartAccount.js';
 import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Pay.js';
-import { apiRequest, loadApiConfig } from './apiClient.js';
+import { apiRequest, getCaseToken, loadApiConfig, removeCaseToken, setCaseToken } from './apiClient.js';
+import { redactedScopeFromIntake } from './intakeScope.js';
 import { pollRelayTask, submitRelayBundle } from './oneShotRelayer.js';
 import { createWalletLogger, DEFAULT_WALLET_CONFIG } from './walletLog.js';
 import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
@@ -793,28 +794,6 @@ function personLabelFromIntake(text) {
   return trimmed.length > 52 ? `${trimmed.slice(0, 49).trim()}…` : trimmed;
 }
 
-function redactedScopeFromIntake(parsed) {
-  const text = parsed.intakeText || "";
-  const aliases = [...(parsed.aliases || [])];
-  const approvedIdentifierLabels = [];
-  if (parsed.personLabel && parsed.personLabel !== "Private case") {
-    approvedIdentifierLabels.push("legal-name");
-  }
-  if (parsed.region || /(massachusetts|\bma\b|city-state|address|phone)/i.test(text)) {
-    approvedIdentifierLabels.push("city-state");
-  }
-  if (/(email)/i.test(text)) approvedIdentifierLabels.push("email");
-  const sensitiveConstraints = [];
-  if (parsed.region) sensitiveConstraints.push(parsed.region);
-  else if (/massachusetts/i.test(text)) sensitiveConstraints.push("Massachusetts");
-  return {
-    personLabel: parsed.personLabel,
-    aliases,
-    approvedIdentifierLabels,
-    sensitiveConstraints
-  };
-}
-
 const URL_IN_TEXT_RE = /https?:\/\/[^\s<>"']+/gi;
 
 function urlsFromText(text) {
@@ -882,83 +861,6 @@ function presetUsesContentDiscoveryClient(presetId) {
   return presetId === "content-takedown";
 }
 
-function buildDiscoveryPlanView() {
-  const scope = currentCase()?.redactedScope;
-  const presetId = state.agentPlan?.presetId || state.selectedPresetId;
-  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
-  const veniceReady = Boolean(state.integrationsStatus?.liveReady?.venice);
-  const pastedUrls = discoveryUrlHints();
-  const pastedCount = pastedUrls.length;
-  const brokerSweep = presetUsesBrokerDiscoveryClient(presetId);
-  const contentTakedown = presetUsesContentDiscoveryClient(presetId);
-  const name = scope?.personLabel?.trim() || "";
-  const methods = [];
-
-  if (pastedCount > 0) {
-    methods.push({
-      id: "pasted-urls",
-      label: "Your pasted links",
-      detail: `Import ${pastedCount} URL(s) you provided and match them to known brokers.`,
-      enabled: true
-    });
-  }
-
-  if (braveReady && brokerSweep && !contentTakedown && name) {
-    methods.push({
-      id: "broker-sweep",
-      label: "Broker sweep",
-      detail: `Site-scoped Brave search on ~12 tier-1 brokers (Spokeo, Whitepages, BeenVerified, …) for “${name}”.`,
-      enabled: true
-    });
-  }
-
-  if (braveReady && name && !contentTakedown) {
-    const aliasPart = scope?.aliases?.length ? ` ${scope.aliases.join(" ")}` : "";
-    methods.push({
-      id: "web-search",
-      label: "Web search",
-      detail: `Broader Brave query: ${name}${aliasPart} people search background check listing`,
-      enabled: true
-    });
-  }
-
-  if (contentTakedown && braveReady && name) {
-    methods.push({
-      id: "web-search",
-      label: "Content search",
-      detail: `Brave query for takedown targets related to “${name}”.`,
-      enabled: true
-    });
-  }
-
-  if (methods.some((item) => item.id === "broker-sweep" || item.id === "web-search" || item.id === "pasted-urls")) {
-    methods.push({
-      id: "match-scoring",
-      label: "Match scoring",
-      detail: veniceReady
-        ? "Venice ranks each candidate against your redacted name and labels (no vault plaintext)."
-        : "Heuristic scoring from redacted name, location labels, and broker host patterns.",
-      enabled: true
-    });
-  }
-
-  if (!braveReady && pastedCount === 0) {
-    methods.push({
-      id: "manual-only",
-      label: "Automated search off",
-      detail: "Set BRAVE_SEARCH_API_KEY on the server, or paste profile URLs you already found.",
-      enabled: false
-    });
-  }
-
-  const canAutoDiscover = braveReady || pastedCount > 0;
-  const summary = canAutoDiscover
-    ? "Discover runs the steps below using only redacted case labels — never raw vault data."
-    : "Paste at least one profile URL below, or enable Brave search on the server.";
-
-  return { methods, canAutoDiscover, summary };
-}
-
 function renderDiscoveryPlan() {
   const section = $("#findings-discovery");
   const planEl = $("#findings-discovery-plan");
@@ -970,8 +872,29 @@ function renderDiscoveryPlan() {
   section.hidden = !hasCase;
   if (!hasCase) return;
 
-  const plan = state.discoveryPlan || buildDiscoveryPlanView();
+  const plan = state.discoveryPlan;
   const reviewables = (state.currentStatus?.findings || []).filter((item) => item.matchStatus !== "rejected");
+
+  if (!plan) {
+    planEl.innerHTML = state.discoveryBusy
+      ? `<p class="findings-discovery-summary muted small">Loading discovery plan…</p>`
+      : `<p class="findings-discovery-summary muted small">Discovery plan will appear after you run Discover listings.</p>`;
+    if (discoverBtn) {
+      discoverBtn.disabled = state.discoveryBusy;
+      setButtonLabel(
+        discoverBtn,
+        state.discoveryBusy
+          ? "Searching…"
+          : reviewables.length
+            ? "Search again"
+            : "Discover listings"
+      );
+    }
+    if (statusEl) {
+      statusEl.textContent = state.discoveryBusy ? "Running broker sweep and web search…" : "";
+    }
+    return;
+  }
   const onReviewStep =
     currentGuideStep() === 2 ||
     state.agentPlan?.currentStep === "discover-candidates" ||
@@ -1184,15 +1107,23 @@ function saveLocalCases() {
     riskLevel: item.riskLevel,
     authorityBasis: item.authorityBasis,
     redactedScope: item.redactedScope,
-    updatedAt: item.updatedAt
+    updatedAt: item.updatedAt,
+    accessToken: getCaseToken(item.id) || item.accessToken
   }));
   localStorage.setItem("oblivion.caseSummaries", JSON.stringify(summaries));
+  for (const item of summaries) {
+    if (item.accessToken) setCaseToken(item.id, item.accessToken);
+  }
   if (state.currentCaseId) localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
 }
 
 function loadLocalCases() {
   try {
-    return JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
+    const summaries = JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
+    for (const item of summaries) {
+      if (item.accessToken) setCaseToken(item.id, item.accessToken);
+    }
+    return summaries;
   } catch {
     return [];
   }
@@ -1214,16 +1145,7 @@ function syncAppRoute() {
 }
 
 async function refreshCases() {
-  const localCases = loadLocalCases();
-  try {
-    const remote = await request("/api/cases");
-    const byId = new Map(localCases.map((item) => [item.id, item]));
-    for (const item of remote.cases) byId.set(item.id, item);
-    state.cases = [...byId.values()];
-    saveLocalCases();
-  } catch {
-    state.cases = localCases;
-  }
+  state.cases = loadLocalCases();
   if (state.appOpen && state.currentCaseId) {
     await loadCase(state.currentCaseId, { silent: true, openApp: false });
   } else {
@@ -2629,11 +2551,6 @@ function renderPayments() {
         }).join("")
       : `<div class="empty">Payment products are loading.</div>`;
     grid.innerHTML = x402Notice + grid.innerHTML;
-    grid.querySelectorAll("[data-pay-product]").forEach((button) => {
-      button.addEventListener("click", () => {
-        preparePayment(button.dataset.payMode).catch(write);
-      });
-    });
   }
   const entitlementEl = $("#ai-entitlement-status");
   if (entitlementEl) {
@@ -2723,9 +2640,6 @@ function renderApprovals() {
         </div>
       `).join("")
     : `<div class="empty">No approval waiting. Choose one agent task first.</div>`;
-  document.querySelectorAll("[data-approve-id]").forEach((button) => {
-    button.addEventListener("click", () => approve(button.dataset.approveId));
-  });
 }
 
 function renderActions() {
@@ -2744,9 +2658,6 @@ function renderActions() {
         </div>
       `).join("")
     : `<div class="empty">No actions yet. Approved tasks will appear here.</div>`;
-  document.querySelectorAll("[data-execute-id]").forEach((button) => {
-    button.addEventListener("click", () => executeAction(button.dataset.executeId));
-  });
 }
 
 function renderTabs() {
@@ -2895,6 +2806,7 @@ async function createCase(options = {}) {
     }
   });
   const caseId = created.case.id;
+  if (created.accessToken) setCaseToken(caseId, created.accessToken);
   const intakeText = parsed.intakeText;
   if (!state.vaultKey) state.vaultKey = await Vault.createVaultKey();
   const encryptedIntake = await Vault.encryptPayload(
@@ -3295,6 +3207,7 @@ async function deleteCaseById(caseId, options = {}) {
     body: { caseId }
   });
   state.cases = state.cases.filter((item) => item.id !== caseId);
+  removeCaseToken(caseId);
   if (state.currentCaseId === caseId) {
     state.currentCaseId = "";
     state.currentStatus = null;
@@ -4223,6 +4136,14 @@ function setupDelegates() {
     actionTable.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-execute-id]");
       if (btn) executeAction(btn.dataset.executeId);
+    });
+  }
+
+  const paymentRailsGrid = $("#payment-rails-grid");
+  if (paymentRailsGrid) {
+    paymentRailsGrid.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pay-product]");
+      if (btn) preparePayment(btn.dataset.payMode).catch(write);
     });
   }
 

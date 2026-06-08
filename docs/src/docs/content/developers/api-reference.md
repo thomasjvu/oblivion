@@ -9,6 +9,7 @@ The Oblivion partner API is documented in the integration guide and formalized i
 
 ## Resources
 
+- [Consumer API](/docs/developers/consumer-api) — case access tokens, `/api/*` auth
 - [Partner API guide](/docs/developers/partner-api) — auth, cases, webhooks, billing
 - [Partner onboarding](/docs/developers/partner-onboarding) — 30-minute design-partner checklist
 - [Interactive OpenAPI explorer](/docs/developers/openapi) — try endpoints and schemas in the browser

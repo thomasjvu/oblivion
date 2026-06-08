@@ -66,6 +66,7 @@ function installVeniceMock() {
 }
 
 function enableLiveIntegrations() {
+  process.env.HACKATHON_MODE = "true";
   process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
   process.env.ONESHOT_API_KEY = "test-key";
   process.env.ONESHOT_BASE_URL = "https://relayer.test/relayers";
@@ -74,14 +75,19 @@ function enableLiveIntegrations() {
 }
 
 function enableHackathonTracksWithoutOneShot() {
+  process.env.HACKATHON_MODE = "true";
   process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
   process.env.OBLIVION_PUBLIC_API_URL = "https://api.example.com";
   process.env.OBLIVION_AI_BYPASS_PAYMENT = "true";
   delete process.env.ONESHOT_API_KEY;
 }
 
+const originalHackathonMode = process.env.HACKATHON_MODE;
+
 function restoreEnv() {
   globalThis.fetch = originalFetch;
+  if (originalHackathonMode === undefined) delete process.env.HACKATHON_MODE;
+  else process.env.HACKATHON_MODE = originalHackathonMode;
   if (originalVeniceKey === undefined) delete process.env.VENICE_API_KEY;
   else process.env.VENICE_API_KEY = originalVeniceKey;
   if (originalVeniceBase === undefined) delete process.env.VENICE_BASE_URL;

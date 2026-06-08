@@ -15,7 +15,7 @@
     ".": "./dist/index.js"
   },
   "scripts": {
-    "build": "esbuild entry.js --bundle --format=esm --outfile=dist/index.js --platform=browser --packages=bundle",
+    "build": "esbuild entry.js --bundle --format=esm --outfile=dist/index.js --platform=browser --packages=bundle --loader:.ts=ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": ["oblivion", "privacy", "vault", "encryption"]

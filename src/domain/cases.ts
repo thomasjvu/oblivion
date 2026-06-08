@@ -1,3 +1,4 @@
+import { generateCaseAccessToken, hashCaseAccessToken } from "./caseAccess.js";
 import { redactText } from "./redaction.js";
 import type {
   AuthorityBasis,
@@ -21,7 +22,7 @@ export interface CreateCaseInput {
   callbackUrl?: string;
 }
 
-export function createCaseRecord(body: CreateCaseInput): CaseRecord {
+export function createCaseRecord(body: CreateCaseInput): { caseRecord: CaseRecord; accessToken?: string } {
   if (!["US", "EU", "UK"].includes(body.jurisdiction)) {
     throw Object.assign(new Error("unsupported-jurisdiction"), { statusCode: 422 });
   }
@@ -30,7 +31,8 @@ export function createCaseRecord(body: CreateCaseInput): CaseRecord {
   }
   const now = new Date().toISOString();
   const id = `case_${crypto.randomUUID()}`;
-  return {
+  const accessToken = body.partnerId ? undefined : generateCaseAccessToken();
+  const caseRecord: CaseRecord = {
     id,
     jurisdiction: body.jurisdiction,
     riskLevel: body.riskLevel ?? "standard",
@@ -40,12 +42,19 @@ export function createCaseRecord(body: CreateCaseInput): CaseRecord {
     casePreferences: {
       operatorEmailRelay: body.casePreferences?.operatorEmailRelay !== false
     },
+    accessTokenHash: accessToken ? hashCaseAccessToken(accessToken) : undefined,
     partnerId: body.partnerId,
     externalRef: body.externalRef?.trim() || undefined,
     callbackUrl: body.callbackUrl?.trim() || undefined,
     createdAt: now,
     updatedAt: now
   };
+  return { caseRecord, accessToken };
+}
+
+export function publicCaseView(caseRecord: CaseRecord): CaseRecord {
+  const { accessTokenHash: _hash, ...rest } = caseRecord;
+  return rest;
 }
 
 export function validateEncryptedBlob(blob: EncryptedBlob): void {

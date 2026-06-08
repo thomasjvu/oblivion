@@ -111,6 +111,7 @@ export const homepageConfig = {
   footer: {
     links: [
       { text: 'User guide', href: '/docs/user-guide/overview' },
+      { text: 'Consumer API', href: '/docs/developers/consumer-api' },
       { text: 'Partner API', href: '/docs/developers/partner-api' },
       { text: 'Pricing', href: '/docs/pricing' },
       { text: 'App', href: 'https://oblivion.phantasy.bot' },
@@ -151,6 +152,12 @@ export const documentationTree = [
     name: 'Developers',
     path: 'developers',
     children: [
+      {
+        type: 'file',
+        name: 'Consumer API.md',
+        path: 'developers/consumer-api',
+        tags: ['api', 'auth', 'consumer'],
+      },
       {
         type: 'file',
         name: 'Partner API.md',

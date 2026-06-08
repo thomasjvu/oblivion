@@ -88,13 +88,33 @@ Use precise wording:
 
 Avoid absolute wording such as "we never touch data" because approved third-party submissions still disclose the user's approved identifiers to brokers, controllers, search engines, or breach-check services.
 
+## Consumer API Authentication
+
+The browser app and direct `/api/*` integrations use **case access tokens**, not user accounts.
+
+1. `POST /api/cases` returns `{ case, accessToken, status }`. The token is shown **once**; store it in the browser (`localStorage` key `oblivion.caseTokens`) or your integration secret store.
+2. All other consumer case routes require `Authorization: Bearer <accessToken>`:
+   - `/api/cases/:id/*` (read, intake, preset, plan, discover, agent run, preferences, export, delete)
+   - `/api/actions/*`, `/api/approvals/*` when acting on a consumer case
+   - `/api/export`, `/api/delete` with `{ caseId }` in the body
+3. `accessTokenHash` is stored server-side only; API responses never include the hash or a re-issued token.
+4. `GET /api/cases` is **not** an open case listing — it returns `401 case-list-not-available`. The client keeps case summaries in local storage and refreshes individual cases with the token.
+5. Partner-scoped cases (`partnerId` set) **must** use `/v1/*` with a partner API key. Consumer `/api/*` returns `403 partner-case-use-v1-api`.
+
+Treat `caseId` + `accessToken` together as a capability credential. Do not log tokens, embed them in URLs, or expose them in referrers. Rotate by creating a new case if a token is compromised (there is no server-side rotation endpoint for consumer tokens today).
+
 ## Partner API (B2B)
 
 Embedded partners (password managers, VPNs, security suites) integrate via `/v1/*` with Bearer API keys. Partner servers must **not** decrypt `encryptedIntake` or approve disclosures on behalf of users.
 
-- Partner cases carry `partnerId` + `externalRef`; list/export/delete require matching API key.
+- Partner cases carry `partnerId` + `externalRef`; all `/v1/cases/:id/*` routes require matching partner API key via `assertPartnerOwnsCase`.
+- Partner cases are **blocked** on consumer `/api/*` even if `caseId` is known.
 - Partners receive redacted scope, exposure URLs, approval metadata, and signed webhooks.
 - Plaintext transits only from the **user browser** in an approved execute handoff.
 - No "trusted partner" auto-approve bypass — same policy gates as the consumer app.
 
 See the [Partner API](https://oblivion-docs.phantasy.bot/docs/developers/partner-api).
+
+## Hackathon / Demo Routes
+
+`/api/hackathon/*` and related sponsor-track helpers are **disabled by default** in production. Set `HACKATHON_MODE=true` only on demo hosts. Core case lifecycle, trust, and billing routes are unaffected.

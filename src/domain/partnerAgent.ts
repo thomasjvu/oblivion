@@ -1,5 +1,6 @@
 import type { TrustCenterConfig } from "./attestation.js";
-import { buildStatus, runCleanupAgentStep } from "./orchestration.js";
+import { runCleanupAgentStep } from "./agentRunner.js";
+import { buildStatus } from "./orchestration.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import type { CaseRecord, CaseStatus } from "./types.js";
 import { emitCaseWebhook, notifyCasePendingApprovals } from "./webhooks.js";

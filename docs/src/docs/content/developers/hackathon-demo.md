@@ -36,7 +36,7 @@ flowchart TB
   Trust --> Policy
 ```
 
-Checklist status: **Settings → Developer details** or `GET /api/hackathon/status?caseId=...`
+Checklist status: **Settings → Developer details** or `GET /api/hackathon/status?caseId=...` (requires `HACKATHON_MODE=true` on the server — off by default in production)
 
 ---
 
@@ -113,6 +113,6 @@ sequenceDiagram
 
 ## Live tracks (operators)
 
-If you are hosting the demo with live integrations, configure API keys and payment rails per the repo [README](https://github.com/thomasjvu/oblivion/blob/main/README.md). Poll `GET /api/integrations/status` and `GET /api/hackathon/status?caseId=...` to verify readiness.
+If you are hosting the demo with live integrations, configure API keys and payment rails per the repo [README](https://github.com/thomasjvu/oblivion/blob/main/README.md). Set `HACKATHON_MODE=true` on the API host to expose `/api/hackathon/*`. Poll `GET /api/integrations/status` and `GET /api/hackathon/status?caseId=...` (with case access token) to verify readiness.
 
 [Open Oblivion](https://oblivion.phantasy.bot)

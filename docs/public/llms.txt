@@ -11,6 +11,7 @@ Personal information removal without giving away your personal information. Encr
 
 ## Developers
 
+- [Consumer API](/docs/developers/consumer-api): The Oblivion browser app and self-hosted integrations use `/api/*` with **case access tokens** — no user accounts.
 - [Partner API](/docs/developers/partner-api): Embed broker cleanup **without becoming a data custodian**. Raw identifiers stay in the **user's browser vault** (AES-256-GCM). Your servers get `caseId`, redacted labels, exposure URLs, and webhooks.
 - [Partner Onboarding](/docs/developers/partner-onboarding): 30-minute path to a working people-search integration.
 - [API Reference](/docs/developers/api-reference): The Oblivion partner API is documented in the integration guide and formalized in OpenAPI v1.

@@ -1,11 +1,6 @@
 import { expect, test } from "@playwright/test";
-
-const SAMPLE_BROKER_URLS = [
-  "https://www.fastbackgroundcheck.com/people/john-smith/id/f-example123456789",
-  "https://rocketreach.co/john-smith-email_example",
-  "https://thatsthem.com/name/John-Smith",
-  "https://www.anywho.com/people/john+smith/new+york"
-];
+import { SAMPLE_BROKER_URLS } from "../fixtures/broker-urls.js";
+import { caseAuthHeaders } from "./caseAuth.js";
 
 test.describe("people-search cleanup flow", () => {
   test.setTimeout(120_000);
@@ -28,37 +23,46 @@ test.describe("people-search cleanup flow", () => {
     await expect(page.locator("#findings-panel")).toBeVisible();
     await expect(page.locator("#agent-dock")).toContainText(/Running|Review|Approve/i);
 
-    const discoveredCount = await page.evaluate(async (urls) => {
-      const caseId = localStorage.getItem("oblivion.currentCaseId");
-      const response = await fetch(`/api/cases/${caseId}/findings/discover`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pastedUrls: urls })
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(JSON.stringify(json));
-      await window.__oblivionLoadCase?.(caseId!, { silent: true });
-      return json.discovered?.length ?? 0;
-    }, SAMPLE_BROKER_URLS);
+    const caseId = await page.evaluate(() => localStorage.getItem("oblivion.currentCaseId"));
+    expect(caseId).toBeTruthy();
+    const auth = await caseAuthHeaders(page, caseId!);
+
+    const discoveredCount = await page.evaluate(
+      async ({ urls, id, authHeader }) => {
+        const response = await fetch(`/api/cases/${id}/findings/discover`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...authHeader },
+          body: JSON.stringify({ pastedUrls: urls })
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(JSON.stringify(json));
+        await window.__oblivionLoadCase?.(id, { silent: true });
+        return json.discovered?.length ?? 0;
+      },
+      { urls: SAMPLE_BROKER_URLS, id: caseId!, authHeader: auth }
+    );
     expect(discoveredCount).toBeGreaterThanOrEqual(4);
 
     await expect
       .poll(async () => page.locator('[data-testid="finding-card"]').count(), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(2);
 
-    const caseId = await page.evaluate(() => localStorage.getItem("oblivion.currentCaseId"));
-    expect(caseId).toBeTruthy();
-    await page.evaluate(async (id) => {
-      const list = await fetch(`/api/cases/${id}/findings`).then((response) => response.json());
-      for (const finding of list.pendingFindings || []) {
-        await fetch(`/api/cases/${id}/findings/${finding.id}/confirm`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: "{}"
-        });
-      }
-      await window.__oblivionLoadCase?.(id, { silent: true });
-    }, caseId!);
+    await page.evaluate(
+      async ({ id, authHeader }) => {
+        const list = await fetch(`/api/cases/${id}/findings`, { headers: authHeader }).then((response) =>
+          response.json()
+        );
+        for (const finding of list.pendingFindings || []) {
+          await fetch(`/api/cases/${id}/findings/${finding.id}/confirm`, {
+            method: "POST",
+            headers: { "content-type": "application/json", ...authHeader },
+            body: "{}"
+          });
+        }
+        await window.__oblivionLoadCase?.(id, { silent: true });
+      },
+      { id: caseId!, authHeader: auth }
+    );
 
     await expect(page.locator("#findings-count-pill")).toContainText(/confirmed/i, { timeout: 15_000 });
 
@@ -68,7 +72,7 @@ test.describe("people-search cleanup flow", () => {
 
     let approvals = 0;
     for (let index = 0; index < 15; index += 1) {
-      const response = await page.request.post(`/api/cases/${caseId}/agent/run`, { data: {} });
+      const response = await page.request.post(`/api/cases/${caseId}/agent/run`, { headers: auth, data: {} });
       expect(response.ok()).toBeTruthy();
       const json = await response.json();
       approvals = json.caseStatus?.approvalsNeeded?.length ?? 0;

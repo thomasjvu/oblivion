@@ -64,6 +64,8 @@ curl -sS -H "Authorization: Bearer obl_live_..." http://localhost:8080/v1/partne
 
 `GET /v1/trust/attestation` — no auth required.
 
+**Route isolation:** Partner cases (`partnerId` set) must use `/v1/*` with your API key. Consumer `/api/*` returns `403 partner-case-use-v1-api` even if `caseId` is known. End-user browser sessions use [case access tokens](/docs/developers/consumer-api) on `/api/*` — distinct from partner keys.
+
 ---
 
 ## Templates (v1)

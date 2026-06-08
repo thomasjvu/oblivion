@@ -23,6 +23,8 @@ flowchart TB
 2. Or type one line in the agent panel
 3. Dashboard opens with your route running
 
+Your browser stores a private **case access token** when a case is created. It is required for all server requests on that case and stays in local storage on this device — there is no account login.
+
 ## Review
 
 1. **Overview** — **Confirm** or **Not me** on each listing

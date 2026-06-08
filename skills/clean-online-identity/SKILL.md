@@ -23,12 +23,13 @@ Use this distinction when explaining options:
 For managed Oblivion sessions:
 
 1. Verify the user is connected to the expected Oblivion endpoint.
-2. Check the Trust Center before handling sensitive case data when the user asks for security assurance.
-3. Confirm the Phala attestation status is `pass`, not merely present.
-4. Keep raw identifiers inside encrypted case payloads or short-lived approved task payloads.
-5. Do not send raw PII to non-attested external LLMs, analytics, logging, or third-party tools.
-6. Make third-party disclosure explicit before approval: broker searches, search engines, form submissions, email checks, and privacy requests can disclose approved identifiers to external services.
-7. If crypto payments or delegated wallet permissions are used, verify that every permission is case-bound, narrowly scoped, capped where money can move, expiring, and visible to the user before the agent acts.
+2. Consumer API calls require the case access token returned at `POST /api/cases` (`Authorization: Bearer`). Store it like a secret; never log it or embed it in URLs.
+3. Check the Trust Center before handling sensitive case data when the user asks for security assurance.
+4. Confirm the Phala attestation status is `pass`, not merely present.
+5. Keep raw identifiers inside encrypted case payloads or short-lived approved task payloads.
+6. Do not send raw PII to non-attested external LLMs, analytics, logging, or third-party tools.
+7. Make third-party disclosure explicit before approval: broker searches, search engines, form submissions, email checks, and privacy requests can disclose approved identifiers to external services.
+8. If crypto payments or delegated wallet permissions are used, verify that every permission is case-bound, narrowly scoped, capped where money can move, expiring, and visible to the user before the agent acts.
 
 Do not claim that Oblivion makes third-party requests anonymous or guarantees complete deletion. The trust model reduces infrastructure trust; it does not remove the need to disclose matching data to brokers or controllers when their process requires it.
 

@@ -28,7 +28,8 @@ npm run e2e
 
 ```mermaid
 flowchart TD
-    A[POST /api/cases<br/>jurisdiction + authorityBasis] --> B[Encrypt intake in browser vault<br/>AES-256-GCM only]
+    A[POST /api/cases<br/>jurisdiction + authorityBasis] --> A2[Store accessToken once<br/>Bearer on all case routes]
+    A2 --> B[Encrypt intake in browser vault<br/>AES-256-GCM only]
     B --> C[POST /preset<br/>e.g. people-search-cleanup]
     C --> D[AgentPlan created<br/>visualNodes + currentStep]
     D --> E{verify-trust<br/>TEE attestation pass?}
@@ -65,7 +66,7 @@ Record-only executor by default. Live paths gated behind policy + attestation + 
 - **Exposure discovery**: paste profile URLs and/or Brave Search (`BRAVE_SEARCH_API_KEY`) + Venice/heuristic match scoring; confirm or reject each link before opt-out drafting.
 - Safe HIBP prefix range check, Google removal plan, California DROP guidance, GDPR templates.
 - Record-only execution by default (`OBLIVION_EXECUTOR_MODE=live` for connector handoff paths). Broker opt-outs are drafted, approved, then recorded—not silently deleted site-wide.
-- Hackathon adapters (MetaMask EIP-7702/ERC-7715, x402 + ERC-7710, Venice redacted AI, A2A delegation, 1Shot relay) behind the same gates.
+- Hackathon adapters (MetaMask EIP-7702/ERC-7715, x402 + ERC-7710, Venice redacted AI, A2A delegation, 1Shot relay) behind the same gates — enable with `HACKATHON_MODE=true` (off by default).
 - Trust Center + `/api/trust/attestation` (not-configured locally; passes in Phala CVM with dstack socket + pinned trust center).
 
 ## Production / Phala
@@ -174,7 +175,7 @@ curl -X POST http://localhost:8080/v1/cases \
 - [Partner onboarding](https://oblivion-docs.phantasy.bot/docs/developers/partner-onboarding) — 30-min design-partner runbook
 - Live demo: [/examples/partner-demo/](http://localhost:8080/examples/partner-demo/index.html) when `npm run dev` is running
 
-Partner cases are scoped by API key. Consumer UI cases (no `partnerId`) stay on `/api/*` without a key.
+Partner cases are scoped by API key on `/v1/*` only. Consumer UI cases use `/api/*` with a per-case `accessToken` returned at creation (`Authorization: Bearer …` on every case route).
 
 ## Docs
 
@@ -188,6 +189,10 @@ Partner cases are scoped by API key. Consumer UI cases (no `partnerId`) stay on 
 
 ## API Surface (core)
 
-Cases, intake, presets/plans, propose/approve/execute, connectors (hibp safe + google), trust, agent run, hackathon demos, export/delete.
+| Surface | Auth | Entry |
+|---------|------|-------|
+| Consumer `/api/*` | Case access token (except `POST /api/cases`, trust, presets, health) | `src/api/routes/consumer.ts` |
+| Partner `/v1/*` | Partner API key | `src/api/routes/v1.ts` |
+| Static + docs redirects | None | `src/api/static.ts`, `src/api/app.ts` |
 
-See `src/api/app.ts` for routes. All disclosure paths enforce the gates above.
+Shared case handlers: `src/api/handlers/caseHandlers.ts`. All disclosure paths enforce policy + approval gates. See [SECURITY.md](SECURITY.md#consumer-api-authentication).

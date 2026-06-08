@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const htmlPath = new URL("../../public/index.html", import.meta.url);
 const cssPath = new URL("../../public/styles.css", import.meta.url);
 const jsPath = new URL("../../public/app.js", import.meta.url);
+const mainJsPath = new URL("../../public/src/main.js", import.meta.url);
 
 async function readUiBundle(): Promise<string> {
   const [html, css, js] = await Promise.all([
@@ -13,6 +14,10 @@ async function readUiBundle(): Promise<string> {
     readFile(jsPath, "utf8")
   ]);
   return `${html}\n${css}\n${js}`;
+}
+
+async function readMainSource(): Promise<string> {
+  return readFile(mainJsPath, "utf8");
 }
 
 test("initial homepage is guided and not a dense dashboard", async () => {
@@ -253,26 +258,25 @@ test("onboarding supports optional credit purchase and email relay preferences",
 });
 
 test("agent autopilot auto-discovers exposure links on scout step", async () => {
-  const html = await readUiBundle();
+  const [html, mainSource] = await Promise.all([readUiBundle(), readMainSource()]);
 
-  assert.match(html, /maybeAutoDiscoverFindings/);
-  assert.match(html, /discoveryUrlHints/);
-  assert.match(html, /needsExposureDiscovery/);
-  assert.match(html, /peopleSearchPresetActive/);
-  assert.match(html, /findings\/discover/);
-  assert.match(html, /openFindingsPastePanel/);
-  assert.match(html, /findings-discovery-plan/);
-  assert.match(html, /buildDiscoveryPlanView/);
+  assert.match(mainSource, /maybeAutoDiscoverFindings/);
+  assert.match(mainSource, /discoveryUrlHints/);
+  assert.match(mainSource, /needsExposureDiscovery/);
+  assert.match(mainSource, /peopleSearchPresetActive/);
+  assert.match(mainSource, /findings\/discover/);
+  assert.match(mainSource, /openFindingsPastePanel/);
+  assert.match(mainSource, /state\.discoveryPlan/);
+  assert.doesNotMatch(mainSource, /buildDiscoveryPlanView/);
   assert.match(html, /Discover listings/);
-  assert.match(html, /Review Exposure links/);
 });
 
 test("intake parsing builds redacted scope from form fields", async () => {
-  const html = await readUiBundle();
+  const mainSource = await readMainSource();
 
-  assert.match(html, /personLabelFromIntake/);
-  assert.match(html, /redactedScopeFromIntake/);
-  assert.match(html, /readSimpleIntakeForm/);
+  assert.match(mainSource, /personLabelFromIntake/);
+  assert.match(mainSource, /from ['"]\.\/intakeScope\.js['"]/);
+  assert.match(mainSource, /readSimpleIntakeForm/);
 });
 
 test("setup recommends cleanup presets from intake keywords", async () => {

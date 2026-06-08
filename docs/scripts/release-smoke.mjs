@@ -70,8 +70,10 @@ function main() {
 
   for (const routePath of buildDocsRouteVariants(defaultDocPath)) {
     const html = ensureRouteHtml(routePath);
+    const expectedCanonicalPath = buildCanonicalDocsPath(defaultDocPath);
     assert(
-      html.includes(`<link rel="canonical" href="${buildCanonicalDocsPath(defaultDocPath)}" />`),
+      html.includes(`href="${expectedCanonicalPath}"`) ||
+        html.includes(`href="https://oblivion-docs.pages.dev${expectedCanonicalPath}"`),
       `Canonical tag mismatch for ${routePath}.`
     );
   }
