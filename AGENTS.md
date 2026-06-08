@@ -115,6 +115,7 @@ When adding tests, prefer pure domain units over more API integration where poss
 - Sandbox keys: `OBLIVION_PARTNER_SANDBOX_KEYS`; rotation: `POST /v1/partners/me/rotate-key`.
 - Webhooks: `recheck.due` on follow-up schedule, `case.completed` when plan reaches `complete`, `case.deleted` on purge.
 - Billing: `partnerUsage` metering + `POST /v1/billing/invoices/close` for period invoices (`src/domain/partnerInvoices.ts`). Venice AI debits `ai` meter via `meterPartnerAiTokens` (orchestration, discovery, partner-case `/api/ai/*`).
+- Consumer credits: wallet balance in `src/domain/credits.ts` + `X402_PRODUCTS` in `hackathon.ts` (`credit-starter` / `credit-monitor`). Distinct from partner pool in `partnerBilling.ts`.
 - Webhook retries: `GET /v1/webhooks/deliveries`, `POST .../retry`, exponential backoff in `webhooks.ts`.
 - Audit: `partnerDataAccess` log on export/delete (`partnerAudit.ts`); partner export strips `userConfirmation` plaintext.
 - npm: `@oblivion/partner-sdk`, `@oblivion/vault-sdk` — `npm run publish:partner-packages`.

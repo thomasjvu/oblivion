@@ -30,6 +30,8 @@ flowchart LR
 
 [Onboarding runbook](/docs/developers/partner-onboarding) · OpenAPI: [`openapi-v1.yaml`](openapi-v1.yaml)
 
+**Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case/discovery/execute/AI — no user wallet required.
+
 ---
 
 ## Quick start

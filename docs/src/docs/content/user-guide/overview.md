@@ -46,7 +46,15 @@ flowchart LR
 
 Sidebar: Overview · Approvals · Settings · Cases
 
-**Wallet** (optional): connect from sidebar for Smart Account / payment demos — not required for cleanup.
+## Credits and AI
+
+Core cleanup (discovery, approvals, record-only steps) works **without** a wallet. Connect a wallet when you want:
+
+- **Venice AI** (agent chat, classify, draft) — debits wallet credits per use
+- **Live operator email relay** — 25 credits per send when enabled
+- **x402 payment demos** — Smart Account / USDC on Base Sepolia
+
+Buy credits in **Settings → Payment rails**: **500 credits ($5)** starter or **1,200/month ($10)** monitor. See [Pricing](/docs/pricing).
 
 ---
 
@@ -57,3 +65,4 @@ Sidebar: Overview · Approvals · Settings · Cases
 | No dashboard | Finish **Start cleanup** |
 | Blocked | Check **Approvals** |
 | Wrong case | **Cases** → new or switch |
+| Venice blocked | Connect wallet + buy credits in **Payment rails** |

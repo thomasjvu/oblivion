@@ -7,12 +7,14 @@ flowchart TB
   subgraph Browser["Browser (user-held)"]
     Vault[AES-GCM vault]
     Confirm[userConfirmation]
+    Wallet[Wallet address]
   end
 
   subgraph Server["Oblivion server"]
     Cipher[encryptedIntake only]
     Policy[policy.ts]
     Redact[redactText + sanitizeForLog]
+    Credits[Wallet credit ledger]
     Record[record-only default]
   end
 
@@ -23,8 +25,10 @@ flowchart TB
 
   Vault --> Cipher
   Cipher --> Policy
+  Wallet --> Credits
   Policy --> Confirm
   Confirm --> Record
+  Credits --> Record
   Quote --> Plain
   Plain --> Record
   Redact --> Record
@@ -43,6 +47,7 @@ flowchart TB
 | Trust Center | Attestation, compose hash, image digests, source commit |
 | Runtime guard | Sensitive connectors blocked unless TEE pass |
 | Record-only default | Live connectors behind approval gates |
+| Wallet credits | Venice AI + email relay metered; no PII in ledger metadata |
 
 ## Installable skill
 
@@ -66,7 +71,7 @@ Every sensitive action binds: destination · action type · identifier categorie
 4. **Verify** — `GET /api/trust/attestation` → `verifierResult: "pass"`, `composeHashMatches`, `hardwareQuoteVerified`
 5. **Integrations** — `GET /api/integrations/status` for `liveReady.*`
 6. **Live executor** (optional) — `OBLIVION_EXECUTOR_MODE=live` only after attestation pass
-7. **Never** `OBLIVION_AI_BYPASS_PAYMENT` in production
+7. **Never** `OBLIVION_AI_BYPASS_PAYMENT` or `OBLIVION_CREDITS_BYPASS` in production
 
 ### Live secrets
 

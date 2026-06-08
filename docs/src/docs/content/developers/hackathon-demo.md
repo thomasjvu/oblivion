@@ -36,15 +36,16 @@ flowchart TB
   end
 
   subgraph Pay["x402 + ERC-7710"]
-    X402Prep["/api/x402/one-off | subscription"]
-    X402Pay["/api/agent/premium-task | monitor HTTP 402"]
-    X402Client[x402Pay.js PAYMENT-SIGNATURE settlement]
+    X402Prep["/api/credits/purchase | monitor"]
+    X402Pay["x402Pay.js PAYMENT-SIGNATURE"]
+    Credits[Wallet credit balance]
     E7710[ERC-7710 delegation + PaymentAgent scope]
   end
 
   subgraph Venice["Venice AI"]
-    VClassify["/api/ai/classify"]
-    VDraft["/api/ai/draft"]
+    VClassify["/api/ai/classify-case"]
+    VDraft["/api/ai/draft-request"]
+    VReview["/api/ai/review-approval"]
     VChat["/api/agent/chat"]
     VRedact[Redacted prompts only]
   end
@@ -75,14 +76,17 @@ flowchart TB
 
   Wallet --> MMClient --> MMServer --> E7702 --> E7715
   Settings --> X402Prep --> E7710
-  Settings --> X402Client --> X402Pay --> E7710
+  Settings --> X402Prep --> X402Pay --> Credits --> E7710
 
   Agent --> VClassify
   Agent --> VDraft
+  Agent --> VReview
   Agent --> VChat
   VClassify --> VRedact
   VDraft --> VRedact
+  VReview --> VRedact
   VChat --> VRedact
+  Credits --> VChat
 
   Settings --> Delegate --> Scout & Draft & Verifier & Payment
   Settings --> Relay --> RelayerEvents
@@ -101,9 +105,9 @@ flowchart TB
 |-------|-------|-----------|---------------|
 | **Best Agent** | Presets, agent dock | Always | `record-only` executor |
 | **MetaMask** | Connect + Smart Account | `WALLET_LIVE_MODE=true` | Demo EIP-7702/7715 grants |
-| **x402 one-off** | Payment rails | `X402_PAY_TO` + facilitator | Session `authorized` |
-| **ERC-7710** | Subscription | Same as x402 | Demo delegation objects |
-| **Venice AI** | Classify / Draft / Chat | `VENICE_API_KEY` + paid session | 503 without key |
+| **x402 credits** | Payment rails | `X402_PAY_TO` + facilitator | `authorized` session without settlement |
+| **ERC-7710** | Scoped payment permission | Same as x402 | Demo delegation objects |
+| **Venice AI** | Classify / Draft / Chat | `VENICE_API_KEY` + wallet credits | 503 without key; 402 without credits |
 | **A2A** | Delegate sub-agents | `/api/agents/delegate` | In-memory scoped grants |
 | **1Shot** | Relay payment | `ONESHOT_API_KEY` | Finish-pending events |
 
@@ -128,8 +132,9 @@ sequenceDiagram
   Judge->>UI: Finish pending tracks
   UI->>API: POST /api/hackathon/complete-pending
   API->>Venice: classify (redacted)
-  Judge->>UI: Settle x402 (if configured)
-  UI->>API: POST /api/agent/premium-task → 402 → PAYMENT-SIGNATURE
+  Judge->>UI: Buy credits via x402 (if configured)
+  UI->>API: POST /api/credits/purchase → 402 → PAYMENT-SIGNATURE
+  API->>API: settleCreditsForProduct → wallet balance
   Judge->>UI: Approve + Execute
   opt Live 1Shot
     UI->>API: POST /api/1shot/relay
@@ -186,9 +191,11 @@ curl -s "localhost:8080/api/hackathon/status?caseId=CASE_ID" | jq
 |-------|---------|
 | `GET /api/integrations/status` | `liveReady.*` flags |
 | `POST /api/metamask/demo-session` | EIP-7702 + ERC-7715 |
-| `POST /api/x402/one-off` \| `subscription` | Payment session |
-| `POST /api/agent/premium-task` | HTTP 402 gate |
-| `POST /api/ai/*` | Venice (redacted) |
+| `GET /api/credits/catalog` | Products + debit rates |
+| `POST /api/credits/purchase` \| `monitor` | x402 → wallet credits |
+| `GET /api/credits/balance` | Wallet credit balance |
+| `POST /api/ai/classify-case` \| `draft-request` \| `review-approval` | Venice (redacted) |
+| `POST /api/agent/chat` | Venice chat (credit-metered) |
 | `POST /api/agents/delegate` | A2A set |
 | `POST /api/1shot/relay` | Live relayer |
 | `POST /api/hackathon/complete-pending` | Batch-complete tracks |
@@ -201,4 +208,4 @@ curl -s "localhost:8080/api/hackathon/status?caseId=CASE_ID" | jq
 - **Demo data only** — synthetic identity; no real SSNs/passwords in logs or Venice prompts
 - **Phala in local dev** — `verifierResult: not-configured` until prod trust center; sensitive connectors **blocked by design**
 - **A2A** — in-domain scoped grants, not external wire protocol
-- **x402** — only `paid` counts as AI entitlement; `authorized` is demo convenience
+- **x402** — settlement credits the wallet (`credit-starter` 500, `credit-monitor` 1200/mo); Venice debits per token use

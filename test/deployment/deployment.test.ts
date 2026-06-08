@@ -26,8 +26,12 @@ test("docs content ships user guide pricing and legal pages", async () => {
   const privacy = await readFile(new URL("../../docs/src/docs/content/legal/privacy.md", import.meta.url), "utf8");
   const terms = await readFile(new URL("../../docs/src/docs/content/legal/terms.md", import.meta.url), "utf8");
   assert.match(overview, /private cleanup agent/i);
+  assert.match(pricing, /credit-starter/);
+  assert.match(pricing, /credit-monitor/);
   assert.match(pricing, /\$5 USDC/);
-  assert.match(pricing, /\$10 USDC\/month/);
+  assert.match(pricing, /\$10 USDC\/mo/);
+  assert.match(pricing, /500/);
+  assert.match(pricing, /1,200/);
   assert.match(privacy, /Privacy Policy/);
   assert.match(terms, /Terms of Service/);
 });

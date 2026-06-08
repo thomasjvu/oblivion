@@ -1,43 +1,90 @@
 # Pricing
 
-**USDC on Base** via x402 + scoped ERC-7710 permissions. Payment unlocks agent capacity — **not** unsupervised disclosure. Every cleanup still needs your explicit approval.
+Oblivion uses a **wallet credit balance** — not per-case chat caps. Pay with **USDC on Base** via x402 + scoped ERC-7710 permissions. Credits fund Venice AI and live operator email relay. **Every disclosure still needs your explicit approval.**
 
 ```mermaid
 flowchart LR
-  Plan[Pick plan] --> Wallet[Connect wallet]
-  Wallet --> Session[x402 session]
-  Session --> Agent[Agent + AI limits]
-  Agent --> Approve[You approve each send]
+  Wallet[Connect wallet] --> Buy[x402 USDC purchase]
+  Buy --> Starter["credit-starter: $5 → 500 credits"]
+  Buy --> Monitor["credit-monitor: $10/mo → 1200 credits"]
+  Starter --> Balance[Wallet balance]
+  Monitor --> Balance
+  Balance --> Venice["Venice: 1 credit / 100 tokens"]
+  Balance --> Email["Email relay: 25 credits"]
+  Balance --> Approve[You approve each send]
 ```
 
-## Plans
+[Partner API billing](/docs/developers/partner-api) uses a **separate** partner credit pool — not wallet credits.
 
-| Plan | Price | Best for |
-|------|-------|----------|
-| **One-off** | **$5 USDC** | Single supervised cleanup |
-| **Subscription** | **$10 USDC/mo** | Weekly rechecks + higher AI limits |
+---
 
-| Feature | One-off | Subscription |
-|---------|---------|--------------|
-| Agent chats | 5 | 30 |
-| AI analysis tasks | 1 | 6 |
-| Token cap / case | 280 | 400 |
-| Recheck cadence | Per preset | Weekly monitor |
-| ERC-7710 delegation | — | Scoped monitor invoices |
+## Products
+
+| Product | Price | Credits | Endpoint |
+|---------|-------|---------|----------|
+| **credit-starter** | **$5 USDC** | **500** (one-time) | `POST /api/credits/purchase` |
+| **credit-monitor** | **$10 USDC/mo** | **1,200** (monthly refill) | `POST /api/credits/monitor` |
+
+Buy in the app: **Settings → Payment rails**. ERC-7710 scoped payment permission required before settlement.
+
+---
+
+## What credits buy
+
+| Use | Cost (default) |
+|-----|----------------|
+| Venice agent chat | 1 credit per 100 tokens (minimum 1) |
+| Venice classify / draft / review | Same token metering |
+| Live operator email relay | 25 credits per send |
+
+**Token budget** scales with balance (roughly 120–4,000 max tokens per request). No fixed “5 chats” or “6 analyses” — usage is metered until credits run out.
+
+Core cleanup (discovery, approvals, record-only execution) works **without** credits. Venice AI and live email relay require a connected wallet with sufficient balance.
+
+---
+
+## Check balance
+
+```sh
+curl -s "http://localhost:8080/api/credits/balance?walletAddress=0xYourWallet" | jq
+```
+
+Also: `GET /api/credits/catalog` and `GET /api/x402/products` (products + rates).
+
+---
 
 ## How it works
 
-1. Choose plan when creating a case
-2. Connect wallet if prompted (Smart Account optional)
-3. Oblivion prepares an x402 session bound to the case
-4. AI features stay capped until session is **authorized** or **paid**
+1. Connect wallet (sidebar)
+2. Open **Settings → Payment rails** → buy starter or subscribe to monitor
+3. x402 settles USDC → credits land on your wallet balance
+4. Venice and live relay debit credits per use
+5. Approvals still gate every external disclosure
+
+Legacy session endpoints (`POST /api/x402/one-off`, `POST /api/agent/premium-task`) still exist; the UI uses `/api/credits/purchase` and `/api/credits/monitor`.
+
+---
+
+## Env overrides (operators)
+
+| Variable | Default |
+|----------|---------|
+| `OBLIVION_STARTER_PACK_CREDITS` | 500 |
+| `OBLIVION_MONITOR_MONTHLY_CREDITS` | 1200 |
+| `OBLIVION_CREDITS_PER_100_TOKENS` | 1 |
+| `OBLIVION_EMAIL_RELAY_CREDITS` | 25 |
+| `OBLIVION_CREDITS_PER_USD` | 100 (partner invoice estimates) |
+
+Dev only: `OBLIVION_CREDITS_BYPASS=true` or `OBLIVION_AI_BYPASS_PAYMENT=true`.
+
+---
 
 ## FAQ
 
-**Switch later?** Settings → Payment rails.
+**Switch later?** Settings → Payment rails — starter top-up or monitor subscription.
 
-**Bypass approvals?** No — payment funds assistance only.
+**Bypass approvals?** No — credits fund AI and relay capacity only.
 
-**URLs only?** Discovery works on both plans; subscription adds monitoring + AI headroom.
+**Partner integrations?** See [Partner API](/docs/developers/partner-api) — separate metered pool, no wallet required.
 
 [Open Oblivion](https://oblivion.phantasy.bot)

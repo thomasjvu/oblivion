@@ -34,7 +34,7 @@ flowchart LR
 
 ---
 
-## Shared workflow (11 steps)
+## Shared workflow (11 steps + complete)
 
 | Step | What happens |
 |------|----------------|
