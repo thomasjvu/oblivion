@@ -1,46 +1,43 @@
 # Pricing
 
-Oblivion uses **USDC on Base** via **x402** and scoped **ERC-7710** payment permissions. Every cleanup still requires your explicit approval before anything is sent — payment unlocks agent capacity, not unsupervised disclosure.
+**USDC on Base** via x402 + scoped ERC-7710 permissions. Payment unlocks agent capacity — **not** unsupervised disclosure. Every cleanup still needs your explicit approval.
+
+```mermaid
+flowchart LR
+  Plan[Pick plan] --> Wallet[Connect wallet]
+  Wallet --> Session[x402 session]
+  Session --> Agent[Agent + AI limits]
+  Agent --> Approve[You approve each send]
+```
 
 ## Plans
 
 | Plan | Price | Best for |
-| --- | --- | --- |
-| **One-off cleanup run** | **$5 USDC** | A single supervised cleanup with capped agent assistance |
-| **Weekly review & cleanup** | **$10 USDC/month** | Ongoing exposure rechecks, follow-up prep, and higher AI limits |
+|------|-------|----------|
+| **One-off** | **$5 USDC** | Single supervised cleanup |
+| **Subscription** | **$10 USDC/mo** | Weekly rechecks + higher AI limits |
 
-## What each plan includes
+| Feature | One-off | Subscription |
+|---------|---------|--------------|
+| Agent chats | 5 | 30 |
+| AI analysis tasks | 1 | 6 |
+| Token cap / case | 280 | 400 |
+| Recheck cadence | Per preset | Weekly monitor |
+| ERC-7710 delegation | — | Scoped monitor invoices |
 
-### One-off — $5 USDC
+## How it works
 
-- One supervised cleanup run on a single case
-- Broker discovery, match review, and approval-gated opt-out drafting
-- **5** agent chats · **1** AI analysis task · **280** token cap per case
-- Pay once when you start a case — no subscription
-
-### Subscription — $10 USDC/month
-
-- Weekly exposure rechecks and follow-up cleanup preparation
-- Same approval gates — nothing sends without your OK
-- **30** agent chats · **6** AI analysis tasks · **400** token cap per case
-- ERC-7710 scoped delegation for recurring monitor invoices
-
-## How payment works
-
-1. Choose **one-off** or **subscription** when you create a case.
-2. Connect a wallet (sidebar) if prompted — Smart Account upgrade is optional for demos.
-3. Oblivion prepares an x402 payment session bound to your case.
-4. Agent AI features stay capped until the session is **authorized** or **paid**.
+1. Choose plan when creating a case
+2. Connect wallet if prompted (Smart Account optional)
+3. Oblivion prepares an x402 session bound to the case
+4. AI features stay capped until session is **authorized** or **paid**
 
 ## FAQ
 
-**Can I switch later?**  
-Yes. Open **Settings → Payment rails** to subscribe after a one-off run.
+**Switch later?** Settings → Payment rails.
 
-**Does payment bypass approvals?**  
-No. Payment only funds agent assistance. Every disclosure still goes through propose → approve → execute.
+**Bypass approvals?** No — payment funds assistance only.
 
-**What if I only paste URLs?**  
-Discovery and review work on both plans. Subscription adds monitoring cadence and higher AI limits.
+**URLs only?** Discovery works on both plans; subscription adds monitoring + AI headroom.
 
 [Open Oblivion](https://oblivion.phantasy.bot)

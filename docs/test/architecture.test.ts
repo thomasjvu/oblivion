@@ -209,6 +209,22 @@ export const architectureTests: ArchitectureTestCase[] = [
     },
   },
   {
+    name: 'buildMarkdownRenderState emits mermaid placeholders instead of code blocks',
+    run: async () => {
+      const markdown = ['```mermaid', 'flowchart LR', '  A --> B', '```'].join('\n');
+
+      const result = await buildMarkdownRenderState(markdown, {
+        createId: createDeterministicIdGenerator(),
+      });
+
+      assert.match(result.html, /data-mermaid-id="mermaid-1"/);
+      assert.equal(result.codeBlocks.size, 0);
+      assert.deepEqual(result.mermaidBlocks.get('mermaid-1'), {
+        chart: 'flowchart LR\n  A --> B',
+      });
+    },
+  },
+  {
     name: 'file tree helpers expand only the directories needed for the active file',
     run: () => {
       const items = [
