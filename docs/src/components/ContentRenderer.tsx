@@ -107,15 +107,15 @@ const ContentRenderer = memo(function ContentRenderer({
             </motion.div>
           )}
 
-          {(prevPage || nextPage) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-              className="mt-12 pt-4 border-t"
-              style={{ borderColor: 'var(--border-unified)' }}
-            >
-              <div className="pagination-links">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.3 }}
+            className="doc-page-bottom mt-12 border-t pt-4"
+            style={{ borderColor: 'var(--border-unified)' }}
+          >
+            <div className="doc-page-bottom-row">
+              <div className="doc-page-bottom-nav doc-page-bottom-nav--prev">
                 {prevPage ? (
                   <button
                     onClick={() =>
@@ -128,21 +128,23 @@ const ContentRenderer = memo(function ContentRenderer({
                     }
                     onMouseEnter={() => warmPage(prevPage.path)}
                     onFocus={() => warmPage(prevPage.path)}
-                    className="nav-button text-left p-4 rounded-lg transition-opacity hover:opacity-70"
+                    className="nav-button text-left rounded-lg p-4 transition-opacity hover:opacity-70"
                     type="button"
                   >
-                    <div className="text-xs mb-1" style={{ color: 'var(--muted-color)' }}>
+                    <div className="mb-1 text-xs" style={{ color: 'var(--muted-color)' }}>
                       Previous
                     </div>
                     <div className="text-sm font-medium" style={{ color: 'var(--text-color)' }}>
                       {prevPage.title}
                     </div>
                   </button>
-                ) : (
-                  <div></div>
-                )}
+                ) : null}
+              </div>
 
-                {nextPage && (
+              <DocPageFooter path={path} sourcePath={sourcePath} />
+
+              <div className="doc-page-bottom-nav doc-page-bottom-nav--next">
+                {nextPage ? (
                   <button
                     onClick={() =>
                       navigate(
@@ -154,22 +156,20 @@ const ContentRenderer = memo(function ContentRenderer({
                     }
                     onMouseEnter={() => warmPage(nextPage.path)}
                     onFocus={() => warmPage(nextPage.path)}
-                    className="nav-button text-right p-4 rounded-lg transition-opacity hover:opacity-70"
+                    className="nav-button rounded-lg p-4 text-right transition-opacity hover:opacity-70"
                     type="button"
                   >
-                    <div className="text-xs mb-1" style={{ color: 'var(--muted-color)' }}>
+                    <div className="mb-1 text-xs" style={{ color: 'var(--muted-color)' }}>
                       Next
                     </div>
                     <div className="text-sm font-medium" style={{ color: 'var(--text-color)' }}>
                       {nextPage.title}
                     </div>
                   </button>
-                )}
+                ) : null}
               </div>
-            </motion.div>
-          )}
-
-          <DocPageFooter path={path} sourcePath={sourcePath} />
+            </div>
+          </motion.div>
         </div>
       </div>
     </div>

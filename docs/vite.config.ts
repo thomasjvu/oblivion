@@ -70,9 +70,7 @@ export default defineConfig({
             }
           }
 
-          if (id.includes('/src/components/MermaidDiagram')) {
-            return 'feature-mermaid';
-          }
+
         },
       },
     },
