@@ -33,7 +33,7 @@
     "generate:route-html": "node scripts/generate-route-html.mjs",
     "sync:docs-tree": "node scripts/sync-documentation-tree.mjs",
     "create": "node packages/create-papers/index.mjs",
-    "publish:create-papers": "npm publish --workspace packages/create-papers",
+    "publish:create-papers": "npm publish --prefix packages/create-papers",
     "check:docs-tree": "node scripts/sync-documentation-tree.mjs --check",
     "release:artifact-check": "node scripts/release-smoke.mjs",
     "release:preview-check": "node scripts/preview-smoke.mjs"
