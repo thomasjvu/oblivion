@@ -23,8 +23,9 @@ Set `VITE_PAPERS_THEME` in `.env.local` or your host build environment.
 ## Create a theme
 
 1. Add `themes/<id>/theme.json` and `themes/<id>/tokens.css`.
-2. Register the theme in `themes/registry.json`.
-3. Run `npm run papers:theme use <id>` and verify `npm run build`.
+2. Optional: add `themes/<id>/fonts.css` plus `assets/fonts/*` for self-hosted faces (see `CONTRIBUTING_THEMES.md`).
+3. Register the theme in `themes/registry.json`.
+4. Run `npm run papers:theme use <id>` and verify `npm run build`.
 
 See [CONTRIBUTING_THEMES.md](https://github.com/thomasjvu/papers/blob/main/CONTRIBUTING_THEMES.md) for the full contract.
 
