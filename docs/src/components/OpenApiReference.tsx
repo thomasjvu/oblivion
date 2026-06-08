@@ -1,11 +1,10 @@
-import '@scalar/api-reference-react/style.css';
-
 import { lazy, Suspense, useEffect } from 'react';
 
 const ScalarApiReference = lazy(() =>
-  import('@scalar/api-reference-react').then((module) => ({
-    default: module.ApiReferenceReact,
-  }))
+  import('@scalar/api-reference-react').then(async (module) => {
+    await import('@scalar/api-reference-react/style.css');
+    return { default: module.ApiReferenceReact };
+  })
 );
 
 type OpenApiReferenceProps = {
