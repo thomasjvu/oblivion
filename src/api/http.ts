@@ -12,7 +12,7 @@ export function clearRequestOrigin(): void {
   currentRequestOrigin = undefined;
 }
 
-export async function readJson<T>(request: IncomingMessage): Promise<T> {
+async function readBodyBuffer(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of request) {
@@ -23,7 +23,15 @@ export async function readJson<T>(request: IncomingMessage): Promise<T> {
     }
     chunks.push(buffer);
   }
-  const raw = Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
+}
+
+export async function readRawBody(request: IncomingMessage): Promise<string> {
+  return (await readBodyBuffer(request)).toString("utf8");
+}
+
+export async function readJson<T>(request: IncomingMessage): Promise<T> {
+  const raw = await readRawBody(request);
   if (!raw.trim()) return {} as T;
   try {
     return JSON.parse(raw) as T;
@@ -45,8 +53,8 @@ export function corsHeaders(requestOrigin?: string): Record<string, string> {
   if (!origin) return {};
   return {
     "access-control-allow-origin": origin,
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type, payment-signature",
+    "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "access-control-allow-headers": "content-type, authorization, payment-signature, idempotency-key",
     "access-control-max-age": "86400",
     vary: "Origin"
   };

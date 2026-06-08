@@ -52,6 +52,7 @@ export type ExecutionStatus =
   | "awaiting-approval"
   | "ready"
   | "recorded"
+  | "executed"
   | "blocked"
   | "failed";
 
@@ -61,6 +62,10 @@ export interface EncryptedBlob {
   nonce: string;
   ciphertext: string;
   aad?: string;
+}
+
+export interface CasePreferences {
+  operatorEmailRelay: boolean;
 }
 
 export interface CaseRecord {
@@ -75,6 +80,103 @@ export interface CaseRecord {
   deletedAt?: string;
   redactedScope?: RedactedScope;
   encryptedIntake?: EncryptedBlob;
+  casePreferences?: CasePreferences;
+  partnerId?: string;
+  externalRef?: string;
+  callbackUrl?: string;
+}
+
+export type PartnerEnvironment = "production" | "sandbox";
+
+export interface PartnerRecord {
+  id: string;
+  name: string;
+  apiKeyHash: string;
+  environment: PartnerEnvironment;
+  balanceCredits: number;
+  webhookUrl?: string;
+  webhookSecret?: string;
+  webhookEvents: PartnerWebhookEvent[];
+  keyRotatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PartnerWebhookEvent =
+  | "case.created"
+  | "case.phase_changed"
+  | "exposure.discovered"
+  | "approval.pending"
+  | "approval.approved"
+  | "action.executed"
+  | "recheck.due"
+  | "case.completed"
+  | "case.deleted";
+
+export interface PartnerWebhookDelivery {
+  id: string;
+  partnerId: string;
+  event: PartnerWebhookEvent;
+  caseId?: string;
+  status: "pending" | "delivered" | "failed";
+  responseStatus?: number;
+  error?: string;
+  attemptCount: number;
+  nextRetryAt?: string;
+  body?: string;
+  createdAt: string;
+  deliveredAt?: string;
+}
+
+export interface PartnerWebhookInboxEntry {
+  id: string;
+  partnerId: string;
+  event: PartnerWebhookEvent;
+  payload: Record<string, unknown>;
+  signatureValid: boolean;
+  receivedAt: string;
+}
+
+export type PartnerMeterKind = "case" | "discover" | "execute" | "ai";
+
+export interface PartnerUsageEntry {
+  id: string;
+  partnerId: string;
+  caseId?: string;
+  kind: PartnerMeterKind;
+  credits: number;
+  invoiceId?: string;
+  createdAt: string;
+}
+
+export interface PartnerInvoiceLine {
+  kind: PartnerMeterKind;
+  count: number;
+  credits: number;
+  rate: number;
+}
+
+export interface PartnerInvoice {
+  id: string;
+  partnerId: string;
+  period: string;
+  status: "open" | "closed";
+  totalCredits: number;
+  estimatedUsd: number;
+  lineItems: PartnerInvoiceLine[];
+  closedAt?: string;
+  createdAt: string;
+}
+
+export type PartnerDataAccessAction = "export" | "delete";
+
+export interface PartnerDataAccessEvent {
+  id: string;
+  partnerId: string;
+  caseId: string;
+  action: PartnerDataAccessAction;
+  source: "v1" | "api";
+  at: string;
 }
 
 export interface RedactedScope {
@@ -258,8 +360,30 @@ export interface ConnectorResult {
   officialRemovalPath?: string;
   confidence: "low" | "medium" | "high";
   requiresUserHandoff: boolean;
+  mailtoUrl?: string;
   nextCheckAt?: string;
   summary: string;
+  createdAt: string;
+}
+
+export type CreditLedgerKind = "purchase" | "token" | "email" | "subscription-refill";
+
+export interface CreditAccount {
+  id: string;
+  walletKey: string;
+  balanceCredits: number;
+  subscriptionExpiresAt?: string;
+  updatedAt: string;
+}
+
+export interface CreditLedgerEntry {
+  id: string;
+  walletKey: string;
+  caseId?: string;
+  kind: CreditLedgerKind;
+  credits: number;
+  subscriptionExpiresAt?: string;
+  meta?: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -340,6 +464,7 @@ export interface PaymentSession {
   cadence?: "weekly" | "monthly";
   x402Request: X402PaymentRequest;
   erc7710Delegation: Erc7710Delegation;
+  walletKey?: string;
   walletAddress?: string;
   smartAccountAddress?: string;
   relayerTaskId?: string;

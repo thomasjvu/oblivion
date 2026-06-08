@@ -9,6 +9,14 @@ import type {
   Approval,
   CaseRecord,
   ConnectorResult,
+  CreditAccount,
+  CreditLedgerEntry,
+  PartnerDataAccessEvent,
+  PartnerInvoice,
+  PartnerRecord,
+  PartnerUsageEntry,
+  PartnerWebhookDelivery,
+  PartnerWebhookInboxEntry,
   Exposure,
   FollowUp,
   PaymentSession,
@@ -35,6 +43,14 @@ interface PersistedStoreSnapshot {
   agentTimeline: AgentTimelineEvent[];
   agentPlans: AgentPlan[];
   connectorResults: ConnectorResult[];
+  creditAccounts?: CreditAccount[];
+  creditLedger?: CreditLedgerEntry[];
+  partners?: PartnerRecord[];
+  partnerUsage?: PartnerUsageEntry[];
+  partnerInvoices?: PartnerInvoice[];
+  partnerDataAccess?: PartnerDataAccessEvent[];
+  webhookDeliveries?: PartnerWebhookDelivery[];
+  partnerWebhookInbox?: PartnerWebhookInboxEntry[];
   tombstones: Array<[string, string]>;
 }
 
@@ -62,6 +78,14 @@ export function loadFileStore(path: string): MemoryStore {
     snapshot.agentTimeline?.forEach((item) => store.agentTimeline.set(item.id, item));
     snapshot.agentPlans?.forEach((item) => store.agentPlans.set(item.id, item));
     snapshot.connectorResults?.forEach((item) => store.connectorResults.set(item.id, item));
+    snapshot.creditAccounts?.forEach((item) => store.creditAccounts.set(item.walletKey, item));
+    snapshot.creditLedger?.forEach((item) => store.creditLedger.set(item.id, item));
+    snapshot.partners?.forEach((item) => store.partners.set(item.id, item));
+    snapshot.partnerUsage?.forEach((item) => store.partnerUsage.set(item.id, item));
+    snapshot.partnerInvoices?.forEach((item) => store.partnerInvoices.set(item.id, item));
+    snapshot.partnerDataAccess?.forEach((item) => store.partnerDataAccess.set(item.id, item));
+    snapshot.webhookDeliveries?.forEach((item) => store.webhookDeliveries.set(item.id, item));
+    snapshot.partnerWebhookInbox?.forEach((item) => store.partnerWebhookInbox.set(item.id, item));
     snapshot.tombstones?.forEach(([id, value]) => store.tombstones.set(id, value));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -86,6 +110,14 @@ export function snapshotStore(store: MemoryStore): PersistedStoreSnapshot {
     agentTimeline: [...store.agentTimeline.values()],
     agentPlans: [...store.agentPlans.values()],
     connectorResults: [...store.connectorResults.values()],
+    creditAccounts: [...store.creditAccounts.values()],
+    creditLedger: [...store.creditLedger.values()],
+    partners: [...store.partners.values()],
+    partnerUsage: [...store.partnerUsage.values()],
+    partnerInvoices: [...store.partnerInvoices.values()],
+    partnerDataAccess: [...store.partnerDataAccess.values()],
+    webhookDeliveries: [...store.webhookDeliveries.values()],
+    partnerWebhookInbox: [...store.partnerWebhookInbox.values()],
     tombstones: [...store.tombstones.entries()]
   };
 }

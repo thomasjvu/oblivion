@@ -3,7 +3,7 @@ import { x402HTTPClient } from "@x402/core/http";
 import { toClientEvmSigner } from "@x402/evm";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import { createPublicClient, createWalletClient, custom, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { base, baseSepolia } from "viem/chains";
 import { ensureChain } from "./metamaskSmartAccount.js";
 
 export const BASE_SEPOLIA_CHAIN = {
@@ -18,25 +18,48 @@ export const BASE_SEPOLIA_CHAIN = {
   }
 };
 
-const BASE_RPC = "https://sepolia.base.org";
+export const BASE_MAINNET_CHAIN = {
+  chainIdHex: "0x2105",
+  chainId: 8453,
+  addChainParams: {
+    chainId: "0x2105",
+    chainName: "Base",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+    rpcUrls: ["https://mainnet.base.org"],
+    blockExplorerUrls: ["https://basescan.org"]
+  }
+};
+
+const CHAIN_BY_ID = {
+  84532: { viemChain: baseSepolia, meta: BASE_SEPOLIA_CHAIN, rpcUrl: "https://sepolia.base.org" },
+  8453: { viemChain: base, meta: BASE_MAINNET_CHAIN, rpcUrl: "https://mainnet.base.org" }
+};
+
+export function chainConfigFromX402Network(network) {
+  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : 84532;
+  const known = CHAIN_BY_ID[chainId];
+  if (known) return { chainId, ...known };
+  return { chainId, viemChain: baseSepolia, meta: BASE_SEPOLIA_CHAIN, rpcUrl: "https://sepolia.base.org" };
+}
 
 function buildHttpClient(provider, walletAddress, network) {
+  const { viemChain, rpcUrl } = chainConfigFromX402Network(network);
   const walletClient = createWalletClient({
     account: walletAddress,
-    chain: baseSepolia,
+    chain: viemChain,
     transport: custom(provider)
   });
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(BASE_RPC)
+    chain: viemChain,
+    transport: http(rpcUrl)
   });
   const signer = toClientEvmSigner(walletClient, publicClient);
   const coreClient = new x402Client();
-  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : baseSepolia.id;
+  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : viemChain.id;
   registerExactEvmScheme(coreClient, {
     signer,
     networks: network ? [network] : undefined,
-    schemeOptions: { [chainId]: { rpcUrl: BASE_RPC } }
+    schemeOptions: { [chainId]: { rpcUrl } }
   });
   return new x402HTTPClient(coreClient);
 }
@@ -55,7 +78,8 @@ export async function settleAgentPayment({
   if (!provider?.request) throw Object.assign(new Error("wallet-provider-missing"), { error: "wallet-provider-missing" });
   if (!walletAddress) throw Object.assign(new Error("wallet-address-missing"), { error: "wallet-address-missing" });
   const network = x402Config?.network || "eip155:84532";
-  await ensureChain(provider, BASE_SEPOLIA_CHAIN);
+  const { meta } = chainConfigFromX402Network(network);
+  await ensureChain(provider, meta);
   const httpClient = buildHttpClient(provider, walletAddress, network);
   const payload = JSON.stringify(body);
 
@@ -110,5 +134,5 @@ export async function settleAgentPayment({
 }
 
 export function agentEndpointForMode(mode) {
-  return mode === "subscription" ? "/api/agent/monitor" : "/api/agent/premium-task";
+  return mode === "subscription" ? "/api/credits/monitor" : "/api/credits/purchase";
 }

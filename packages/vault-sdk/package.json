@@ -1,0 +1,22 @@
+{
+  "name": "@oblivion/vault-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser vault SDK for Oblivion partner integrations",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thomasjvu/oblivion.git",
+    "directory": "packages/vault-sdk"
+  },
+  "files": ["dist/index.js", "entry.js", "helpers.js"],
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "esbuild entry.js --bundle --format=esm --outfile=dist/index.js --platform=browser --packages=bundle",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["oblivion", "privacy", "vault", "encryption"]
+}

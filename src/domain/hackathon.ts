@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
+import { assertCreditsForTokens, walletHasCreditsOrPayment, walletKeyFromAddress } from "./credits.js";
 import { isX402Configured, x402Network } from "./integrations.js";
 import { redactText } from "./redaction.js";
 import { runVeniceAnalysis } from "./venice.js";
@@ -25,26 +26,26 @@ import type {
 
 export const X402_PRODUCTS: PaymentProduct[] = [
   {
-    id: "broker-opt-out-packet",
-    name: "One-off cleanup run",
+    id: "credit-starter",
+    name: "Starter credits",
     mode: "one-off",
-    description: "$5 USDC for a single supervised cleanup run with capped agent assistance.",
+    description: "$5 USDC for 500 wallet credits (~50k Venice tokens at default rates).",
     amountUsd: 5,
     token: "USDC",
     network: "base",
-    x402Endpoint: "/api/agent/premium-task",
+    x402Endpoint: "/api/credits/purchase",
     requiredPermission: "erc7710-payment"
   },
   {
-    id: "weekly-monitor",
-    name: "Weekly review & cleanup",
+    id: "credit-monitor",
+    name: "Monitor subscription",
     mode: "subscription",
-    description: "$10 USDC/month for weekly exposure rechecks and follow-up cleanup prep.",
+    description: "$10 USDC/month for 1,200 wallet credits refilled monthly.",
     amountUsd: 10,
     token: "USDC",
     network: "base",
     cadence: "monthly",
-    x402Endpoint: "/api/agent/monitor",
+    x402Endpoint: "/api/credits/monitor",
     requiredPermission: "erc7710-payment"
   }
 ];
@@ -120,13 +121,17 @@ export function createPaymentSession(input: {
       message: "Set X402_PAY_TO and X402_FACILITATOR_URL for payment sessions."
     });
   }
+  if (!input.walletAddress?.startsWith("0x")) {
+    throw Object.assign(new Error("wallet-address-required"), { statusCode: 422 });
+  }
+  const walletKey = walletKeyFromAddress(input.walletAddress);
   const x402Request: X402PaymentRequest = {
     version: "x402-v2",
     endpoint: product.x402Endpoint,
     amountUsd: product.amountUsd,
     token: product.token,
     network: x402Network(),
-    memo: `${product.name} for encrypted Oblivion case`,
+    memo: `${product.name} for wallet credits`,
     expiresAt
   };
   const erc7710Delegation: Erc7710Delegation = {
@@ -138,9 +143,9 @@ export function createPaymentSession(input: {
     cadence: product.cadence,
     expiresAt,
     scope: [
-      product.mode === "subscription" ? "pay-weekly-monitor-invoices" : "pay-one-off-cleanup-packet",
+      product.mode === "subscription" ? "refill-monthly-credits" : "top-up-credits",
       "x402-only",
-      "case-bound"
+      "wallet-bound"
     ]
   };
   validateErc7710Delegation(erc7710Delegation);
@@ -157,6 +162,7 @@ export function createPaymentSession(input: {
     cadence: product.cadence,
     x402Request,
     erc7710Delegation,
+    walletKey,
     walletAddress: input.walletAddress,
     smartAccountAddress: input.smartAccountAddress,
     createdAt: now,
@@ -332,18 +338,27 @@ export function buildHackathonStatus(input: {
   veniceAnalyses: VeniceAnalysis[];
   delegations: AgentDelegation[];
   relayerEvents: RelayerEvent[];
+  walletAddress?: string;
+  store?: MemoryStore;
 }): HackathonStatus {
+  const walletReady = input.store && input.walletAddress
+    ? walletHasCreditsOrPayment(input.store, input.walletAddress)
+    : false;
+  const hasOneOff = input.payments.some((session) => session.mode === "one-off") || walletReady;
+  const hasSubscription = input.payments.some((session) => session.mode === "subscription") || walletReady;
   return {
     caseId: input.caseId,
     smartAccountVisible: input.permissions.some((grant) => grant.permissionType === "eip7702-authorization"),
     erc7715PermissionGranted: input.permissions.some(
       (grant) => grant.permissionType === "erc7715-advanced" && grant.status === "granted"
     ),
-    x402OneOffReady: input.payments.some((session) => session.mode === "one-off"),
-    erc7710SubscriptionReady: input.payments.some((session) => session.mode === "subscription"),
+    x402OneOffReady: hasOneOff,
+    erc7710SubscriptionReady: hasSubscription,
     veniceOutputReady: input.veniceAnalyses.length > 0,
     a2aRedelegationVisible: input.delegations.length >= 3,
-    oneShotRelayerVisible: input.relayerEvents.some((event) => event.provider === "1shot")
+    oneShotRelayerVisible: input.relayerEvents.some(
+      (event) => event.provider === "1shot" && event.status === "confirmed" && !event.payload?.checklistOnly
+    )
   };
 }
 
@@ -361,8 +376,12 @@ export function pendingHackathonTracks(
 
 function walletContextForCase(store: MemoryStore, caseId: string, input?: { walletAddress?: string; smartAccountAddress?: string }) {
   const eip7702 = store.permissionGrantsForCase(caseId).find((grant) => grant.permissionType === "eip7702-authorization");
+  const sessionWallet = store
+    .paymentSessionsForCase(caseId)
+    .map((session) => session.walletAddress)
+    .find((address) => address?.startsWith("0x"));
   return {
-    walletAddress: input?.walletAddress,
+    walletAddress: input?.walletAddress || sessionWallet,
     smartAccountAddress: input?.smartAccountAddress || eip7702?.delegate
   };
 }
@@ -400,15 +419,17 @@ export async function completePendingHackathonTracks(input: {
     payments: input.store.paymentSessionsForCase(input.caseId),
     veniceAnalyses: input.store.veniceAnalysesForCase(input.caseId),
     delegations: input.store.agentDelegationsForCase(input.caseId),
-    relayerEvents: input.store.relayerEventsForCase(input.caseId)
+    relayerEvents: input.store.relayerEventsForCase(input.caseId),
+    walletAddress,
+    store: input.store
   });
 
-  if (!status.x402OneOffReady && isX402Configured()) {
+  if (!status.x402OneOffReady && isX402Configured() && walletAddress) {
     const session = createPaymentSession({
       caseId: input.caseId,
       mode: "one-off",
-      productId: "broker-opt-out-packet",
-      walletAddress: walletAddress ? redactText(walletAddress) : undefined,
+      productId: "credit-starter",
+      walletAddress,
       smartAccountAddress
     });
     const permission = createPaymentPermission(input.caseId, session);
@@ -427,12 +448,12 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, x402OneOffReady: true };
   }
 
-  if (!status.erc7710SubscriptionReady && isX402Configured()) {
+  if (!status.erc7710SubscriptionReady && isX402Configured() && walletAddress) {
     const session = createPaymentSession({
       caseId: input.caseId,
       mode: "subscription",
-      productId: "weekly-monitor",
-      walletAddress: walletAddress ? redactText(walletAddress) : undefined,
+      productId: "credit-monitor",
+      walletAddress,
       smartAccountAddress
     });
     const permission = createPaymentPermission(input.caseId, session);
@@ -451,21 +472,26 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, erc7710SubscriptionReady: true };
   }
 
-  if (!status.veniceOutputReady && process.env.VENICE_API_KEY?.trim()) {
-    const analysis = await runVeniceAnalysis({
-      caseId: input.caseId,
-      kind: "classify-case",
-      notes: input.notes,
-      destination: input.destination,
-      actionType: input.actionType
-    });
-    input.store.veniceAnalyses.set(analysis.id, analysis);
-    veniceAnalyses.push(analysis);
-    const event = createTimelineEvent(input.caseId, "Venice", analysis.output.title, analysis.output.summary);
-    input.store.agentTimeline.set(event.id, event);
-    timeline.push(event);
-    completed.push("venice");
-    status = { ...status, veniceOutputReady: true };
+  if (!status.veniceOutputReady && process.env.VENICE_API_KEY?.trim() && walletAddress) {
+    try {
+      assertCreditsForTokens(input.store, walletAddress, 200);
+      const analysis = await runVeniceAnalysis({
+        caseId: input.caseId,
+        kind: "classify-case",
+        notes: input.notes,
+        destination: input.destination,
+        actionType: input.actionType
+      });
+      input.store.veniceAnalyses.set(analysis.id, analysis);
+      veniceAnalyses.push(analysis);
+      const event = createTimelineEvent(input.caseId, "Venice", analysis.output.title, analysis.output.summary);
+      input.store.agentTimeline.set(event.id, event);
+      timeline.push(event);
+      completed.push("venice");
+      status = { ...status, veniceOutputReady: true };
+    } catch {
+      // Venice checklist track requires the same paid entitlement as /api/ai/*.
+    }
   }
 
   if (!status.a2aRedelegationVisible) {
@@ -484,24 +510,7 @@ export async function completePendingHackathonTracks(input: {
     status = { ...status, a2aRedelegationVisible: true };
   }
 
-  if (!status.oneShotRelayerVisible && process.env.ONESHOT_API_KEY?.trim()) {
-    const payment = input.store.paymentSessionsForCase(input.caseId).find((session) => session.status === "paid");
-    const events = createRelayerEvents({
-      caseId: input.caseId,
-      sessionId: payment?.id,
-      status: "confirmed",
-      payload: { mode: "live" }
-    });
-    events.forEach((event) => {
-      input.store.relayerEvents.set(event.id, event);
-      relayerEvents.push(event);
-    });
-    const event = createTimelineEvent(input.caseId, "1Shot", "Relayer confirmed", "Case-bound 1Shot relay event recorded.");
-    input.store.agentTimeline.set(event.id, event);
-    timeline.push(event);
-    completed.push("1shot");
-    status = { ...status, oneShotRelayerVisible: true };
-  }
+
 
   return {
     completed,

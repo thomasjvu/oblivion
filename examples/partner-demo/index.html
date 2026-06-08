@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Vault — Partner Demo</title>
+    <link rel="stylesheet" href="/packages/partner-ui/widgets.css" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; max-width: 820px; margin: 2rem auto; padding: 0 1rem; background: #0a0a0a; color: #eee; }
+      pre { background: #111; color: #b9ff68; padding: 1rem; overflow: auto; font-size: 12px; max-height: 280px; }
+      button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.45rem 0.8rem; cursor: pointer; }
+      .muted { color: #888; }
+      .card { border: 1px solid #333; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+      input, textarea { width: 100%; max-width: 520px; margin: 0.25rem 0 0.75rem; background: #111; color: #eee; border: 1px solid #333; padding: 0.4rem; }
+      .row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <h1>Acme Password Manager × Oblivion</h1>
+      <div id="trust-badge"></div>
+    </div>
+    <p class="muted">Phase 3 demo — embeddable widgets, webhook inbox, full approval flow. Vault key stays in this browser.</p>
+
+    <div class="card">
+      <label>API base <input id="api-base" value="http://localhost:8080" /></label>
+      <label>Partner API key <input id="api-key" placeholder="obl_live_change_me" /></label>
+    </div>
+
+    <div class="card">
+      <h2>Setup</h2>
+      <button id="register-inbox">Register webhook inbox</button>
+      <button id="create-case">Create case</button>
+      <button id="submit-intake">Encrypt + submit intake</button>
+      <button id="apply-preset">Apply people-search preset</button>
+    </div>
+
+    <div class="card">
+      <h2>Workflow</h2>
+      <button id="discover">Discover exposures</button>
+      <button id="run-until">Run until approval needed</button>
+      <button id="refresh-all">Refresh UI</button>
+      <div id="status-panel"></div>
+      <div id="exposure-actions"></div>
+    </div>
+
+    <div class="card">
+      <h2>Approval widgets</h2>
+      <div id="approvals"></div>
+    </div>
+
+    <div class="card">
+      <h2>Webhooks received</h2>
+      <pre id="inbox"></pre>
+    </div>
+
+    <h2>Log</h2>
+    <pre id="log"></pre>
+
+    <script type="module">
+      import { OblivionPartnerClient } from "/packages/partner-sdk/index.js";
+      import { OblivionApprovalPanel, OblivionStatusBadge, OblivionStatusPanel } from "/packages/partner-ui/widgets.js";
+      import { createVaultKey, encryptVaultPayload } from "/packages/vault-sdk/dist/index.js";
+      import { buildEncryptedIntake } from "/packages/vault-sdk/helpers.js";
+
+      const logEl = document.getElementById("log");
+      const state = {
+        caseId: null,
+        vaultKey: null,
+        contactEmail: "alex@example.com",
+        externalRef: `acme_user_${Date.now()}`,
+        approvalPanel: null,
+        statusPanel: null
+      };
+
+      function client() {
+        return new OblivionPartnerClient({
+          baseUrl: document.getElementById("api-base").value.trim(),
+          apiKey: document.getElementById("api-key").value.trim()
+        });
+      }
+
+      function log(msg, data) {
+        logEl.textContent += `${msg}\n${data ? JSON.stringify(data, null, 2) + "\n" : ""}`;
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      async function refreshInbox() {
+        const inbox = await client().getWebhookInbox();
+        document.getElementById("inbox").textContent = JSON.stringify(inbox.entries, null, 2);
+      }
+
+      async function refreshWidgets() {
+        if (!state.caseId) return;
+        if (!state.statusPanel) {
+          state.statusPanel = new OblivionStatusPanel({
+            client: client(),
+            caseId: state.caseId,
+            container: "#status-panel"
+          });
+        }
+        if (!state.approvalPanel) {
+          state.approvalPanel = new OblivionApprovalPanel({
+            client: client(),
+            caseId: state.caseId,
+            container: "#approvals",
+            contactEmail: state.contactEmail,
+            onApproved: (result) => log("widget.approved", result),
+            onExecuted: (result) => log("widget.executed", result)
+          });
+        }
+        await state.statusPanel.refresh();
+        await state.approvalPanel.refresh();
+        await refreshInbox();
+      }
+
+      new OblivionStatusBadge({
+        baseUrl: document.getElementById("api-base").value,
+        container: "#trust-badge"
+      }).render();
+
+      document.getElementById("register-inbox").onclick = async () => {
+        log("webhook.inbox", await client().registerWebhookInbox());
+      };
+
+      document.getElementById("create-case").onclick = async () => {
+        const created = await client().createCase({
+          jurisdiction: "US",
+          authorityBasis: "self",
+          externalRef: state.externalRef
+        });
+        state.caseId = created.case.id;
+        state.approvalPanel = null;
+        state.statusPanel = null;
+        log("case.created", created);
+        await refreshWidgets();
+      };
+
+      document.getElementById("submit-intake").onclick = async () => {
+        if (!state.caseId) return log("error", { message: "create case first" });
+        state.vaultKey = await createVaultKey();
+        const intake = {
+          notes: "Legal name: Alex Example\nEmail: alex@example.com\nCity/State: Austin TX",
+          contactEmail: state.contactEmail
+        };
+        const body = await buildEncryptedIntake(state.vaultKey, state.caseId, intake, encryptVaultPayload);
+        log("intake.submitted", await client().submitIntake(state.caseId, body));
+      };
+
+      document.getElementById("apply-preset").onclick = async () => {
+        log("preset.applied", await client().applyPreset(state.caseId, "people-search-cleanup"));
+        await refreshWidgets();
+      };
+
+      document.getElementById("discover").onclick = async () => {
+        const result = await client().discover(state.caseId, ["https://www.spokeo.com/example/listing"]);
+        log("discover", result);
+        const el = document.getElementById("exposure-actions");
+        el.innerHTML = "";
+        for (const exposure of result.discovered ?? []) {
+          const btn = document.createElement("button");
+          btn.textContent = `Confirm ${exposure.sourceUrl}`;
+          btn.onclick = async () => {
+            await client().confirmExposure(state.caseId, exposure.id);
+            await refreshWidgets();
+          };
+          el.appendChild(btn);
+        }
+      };
+
+      document.getElementById("run-until").onclick = async () => {
+        log("run-until-blocked", await client().runUntilBlocked(state.caseId, 12));
+        await refreshWidgets();
+      };
+
+      document.getElementById("refresh-all").onclick = refreshWidgets;
+    </script>
+  </body>
+</html>

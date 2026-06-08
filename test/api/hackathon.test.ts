@@ -120,7 +120,8 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot pol
 
     const oneOff = await post(base, "/api/x402/one-off", {
       caseId,
-      productId: "broker-opt-out-packet",
+      productId: "credit-starter",
+      walletAddress: "0x1111111111111111111111111111111111111111",
       smartAccountAddress: smart.smartAccountAddress
     }, 201);
     assert.equal(oneOff.session.mode, "one-off");
@@ -128,6 +129,7 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot pol
 
     const venice = await post(base, "/api/ai/classify-case", {
       caseId,
+      walletAddress: "0x1111111111111111111111111111111111111111",
       notes: "Remove person@example.com from a people-search site."
     }, 201);
     assert.doesNotMatch(JSON.stringify(venice), /person@example\.com/);
@@ -189,6 +191,7 @@ test("complete-pending only finishes configured integration tracks", async () =>
 
     const finished = await post(base, "/api/hackathon/complete-pending", {
       caseId,
+      walletAddress: "0x3333333333333333333333333333333333333333",
       notes: "Remove person@example.com from people-search."
     }, 201);
     assert.ok(finished.completed.includes("x402"));
@@ -204,7 +207,7 @@ test("complete-pending only finishes configured integration tracks", async () =>
   }
 });
 
-test("complete-pending finishes 1shot when API key is configured", async () => {
+test("complete-pending does not fake 1shot relay completion", async () => {
   installVeniceMock();
   enableLiveIntegrations();
   const { server, base } = await startTestServer();
@@ -220,8 +223,8 @@ test("complete-pending finishes 1shot when API key is configured", async () => {
       caseId,
       notes: "Remove person@example.com from people-search."
     }, 201);
-    assert.ok(finished.completed.includes("1shot"));
-    assert.equal(finished.status.oneShotRelayerVisible, true);
+    assert.equal(finished.completed.includes("1shot"), false);
+    assert.equal(finished.status.oneShotRelayerVisible, false);
   } finally {
     server.close();
     globalThis.fetch = originalFetch;

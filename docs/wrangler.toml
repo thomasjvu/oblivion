@@ -1,0 +1,6 @@
+name = "oblivion-docs"
+compatibility_date = "2025-01-14"
+pages_build_output_dir = "dist"
+
+[env.production]
+compatibility_date = "2025-01-14"

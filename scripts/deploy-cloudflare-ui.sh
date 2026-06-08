@@ -8,8 +8,6 @@ UI_HOST="${OBLIVION_UI_HOST:-oblivion.phantasy.bot}"
 cd "$ROOT"
 npm run build:client
 npm run build:fonts
-npm run build:legal
-
 cd "$ROOT/workers"
 OBLIVION_API_ORIGIN="$API_ORIGIN" wrangler deploy --config wrangler.toml \
   --var "OBLIVION_API_ORIGIN:$API_ORIGIN"

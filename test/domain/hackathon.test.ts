@@ -14,6 +14,8 @@ import {
 import { runVeniceAnalysis } from "../../src/domain/venice.js";
 import type { Erc7710Delegation, PermissionGrant } from "../../src/domain/types.js";
 
+const WALLET = "0x1111111111111111111111111111111111111111";
+
 test("resolveSmartAccountAddress uses wallet in live mode and hash in demo", () => {
   const wallet = "0x1111111111111111111111111111111111111111";
   assert.equal(
@@ -40,7 +42,7 @@ test("createPaymentSession uses x402-v2 when live x402 is configured", () => {
   try {
     process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
     process.env.X402_ENABLED = "true";
-    const session = createPaymentSession({ caseId: "case_x402", mode: "one-off" });
+    const session = createPaymentSession({ caseId: "case_x402", mode: "one-off", walletAddress: WALLET });
     assert.equal(session.x402Request.version, "x402-v2");
     assert.match(session.x402Request.network, /^eip155:/);
   } finally {
@@ -56,7 +58,7 @@ test("createPaymentSession fails when x402 is not configured", () => {
   try {
     delete process.env.X402_PAY_TO;
     assert.throws(
-      () => createPaymentSession({ caseId: "case_demo", mode: "one-off" }),
+      () => createPaymentSession({ caseId: "case_demo", mode: "one-off", walletAddress: WALLET }),
       /X402_PAY_TO/
     );
   } finally {
@@ -77,9 +79,10 @@ test("ERC-7710 delegation requires expiry, cap, and narrow scope", () => {
   const priorPayTo = process.env.X402_PAY_TO;
   try {
     process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
-    const session = createPaymentSession({ caseId: "case_demo", mode: "subscription" });
+    const session = createPaymentSession({ caseId: "case_demo", mode: "subscription", walletAddress: WALLET });
     assert.equal(session.erc7710Delegation.standard, "ERC-7710");
     assert.equal(session.erc7710Delegation.scope.includes("x402-only"), true);
+    assert.equal(session.erc7710Delegation.scope.includes("wallet-bound"), true);
 
     const broad: Erc7710Delegation = {
       ...session.erc7710Delegation,
@@ -155,6 +158,49 @@ test("Venice adapter redacts identifiers before producing user-facing analysis",
   }
 });
 
+test("oneShotRelayerVisible requires a non-checklist confirmed relayer event", () => {
+  const checklistOnly = buildHackathonStatus({
+    caseId: "case_demo",
+    permissions: [],
+    payments: [],
+    veniceAnalyses: [],
+    delegations: [],
+    relayerEvents: [
+      {
+        id: "relayer_checklist",
+        caseId: "case_demo",
+        provider: "1shot",
+        eventType: "confirmed",
+        status: "confirmed",
+        message: "checklist placeholder",
+        payload: { checklistOnly: true },
+        createdAt: new Date().toISOString()
+      }
+    ]
+  });
+  assert.equal(checklistOnly.oneShotRelayerVisible, false);
+
+  const liveRelay = buildHackathonStatus({
+    caseId: "case_demo",
+    permissions: [],
+    payments: [],
+    veniceAnalyses: [],
+    delegations: [],
+    relayerEvents: [
+      {
+        id: "relayer_live",
+        caseId: "case_demo",
+        provider: "1shot",
+        eventType: "confirmed",
+        status: "confirmed",
+        message: "live relay confirmed",
+        createdAt: new Date().toISOString()
+      }
+    ]
+  });
+  assert.equal(liveRelay.oneShotRelayerVisible, true);
+});
+
 test("pendingHackathonTracks includes ERC-7710 subscription until prepared", () => {
   const empty = buildHackathonStatus({
     caseId: "case_demo",
@@ -171,7 +217,7 @@ test("pendingHackathonTracks includes ERC-7710 subscription until prepared", () 
     const oneOff = buildHackathonStatus({
       caseId: "case_demo",
       permissions: [],
-      payments: [createPaymentSession({ caseId: "case_demo", mode: "one-off" })],
+      payments: [createPaymentSession({ caseId: "case_demo", mode: "one-off", walletAddress: WALLET })],
       veniceAnalyses: [],
       delegations: [],
       relayerEvents: []

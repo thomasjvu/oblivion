@@ -9,6 +9,7 @@ services:
       - "8080:8080"
     environment:
       - NODE_ENV=production
+      - OBLIVION_DEPLOYMENT_ENV=${OBLIVION_DEPLOYMENT_ENV:-production}
       - PORT=8080
       - TRUST_CENTER_PATH=/app/config/trust-center.json
       - PHALA_ATTESTATION_URL=https://${DSTACK_APP_ID}.${DSTACK_GATEWAY_DOMAIN}/tcbinfo

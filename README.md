@@ -1,6 +1,10 @@
 # Oblivion
 
-Private supervised agent for online identity cleanup. Encrypted in the browser. Server stores only ciphertext + redacted metadata. Every disclosure stops at an explicit approval gate.
+**Personal information removal without giving away your personal information.**
+
+Private supervised agent for people-search cleanup, breach awareness, and search suppression. Encrypted in the browser. Server stores only ciphertext + redacted metadata. Every disclosure stops at an explicit approval gate.
+
+**For app builders:** Oblivion is also a partner API — embed broker removal in password managers, VPNs, and security products without holding user PII. See the [Partner API](https://oblivion-docs.phantasy.bot/docs/developers/partner-api) on the docs site.
 
 ## Quick Start
 
@@ -12,7 +16,7 @@ npm run dev
 
 Open http://localhost:8080.
 
-**New here?** Read the step-by-step walkthrough: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) or open [/help](http://localhost:8080/help) while the app is running.
+**New here?** Read the [user guide](https://oblivion-docs.phantasy.bot/docs/user-guide/overview). Local dev still redirects `/help` to the docs site.
 
 ```sh
 npm run verify   # build:client + test + typecheck + design:lint
@@ -94,11 +98,27 @@ OBLIVION_DISABLE_PLAINTEXT_LOGS=true
 
 Confirm `GET /api/trust/attestation` returns `verifierResult: "pass"` before enabling sensitive connectors.
 
-Optional hackathon wallet (MetaMask Smart Account demo / live Sepolia):
+### Deployment environments
+
+| `OBLIVION_DEPLOYMENT_ENV` | x402 network | Wallet chain | Facilitator default |
+|---------------------------|--------------|--------------|---------------------|
+| `development` (local default) | Base Sepolia `eip155:84532` | Ethereum Sepolia `11155111` | [x402.org testnet](https://x402.org/facilitator) |
+| `production` (Phala default) | Base mainnet `eip155:8453` | Base `8453` | CDP `api.cdp.coinbase.com/.../x402` |
+
+Override any default with explicit `X402_NETWORK`, `X402_FACILITATOR_URL`, or `WALLET_CHAIN_ID`. Production template: [`.env.production.example`](.env.production.example).
+
+```sh
+# Local dev
+OBLIVION_DEPLOYMENT_ENV=development
+
+# Phala / mainnet deploy
+OBLIVION_ENV_FILE=.env.production npm run deploy:production
+```
+
+Optional hackathon wallet (MetaMask Smart Account demo / live Sepolia in development):
 
 ```sh
 WALLET_LIVE_MODE=true          # enable wallet_sendCalls upgrade path in the browser
-WALLET_CHAIN_ID=11155111       # Sepolia (default)
 ```
 
 ### Live integrations (hackathon + production)
@@ -109,7 +129,7 @@ Copy [`.env.example`](.env.example) to `.env` and configure:
 |----------|---------|
 | `BRAVE_SEARCH_API_KEY` | People-search URL discovery (redacted query from case labels) |
 | `VENICE_API_KEY` | Live agent classify / draft / review / chat + match scoring |
-| `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real HTTP 402 settlement on `/api/agent/premium-task` and `/api/agent/monitor` |
+| `X402_PAY_TO` + facilitator | Dev: x402.org + Base Sepolia. Prod: CDP + Base mainnet (`X402_CDP_API_KEY_*`) |
 | `ONESHOT_BASE_URL` | 1Shot public relayer JSON-RPC (default `https://relayer.1shotapi.com/relayers`) |
 | `HIBP_API_KEY` | Live breach email check (TEE attestation pass required) |
 | `OBLIVION_EXECUTOR_MODE=live` | Run approved connectors after policy + approval (still gated by TEE for managed plaintext) |
@@ -131,14 +151,40 @@ Venice chat/classify requires a **paid** x402 session per case unless `OBLIVION_
 
 Full runbook: [`SECURITY.md`](SECURITY.md#production-runbook).
 
+## Partner API (B2B rail)
+
+```sh
+# .env
+OBLIVION_PARTNER_KEYS=acme:obl_live_your_secret_key
+```
+
+```sh
+curl -X POST http://localhost:8080/v1/cases \
+  -H "Authorization: Bearer obl_live_your_secret_key" \
+  -H "Content-Type: application/json" \
+  -d '{"jurisdiction":"US","authorityBasis":"self","externalRef":"user_123"}'
+```
+
+- [Partner API](https://oblivion-docs.phantasy.bot/docs/developers/partner-api) — integration guide
+- [`spec/openapi-v1.yaml`](spec/openapi-v1.yaml) — OpenAPI sketch (also at `/docs/openapi-v1.yaml` on the API)
+- [`examples/partner-demo/`](examples/partner-demo/) — minimal partner app
+- [`packages/vault-sdk/`](packages/vault-sdk/) — browser vault helpers (`npm run build:vault-sdk`)
+- [`packages/partner-sdk/`](packages/partner-sdk/) — `@oblivion/partner-sdk` (billing, retries, audit helpers)
+- [`packages/partner-ui/`](packages/partner-ui/) — embeddable approval + status widgets
+- [Partner onboarding](https://oblivion-docs.phantasy.bot/docs/developers/partner-onboarding) — 30-min design-partner runbook
+- Live demo: [/examples/partner-demo/](http://localhost:8080/examples/partner-demo/index.html) when `npm run dev` is running
+
+Partner cases are scoped by API key. Consumer UI cases (no `partnerId`) stay on `/api/*` without a key.
+
 ## Docs
 
-- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — **step-by-step guide for users** (also at `/help` when the server is running).
-- [`docs/TEMPLATES.md`](docs/TEMPLATES.md) — **every cleanup template/preset**: workflow, connectors, approvals, and timelines.
+- [User guide](https://oblivion-docs.phantasy.bot/docs/user-guide/overview) — step-by-step guide for users.
+- [Templates](https://oblivion-docs.phantasy.bot/docs/user-guide/templates) — every cleanup template/preset: workflow, connectors, approvals, and timelines.
 - `AGENTS.md` — for AI agents and maintainers (invariants, safety checklists, test gaps, how to add connectors).
 - `DESIGN.md` — visual language, colors, components.
 - `SECURITY.md` — never-store rules, approval boundary, production requirements.
-- `docs/HACKATHON_DEMO.md` — hackathon architecture diagram, live-vs-demo matrix, 3-minute judge flow, and per-track verification.
+- [Hackathon demo](https://oblivion-docs.phantasy.bot/docs/developers/hackathon-demo) — architecture diagram, live-vs-demo matrix, judge flow, and per-track verification.
+- `docs/` — [papers](https://github.com/thomasjvu/papers) documentation site (`npm run docs:dev`, deploys to https://oblivion-docs.phantasy.bot). See `docs/PAPERS_UPSTREAM.md` for framework sync.
 
 ## API Surface (core)
 

@@ -62,33 +62,21 @@ test("serves split frontend assets with restrictive security headers", async () 
     const favicon = await fetch(`${base}/favicon.svg`);
     assert.equal(favicon.status, 200);
 
-    const help = await fetch(`${base}/help`);
-    assert.equal(help.status, 200);
-    assert.match(help.headers.get("content-type") ?? "", /text\/html/);
-    const helpHtml = await help.text();
-    assert.match(helpHtml, /<h2>Start<\/h2>/);
-    assert.match(helpHtml, /<strong>private cleanup agent<\/strong>/);
-    assert.doesNotMatch(helpHtml, /\*\*private cleanup agent\*\*/);
+    const help = await fetch(`${base}/help`, { redirect: "manual" });
+    assert.equal(help.status, 302);
+    assert.match(help.headers.get("location") ?? "", /\/docs\/user-guide\/overview$/);
 
-    const privacy = await fetch(`${base}/privacy`);
-    assert.equal(privacy.status, 200);
-    const privacyHtml = await privacy.text();
-    assert.match(privacyHtml, /Privacy Policy/);
-    assert.match(privacyHtml, /do not collect, sell, or profile your personal data/i);
+    const privacy = await fetch(`${base}/privacy`, { redirect: "manual" });
+    assert.equal(privacy.status, 302);
+    assert.match(privacy.headers.get("location") ?? "", /\/docs\/legal\/privacy$/);
 
-    const terms = await fetch(`${base}/terms`);
-    assert.equal(terms.status, 200);
-    const termsHtml = await terms.text();
-    assert.match(termsHtml, /Terms of Service/);
-    assert.match(termsHtml, /No data harvesting/i);
+    const terms = await fetch(`${base}/terms`, { redirect: "manual" });
+    assert.equal(terms.status, 302);
+    assert.match(terms.headers.get("location") ?? "", /\/docs\/legal\/terms$/);
 
-    const pricing = await fetch(`${base}/pricing`);
-    assert.equal(pricing.status, 200);
-    assert.match(pricing.headers.get("content-type") ?? "", /text\/html/);
-    const pricingHtml = await pricing.text();
-    assert.match(pricingHtml, /pricing-page/);
-    assert.match(pricingHtml, /\$5 USDC/);
-    assert.match(pricingHtml, /\$10 USDC\/mo/);
+    const pricing = await fetch(`${base}/pricing`, { redirect: "manual" });
+    assert.equal(pricing.status, 302);
+    assert.match(pricing.headers.get("location") ?? "", /\/docs\/pricing$/);
   } finally {
     server.close();
   }

@@ -13,19 +13,23 @@ test("Dockerfile runs the Node app on port 8080 without plaintext build secrets"
   assert.match(dockerfile, /EXPOSE 8080/);
   assert.match(dockerfile, /HEALTHCHECK/);
   assert.match(dockerfile, /CMD \["node", "--import", "tsx", "src\/server\.ts"\]/);
-  assert.match(dockerfile, /COPY docs \.\/docs/);
+  assert.match(dockerfile, /COPY spec \.\/spec/);
   assert.doesNotMatch(dockerfile, /HIBP_API_KEY|VENICE_API_KEY|ONESHOT_API_KEY/);
 });
 
-test("built legal pages ship in public for /privacy, /terms, and /pricing routes", async () => {
-  const privacy = await readFile(new URL("../../public/privacy.html", import.meta.url), "utf8");
-  const terms = await readFile(new URL("../../public/terms.html", import.meta.url), "utf8");
-  const pricing = await readFile(new URL("../../public/pricing.html", import.meta.url), "utf8");
+test("docs content ships user guide pricing and legal pages", async () => {
+  const overview = await readFile(
+    new URL("../../docs/src/docs/content/user-guide/overview.md", import.meta.url),
+    "utf8"
+  );
+  const pricing = await readFile(new URL("../../docs/src/docs/content/pricing.md", import.meta.url), "utf8");
+  const privacy = await readFile(new URL("../../docs/src/docs/content/legal/privacy.md", import.meta.url), "utf8");
+  const terms = await readFile(new URL("../../docs/src/docs/content/legal/terms.md", import.meta.url), "utf8");
+  assert.match(overview, /private cleanup agent/i);
+  assert.match(pricing, /\$5 USDC/);
+  assert.match(pricing, /\$10 USDC\/month/);
   assert.match(privacy, /Privacy Policy/);
   assert.match(terms, /Terms of Service/);
-  assert.match(pricing, /pricing-page/);
-  assert.match(pricing, /\$5 USDC/);
-  assert.match(pricing, /\$10 USDC\/mo/);
 });
 
 test("Phala compose template is port-aligned and digest-pinned", async () => {

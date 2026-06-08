@@ -10,6 +10,8 @@ export interface ExecuteActionInput {
   action: ActionRequest;
   approval: Approval;
   trustCenterConfig: TrustCenterConfig;
+  walletAddress?: string;
+  operatorEmailRelay?: boolean;
   handoff?: {
     hashPrefix?: string;
     emailLabel?: string;
@@ -21,6 +23,15 @@ export interface ExecuteActionResult {
   mode: "record-only" | "live";
   executionRecord: string;
   connectorResult?: ConnectorResult;
+}
+
+export function resolveExecutionStatusAfterExecute(input: {
+  mode: ExecuteActionResult["mode"];
+  connectorResult?: ConnectorResult;
+}): ActionRequest["executionStatus"] {
+  if (input.connectorResult?.status === "failed") return "failed";
+  if (input.mode === "live" && input.connectorResult) return "executed";
+  return "recorded";
 }
 
 export async function executeApprovedAction(input: ExecuteActionInput): Promise<ExecuteActionResult> {
@@ -48,6 +59,9 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
     action: input.action,
     approval: input.approval,
     trustCenterConfig: input.trustCenterConfig,
+    store: input.store,
+    walletAddress: input.walletAddress,
+    operatorEmailRelay: input.operatorEmailRelay,
     handoff: input.handoff
   });
   input.store.connectorResults.set(output.result.id, output.result);

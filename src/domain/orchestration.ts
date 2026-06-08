@@ -16,11 +16,13 @@ import {
   presetUsesContentDiscovery
 } from "./cleanup.js";
 import { deadlineBasisFor, followUpDate } from "./deadlines.js";
+import { emitCaseCompletedWebhook, emitRecheckScheduledWebhooks } from "./webhooks.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
 import { buildExecuteHandoff } from "./executeHandoff.js";
 import { hostFromDestination, resolveHostAbuseContact } from "./platformAbuse.js";
-import { executeApprovedAction } from "./executor.js";
+import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "./executor.js";
 import { buildHackathonStatus, createTimelineEvent } from "./hackathon.js";
+import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
 import { canExecuteWithApproval, evaluateProposedAction } from "./policy.js";
 import { buildCaseStatus } from "./status.js";
@@ -128,6 +130,7 @@ export async function runCleanupAgentStep(input: {
   const plan = input.store.agentPlanForCase(input.caseRecord.id);
   if (!plan) throw new HttpError(409, "preset-required", { next: buildAgentNextStep(input.store, input.caseRecord.id) });
   const before = buildAgentNextStep(input.store, input.caseRecord.id);
+  const stepBefore = plan.currentStep;
   const artifacts: unknown[] = [];
   const trustProof = await buildAttestationProof(await input.trustCenterConfig(), { fetchLive: true });
   let updatedPlan: AgentPlan = plan;
@@ -160,6 +163,7 @@ export async function runCleanupAgentStep(input: {
       const existingUrls = input.store.exposuresForCase(input.caseRecord.id).map((item) => item.sourceUrl);
       const discovered = await discoverExposureCandidates({
         caseId: input.caseRecord.id,
+        store: input.store,
         scope: input.caseRecord.redactedScope,
         existingUrls,
         brokerSweep: presetUsesBrokerDiscovery(presetId),
@@ -263,6 +267,7 @@ export async function runCleanupAgentStep(input: {
       const confirmedNotes = buildStatus(input.store, input.caseRecord.id)
         .confirmedFindings.map((item) => `${item.brokerLabel || "broker"}: ${item.sourceUrl}`)
         .join("; ");
+      assertPartnerAiBudget(input.store, input.caseRecord.id);
       const analysis = await runVeniceAnalysis({
         caseId: input.caseRecord.id,
         kind: "draft-request",
@@ -270,19 +275,21 @@ export async function runCleanupAgentStep(input: {
         destination: preset.title,
         actionType: actionTypeForPreset(updatedPlan.presetId, input.caseRecord.jurisdiction)
       });
-      input.store.veniceAnalyses.set(analysis.id, analysis);
+      meterPartnerAiTokens(input.store, input.caseRecord.id, analysis.tokensUsed);
+      const { tokensUsed: _tokensUsed, ...storedAnalysis } = analysis;
+      input.store.veniceAnalyses.set(storedAnalysis.id, storedAnalysis);
       const readyAction = input.store.actionsForCase(input.caseRecord.id).find((item) => item.executionStatus === "awaiting-approval");
-      if (readyAction && analysis.output.draftText) {
-        readyAction.draftText = analysis.output.draftText;
+      if (readyAction && storedAnalysis.output.draftText) {
+        readyAction.draftText = storedAnalysis.output.draftText;
       }
       const veniceTimeline = createTimelineEvent(
         input.caseRecord.id,
         "Venice",
-        analysis.output.title,
-        analysis.output.summary
+        storedAnalysis.output.title,
+        storedAnalysis.output.summary
       );
       input.store.agentTimeline.set(veniceTimeline.id, veniceTimeline);
-      artifacts.push({ analysis, veniceTimeline });
+      artifacts.push({ analysis: storedAnalysis, veniceTimeline });
     }
     const timeline = createTimelineEvent(
       input.caseRecord.id,
@@ -338,7 +345,7 @@ export async function runCleanupAgentStep(input: {
         trustCenterConfig: await input.trustCenterConfig(),
         handoff: buildExecuteHandoffFromStore(input.store, action)
       });
-      action.executionStatus = executed.connectorResult?.status === "failed" ? "failed" : "recorded";
+      action.executionStatus = resolveExecutionStatusAfterExecute(executed);
       action.executedAt = new Date().toISOString();
       action.executionRecord = executed.executionRecord;
       approval.status = "used";
@@ -366,6 +373,7 @@ export async function runCleanupAgentStep(input: {
     for (const followUp of followUps) {
       input.store.followUps.set(followUp.id, followUp);
     }
+    await emitRecheckScheduledWebhooks(input.store, input.caseRecord.id, followUps);
     const timeline = createTimelineEvent(
       input.caseRecord.id,
       "SchedulerAgent",
@@ -390,6 +398,7 @@ export async function runCleanupAgentStep(input: {
     trustPass: trustProof.verifierResult === "pass"
   });
   input.store.agentPlans.set(updatedPlan.id, updatedPlan);
+  await emitCaseCompletedWebhook(input.store, input.caseRecord.id, stepBefore, updatedPlan.currentStep);
   return buildAgentRunResponse(input.store, input.caseRecord.id, before, artifacts);
 }
 
@@ -686,14 +695,16 @@ export function buildStatus(store: MemoryStore, caseId: string) {
   });
 }
 
-export function buildHackathonStatusForCase(store: MemoryStore, caseId: string) {
+export function buildHackathonStatusForCase(store: MemoryStore, caseId: string, walletAddress?: string) {
   return buildHackathonStatus({
     caseId,
     permissions: store.permissionGrantsForCase(caseId),
     payments: store.paymentSessionsForCase(caseId),
     veniceAnalyses: store.veniceAnalysesForCase(caseId),
     delegations: store.agentDelegationsForCase(caseId),
-    relayerEvents: store.relayerEventsForCase(caseId)
+    relayerEvents: store.relayerEventsForCase(caseId),
+    walletAddress,
+    store
   });
 }
 

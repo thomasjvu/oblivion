@@ -19,12 +19,22 @@ export function veniceModel(): string {
 
 interface VeniceChatResponse {
   choices?: Array<{ message?: { content?: string | null } }>;
+  usage?: {
+    completion_tokens?: number;
+    total_tokens?: number;
+    prompt_tokens?: number;
+  };
+}
+
+export interface VeniceChatResult {
+  content: string;
+  tokensUsed: number;
 }
 
 export async function veniceChatCompletion(
   messages: Array<{ role: "system" | "user"; content: string }>,
   options: { maxTokens?: number } = {}
-): Promise<string> {
+): Promise<VeniceChatResult> {
   const apiKey = process.env.VENICE_API_KEY?.trim();
   if (!apiKey) {
     throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
@@ -59,7 +69,12 @@ export async function veniceChatCompletion(
   if (!content || typeof content !== "string") {
     throw Object.assign(new Error("venice-empty-response"), { statusCode: 502 });
   }
-  return content;
+  const maxCompletion = options.maxTokens ?? 1200;
+  const tokensUsed =
+    parsed.usage?.total_tokens ??
+    parsed.usage?.completion_tokens ??
+    Math.ceil(maxCompletion / 2);
+  return { content, tokensUsed };
 }
 
 function extractJsonObject(text: string): Record<string, unknown> {
@@ -156,17 +171,17 @@ export async function runVeniceAnalysis(input: {
   destination?: string;
   actionType?: ActionType;
   maxTokens?: number;
-}): Promise<VeniceAnalysis> {
+}): Promise<VeniceAnalysis & { tokensUsed: number }> {
   const redacted = redactText(input.notes || "Encrypted case summary unavailable to server.");
   const actionType = input.actionType ?? "broker-opt-out";
   const destination = redactText(input.destination || "approved destination");
   if (!isVeniceConfigured()) {
     throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
   }
-  const content = await veniceChatCompletion(buildVeniceMessages(input.kind, redacted, destination, actionType), {
+  const chat = await veniceChatCompletion(buildVeniceMessages(input.kind, redacted, destination, actionType), {
     maxTokens: input.maxTokens
   });
-  const parsed = extractJsonObject(content);
+  const parsed = extractJsonObject(chat.content);
   return {
     id: `venice_${crypto.randomUUID()}`,
     caseId: input.caseId,
@@ -174,7 +189,8 @@ export async function runVeniceAnalysis(input: {
     model: veniceModel(),
     redactedInputSummary: redacted,
     output: parseVeniceOutput(input.kind, parsed, actionType),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    tokensUsed: chat.tokensUsed
   };
 }
 
@@ -184,12 +200,12 @@ export async function runVeniceAgentReply(input: {
   planStep?: string;
   presetId?: string;
   maxTokens?: number;
-}): Promise<string> {
+}): Promise<{ reply: string; tokensUsed: number }> {
   const redacted = redactText(input.message);
   if (!isVeniceConfigured()) {
     throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
   }
-  const content = await veniceChatCompletion([
+  const chat = await veniceChatCompletion([
     {
       role: "system",
       content: [
@@ -201,5 +217,5 @@ export async function runVeniceAgentReply(input: {
     },
     { role: "user", content: redacted }
   ], { maxTokens: input.maxTokens });
-  return redactText(content.trim());
+  return { reply: redactText(chat.content.trim()), tokensUsed: chat.tokensUsed };
 }

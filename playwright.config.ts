@@ -10,7 +10,8 @@ export default defineConfig({
     screenshot: "only-on-failure"
   },
   webServer: {
-    command: "env VENICE_API_KEY= BRAVE_SEARCH_API_KEY= npm run dev",
+    command:
+      "env VENICE_API_KEY= BRAVE_SEARCH_API_KEY= OBLIVION_PARTNER_KEYS=demo:obl_live_e2e_test npm run dev",
     url: "http://127.0.0.1:8080/health",
     reuseExistingServer: !process.env.CI,
     timeout: 60_000

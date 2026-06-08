@@ -87,3 +87,14 @@ Use precise wording:
 > Oblivion cannot read your stored case vault. Sensitive data is encrypted in your browser before storage. For approved actions that require plaintext, data is decrypted only in your browser or inside an attested TEE task for that specific action.
 
 Avoid absolute wording such as "we never touch data" because approved third-party submissions still disclose the user's approved identifiers to brokers, controllers, search engines, or breach-check services.
+
+## Partner API (B2B)
+
+Embedded partners (password managers, VPNs, security suites) integrate via `/v1/*` with Bearer API keys. Partner servers must **not** decrypt `encryptedIntake` or approve disclosures on behalf of users.
+
+- Partner cases carry `partnerId` + `externalRef`; list/export/delete require matching API key.
+- Partners receive redacted scope, exposure URLs, approval metadata, and signed webhooks.
+- Plaintext transits only from the **user browser** in an approved execute handoff.
+- No "trusted partner" auto-approve bypass — same policy gates as the consumer app.
+
+See the [Partner API](https://oblivion-docs.phantasy.bot/docs/developers/partner-api).

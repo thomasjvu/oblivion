@@ -24,7 +24,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - `public/`: index.html, styles.css (per DESIGN.md), app.js (currently served raw; source now in public/src/ and bundled)
 - `test/`: organized by layer — `domain/` (unit), `api/` (HTTP integration), `storage/`, `crypto/`, `orchestration/`, `ui/`, `deployment/`, `helpers/http.ts` (shared API fixtures), `e2e/` (Playwright), `smoke/`.
 - `config/trust-center.json`, `Dockerfile`, `docker-compose.phala.yml`
-- `DESIGN.md` (visual spec, colors, components), `SECURITY.md`, `docs/HACKATHON_DEMO.md`
+- `DESIGN.md` (visual spec, colors, components), `SECURITY.md`, user-facing docs in `docs/src/docs/content/` (papers site)
 
 No other frameworks. Pure node:http + Web Crypto + TS ESM.
 
@@ -102,6 +102,23 @@ When adding tests, prefer pure domain units over more API integration where poss
 - Update this file and README when invariants, major architecture, or "how to add X safely" changes.
 - Prefer small PRs that touch one domain seam + its tests.
 - For UI strings / copy, keep them in index.html or the JS render functions; DESIGN.md governs visual language.
+
+## Partner API (B2B rail)
+
+- Partner routes: `/v1/*` in `src/api/routes/v1.ts` (Bearer API key via `OBLIVION_PARTNER_KEYS`).
+- Partner cases carry `partnerId` + `externalRef`; consumer `GET /api/cases` excludes them.
+- Export/delete on partner cases require matching partner auth (`src/api/auth.ts`).
+- Webhooks: `src/domain/webhooks.ts` — HMAC signed; dev inbox at `POST /v1/partners/:id/webhook-inbox`.
+- Browser vault for partners: `packages/vault-sdk/`; HTTP client: `packages/partner-sdk/`.
+- Docs site: `docs/` (papers + GBA theme) at https://oblivion-docs.phantasy.bot; app redirects `/help`, `/developers`, etc. via `OBLIVION_DOCS_URL`. Demo: `examples/partner-demo/`.
+- UI widgets: `packages/partner-ui/` (`OblivionApprovalPanel`, `OblivionStatusPanel`).
+- Sandbox keys: `OBLIVION_PARTNER_SANDBOX_KEYS`; rotation: `POST /v1/partners/me/rotate-key`.
+- Webhooks: `recheck.due` on follow-up schedule, `case.completed` when plan reaches `complete`, `case.deleted` on purge.
+- Billing: `partnerUsage` metering + `POST /v1/billing/invoices/close` for period invoices (`src/domain/partnerInvoices.ts`). Venice AI debits `ai` meter via `meterPartnerAiTokens` (orchestration, discovery, partner-case `/api/ai/*`).
+- Webhook retries: `GET /v1/webhooks/deliveries`, `POST .../retry`, exponential backoff in `webhooks.ts`.
+- Audit: `partnerDataAccess` log on export/delete (`partnerAudit.ts`); partner export strips `userConfirmation` plaintext.
+- npm: `@oblivion/partner-sdk`, `@oblivion/vault-sdk` — `npm run publish:partner-packages`.
+- **Never** add partner auto-approve or server-side vault decrypt — same invariants as consumer app.
 
 ## Quick References
 

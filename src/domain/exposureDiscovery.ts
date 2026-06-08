@@ -14,6 +14,8 @@ import type {
   ExposureMatchStatus,
   RedactedScope
 } from "./types.js";
+import type { MemoryStore } from "../storage/memoryStore.js";
+import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { veniceChatCompletion, isVeniceConfigured } from "./venice.js";
 
 export type { BrokerCatalogEntry };
@@ -127,12 +129,13 @@ function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope
 async function scoreWithVenice(
   candidate: DiscoveryCandidate,
   scope: RedactedScope | undefined
-): Promise<{ matchScore: ExposureMatchScore; matchReason: string }> {
+): Promise<{ matchScore: ExposureMatchScore; matchReason: string; tokensUsed: number }> {
   const fallback = heuristicMatchScore(candidate, scope);
   if (!isVeniceConfigured()) {
     return {
       matchScore: fallback,
-      matchReason: "Heuristic match from redacted labels and broker host."
+      matchReason: "Heuristic match from redacted labels and broker host.",
+      tokensUsed: 0
     };
   }
   const scopeSummary = redactText(
@@ -146,7 +149,7 @@ async function scoreWithVenice(
       .filter(Boolean)
       .join("; ")
   );
-  const content = await veniceChatCompletion([
+  const { content, tokensUsed } = await veniceChatCompletion([
     {
       role: "system",
       content: [
@@ -175,10 +178,15 @@ async function scoreWithVenice(
       score === "likely" || score === "uncertain" || score === "unlikely" ? score : fallback;
     return {
       matchScore,
-      matchReason: redactText(parsed.matchReason || "Venice scored the candidate.")
+      matchReason: redactText(parsed.matchReason || "Venice scored the candidate."),
+      tokensUsed
     };
   } catch {
-    return { matchScore: fallback, matchReason: "Venice parse failed; heuristic score used." };
+    return {
+      matchScore: fallback,
+      matchReason: "Venice parse failed; heuristic score used.",
+      tokensUsed
+    };
   }
 }
 
@@ -219,6 +227,7 @@ function exposureFromBroker(
 
 export async function discoverExposureCandidates(input: {
   caseId: string;
+  store?: MemoryStore;
   scope?: RedactedScope;
   pastedUrls?: string[];
   existingUrls?: string[];
@@ -267,10 +276,20 @@ export async function discoverExposureCandidates(input: {
   });
 
   const exposures: Exposure[] = [];
-  for (const candidate of filtered.slice(0, 25)) {
+  const batch = filtered.slice(0, 25);
+  if (input.store && isVeniceConfigured() && batch.length > 0) {
+    assertPartnerAiBudget(input.store, input.caseId, 100 * batch.length);
+  }
+  let veniceTokensUsed = 0;
+  for (const candidate of batch) {
     const scored = await scoreWithVenice(candidate, input.scope);
+    veniceTokensUsed += scored.tokensUsed;
     const broker = brokerForUrl(candidate.sourceUrl) ?? (candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : undefined);
     exposures.push(exposureFromBroker(broker, candidate, scored, input.caseId, new Date().toISOString()));
+  }
+
+  if (input.store && veniceTokensUsed > 0) {
+    meterPartnerAiTokens(input.store, input.caseId, veniceTokensUsed);
   }
 
   return exposures;

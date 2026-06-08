@@ -1,3 +1,9 @@
+import {
+  deploymentEnvironment,
+  deploymentProfile,
+  type DeploymentEnvironment
+} from "./deploymentEnv.js";
+
 export function envFlag(name: string, defaultValue = false): boolean {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === "") return defaultValue;
@@ -36,12 +42,18 @@ export function x402PayTo(): string {
 }
 
 export function x402FacilitatorUrl(): string {
-  return envString("X402_FACILITATOR_URL", "https://x402.org/facilitator");
+  return envString("X402_FACILITATOR_URL", deploymentProfile().x402FacilitatorDefault);
 }
 
 export function x402Network(): string {
-  return envString("X402_NETWORK", "eip155:84532");
+  return envString("X402_NETWORK", deploymentProfile().x402Network);
 }
+
+export function deploymentEnvironmentName(): DeploymentEnvironment {
+  return deploymentEnvironment();
+}
+
+export type { DeploymentEnvironment };
 
 export function isOneShotConfigured(): boolean {
   const raw = process.env.ONESHOT_BASE_URL;

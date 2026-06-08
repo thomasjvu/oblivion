@@ -1,0 +1,24 @@
+# Oblivion Documentation
+
+> Private cleanup agent
+
+Personal information removal without giving away your personal information. Encrypted in the browser. Every disclosure stops at an explicit approval gate.
+
+## User Guide
+
+- [Overview](/docs/user-guide/overview): Oblivion is a **private cleanup agent** for personal information removal — people-search listings, breach checks, and search suppression. You describe the exposure; it drafts removals and **stops before anything is sent** until you approve the exact disclosure.
+- [Templates](/docs/user-guide/templates): Oblivion routes every case through one of seven **presets** (templates). A preset defines which identifiers you must provide, which official sources the agent may use, what gets disclosed at approval time, and how long the process typically takes.
+
+## Developers
+
+- [Partner API](/docs/developers/partner-api): Personal information removal without giving away personal information — embed broker cleanup in your app without becoming a data custodian.
+- [Partner Onboarding](/docs/developers/partner-onboarding): 30-minute path from zero to a working people-search cleanup integration.
+- [API Reference](/docs/developers/api-reference): The Oblivion partner API is documented in the integration guide and formalized in OpenAPI v1.
+- [Hackathon Demo](/docs/developers/hackathon-demo): Oblivion is a private online identity cleanup agent network. Traditional removal services ask users to hand over the identity they want protected. Oblivion keeps case contents encrypted, gates sensitive work on explicit approvals, and uses crypto-native permissions and payments to coordinate cleanup tasks.
+- [Security](/docs/developers/security): Oblivion is designed to minimize what users must trust, but it cannot make third-party identity cleanup anonymous. Data brokers, search engines, controllers, and breach-check services may receive identifiers when the user approves a specific action.
+
+## Legal
+
+- [Privacy](/docs/legal/privacy): **Last updated:** June 5, 2026
+- [Terms](/docs/legal/terms): **Last updated:** June 5, 2026
+

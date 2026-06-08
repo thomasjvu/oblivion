@@ -15,12 +15,22 @@ import { sourceVerificationFor } from "./sourceVerification.js";
 import { buildDraftText } from "./templates.js";
 import { brokerWebFormAutomationEnabled, probeBrokerOptOutForm } from "./brokerWebForm.js";
 import { probeOfficialUrl } from "./urlProbe.js";
+import {
+  assertCreditsForEmailRelay,
+  debitCreditsForEmailRelay,
+  EMAIL_RELAY_CREDITS
+} from "./credits.js";
+import { buildEmailHandoff, operatorEmailRelayEnabled } from "./emailHandoff.js";
+import type { MemoryStore } from "../storage/memoryStore.js";
 import type { ActionRequest, Approval, ConnectorResult } from "./types.js";
 
 export interface LiveConnectorInput {
   action: ActionRequest;
   approval: Approval;
   trustCenterConfig: TrustCenterConfig;
+  store?: MemoryStore;
+  walletAddress?: string;
+  operatorEmailRelay?: boolean;
   handoff?: {
     hashPrefix?: string;
     emailLabel?: string;
@@ -233,7 +243,37 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
     };
   }
 
-  if (broker.submissionMethod === "email" && broker.privacyEmail && isBrokerEmailConfigured() && emailLabel) {
+  if (broker.submissionMethod === "email" && broker.privacyEmail && emailLabel) {
+    const relayDecision = resolveEmailRelayPath(input);
+    if (relayDecision.mode === "handoff") {
+      const handoff = buildEmailHandoff({
+        action: input.action,
+        approval: input.approval,
+        to: broker.privacyEmail,
+        replyTo: emailLabel
+      });
+      const result = buildConnectorResult(input.action.caseId, connectorId, {
+        status: "ready",
+        sourceUrl: broker.privacyEmail,
+        officialRemovalPath: broker.officialOptOutUrl,
+        summary: `${relayDecision.reason} Open your email app to send the approved draft.`,
+        requiresUserHandoff: true,
+        mailtoUrl: handoff.mailtoUrl
+      });
+      return {
+        result,
+        executionRecord: `live connector ${connectorId}: ${broker.brokerId} mailto handoff.`,
+        transmitted: [],
+        neverTransmit: ["ssn", "password", "government-id"]
+      };
+    }
+    if (relayDecision.mode === "insufficient-credits") {
+      throw Object.assign(new Error("credits-insufficient"), {
+        statusCode: 402,
+        code: "credits-insufficient",
+        requiredCredits: EMAIL_RELAY_CREDITS
+      });
+    }
     const mailed = await sendBrokerOptOutEmail({
       brokerLabel: broker.brokerLabel,
       to: broker.privacyEmail,
@@ -241,12 +281,15 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
       profileUrl,
       purpose: input.approval.purpose
     });
+    if (mailed.ok && input.store && input.walletAddress) {
+      debitCreditsForEmailRelay(input.store, input.walletAddress, input.action.caseId);
+    }
     const result = buildConnectorResult(input.action.caseId, connectorId, {
       status: mailed.ok ? "recorded" : "failed",
       sourceUrl: broker.privacyEmail,
       officialRemovalPath: broker.officialOptOutUrl,
       summary: mailed.ok
-        ? `Live ${broker.brokerLabel} opt-out email sent via ${mailed.provider}. ${reachability}`
+        ? `Live ${broker.brokerLabel} opt-out email sent via ${mailed.provider} (${EMAIL_RELAY_CREDITS} credits). ${reachability}`
         : `Live ${broker.brokerLabel} email opt-out failed (${mailed.error ?? "unknown"}). Open the official path manually.`,
       requiresUserHandoff: !mailed.ok
     });
@@ -299,44 +342,91 @@ async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: stri
     : "Infringing URL could not be verified — confirm the link before host contact.";
   const officialPath = contact.channel ?? `mailto:${contact.email}`;
 
-  if (isPlatformAbuseEmailConfigured()) {
-    const mailed = await sendPlatformAbuseNotice({
+  const relayDecision = resolveEmailRelayPath(input);
+  if (relayDecision.mode === "handoff" || !isPlatformAbuseEmailConfigured()) {
+    const handoff = buildEmailHandoff({
       action: input.action,
       approval: input.approval,
-      contact,
-      infringingUrl,
-      emailLabel
+      to: contact.email,
+      replyTo: emailLabel,
+      subject: `Abuse report: ${contact.host}`
     });
     const result = buildConnectorResult(input.action.caseId, connectorId, {
-      status: mailed.ok ? "recorded" : "failed",
+      status: "ready",
       sourceUrl: officialPath,
       officialRemovalPath: officialPath,
-      summary: mailed.ok
-        ? `Live abuse notice sent to ${contact.email} for ${contact.host} via ${mailed.provider}. ${hostReachable}`
-        : `Live abuse notice to ${contact.email} failed (${mailed.error ?? "unknown"}). ${hostReachable}`,
-      requiresUserHandoff: !mailed.ok
+      summary: `${relayDecision.reason} Abuse contact: ${contact.email}${contact.inferred ? " (inferred)" : ""}. ${hostReachable}`,
+      requiresUserHandoff: true,
+      mailtoUrl: handoff.mailtoUrl
     });
     return {
       result,
-      executionRecord: `live connector ${connectorId}: platform abuse email ${result.status} for ${contact.host}.`,
-      transmitted: ["legal-name", "email", "infringing-url"],
+      executionRecord: `live connector ${connectorId}: platform abuse mailto handoff for ${contact.host}.`,
+      transmitted: [],
       neverTransmit: ["original-media", "password", "ssn"]
     };
   }
-
+  if (relayDecision.mode === "insufficient-credits") {
+    throw Object.assign(new Error("credits-insufficient"), {
+      statusCode: 402,
+      code: "credits-insufficient",
+      requiredCredits: EMAIL_RELAY_CREDITS
+    });
+  }
+  const mailed = await sendPlatformAbuseNotice({
+    action: input.action,
+    approval: input.approval,
+    contact,
+    infringingUrl,
+    emailLabel
+  });
+  if (mailed.ok && input.store && input.walletAddress) {
+    debitCreditsForEmailRelay(input.store, input.walletAddress, input.action.caseId);
+  }
   const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status: probe.reachable ? "ready" : "ready",
+    status: mailed.ok ? "recorded" : "failed",
     sourceUrl: officialPath,
     officialRemovalPath: officialPath,
-    summary: `Abuse contact resolved: ${contact.email}${contact.inferred ? " (inferred)" : ""}. ${hostReachable} Configure RESEND_API_KEY or SMTP_* to send from managed runtime.`,
-    requiresUserHandoff: true
+    summary: mailed.ok
+      ? `Live abuse notice sent to ${contact.email} for ${contact.host} via ${mailed.provider} (${EMAIL_RELAY_CREDITS} credits). ${hostReachable}`
+      : `Live abuse notice to ${contact.email} failed (${mailed.error ?? "unknown"}). ${hostReachable}`,
+    requiresUserHandoff: !mailed.ok
   });
   return {
     result,
-    executionRecord: `live connector ${connectorId}: platform abuse contact ${contact.email} recorded for user-held submission.`,
-    transmitted: [],
+    executionRecord: `live connector ${connectorId}: platform abuse email ${result.status} for ${contact.host}.`,
+    transmitted: ["legal-name", "email", "infringing-url"],
     neverTransmit: ["original-media", "password", "ssn"]
   };
+}
+
+function resolveEmailRelayPath(input: LiveConnectorInput): {
+  mode: "relay" | "handoff" | "insufficient-credits";
+  reason: string;
+} {
+  const caseRelay = input.operatorEmailRelay !== false;
+  if (!caseRelay) {
+    return { mode: "handoff", reason: "Operator email relay is off for this case." };
+  }
+  if (!operatorEmailRelayEnabled()) {
+    return { mode: "handoff", reason: "Operator email relay is disabled in this deployment." };
+  }
+  if (!isBrokerEmailConfigured()) {
+    return { mode: "handoff", reason: "Operator mail relay is not configured." };
+  }
+  if (!input.walletAddress || !input.store) {
+    return { mode: "handoff", reason: "Wallet address required for operator relay — using mailto handoff." };
+  }
+  try {
+    assertCreditsForEmailRelay(input.store, input.walletAddress);
+    return { mode: "relay", reason: "" };
+  } catch (error) {
+    const err = error as Error & { code?: string };
+    if (err.code === "credits-insufficient") {
+      return { mode: "insufficient-credits", reason: "Insufficient credits for operator email relay." };
+    }
+    throw error;
+  }
 }
 
 function runGooglePlan(input: LiveConnectorInput, connectorId: string): LiveConnectorOutput {
@@ -423,6 +513,7 @@ function buildConnectorResult(
     officialRemovalPath?: string;
     summary: string;
     requiresUserHandoff: boolean;
+    mailtoUrl?: string;
   }
 ): ConnectorResult {
   return {
@@ -434,6 +525,7 @@ function buildConnectorResult(
     officialRemovalPath: input.officialRemovalPath,
     confidence: "high",
     requiresUserHandoff: input.requiresUserHandoff,
+    mailtoUrl: input.mailtoUrl,
     nextCheckAt: followUpDate(30),
     summary: input.summary,
     createdAt: new Date().toISOString()

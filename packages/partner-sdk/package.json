@@ -1,0 +1,19 @@
+{
+  "name": "@oblivion/partner-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Thin HTTP client for Oblivion Partner API v1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thomasjvu/oblivion.git",
+    "directory": "packages/partner-sdk"
+  },
+  "files": ["index.js", "webhooks.js"],
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./webhooks": "./webhooks.js"
+  },
+  "keywords": ["oblivion", "privacy", "partner-api", "data-removal"]
+}

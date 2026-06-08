@@ -19,6 +19,7 @@ export interface ExecuteHandoffInput {
     findings?: Array<{ id: string; sourceUrl?: string }>;
   };
   intakeText?: string;
+  contactEmail?: string;
   hashPrefix?: string;
 }
 
@@ -42,7 +43,7 @@ export function buildExecuteHandoff(input: ExecuteHandoffInput): {
   }
   const disclose = input.action?.dataToDisclose || [];
   if (disclose.includes("email")) {
-    const email = extractEmailFromText(input.intakeText);
+    const email = input.contactEmail || extractEmailFromText(input.intakeText);
     if (email) handoff.emailLabel = email;
   }
   if (input.hashPrefix && /^[A-Fa-f0-9]{5}$/.test(input.hashPrefix)) {

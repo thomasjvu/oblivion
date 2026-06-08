@@ -5357,15 +5357,15 @@ function wNAF(c, bits) {
       const { windows, windowSize } = calcWOpts(W, bits);
       const points = [];
       let p = elm;
-      let base = p;
+      let base2 = p;
       for (let window2 = 0; window2 < windows; window2++) {
-        base = p;
-        points.push(base);
+        base2 = p;
+        points.push(base2);
         for (let i = 1; i < windowSize; i++) {
-          base = base.add(p);
-          points.push(base);
+          base2 = base2.add(p);
+          points.push(base2);
         }
-        p = base.double();
+        p = base2.double();
       }
       return points;
     },
@@ -9268,17 +9268,17 @@ async function call(client, args) {
       }
     }
     const params = (() => {
-      const base = [
+      const base2 = [
         request2,
         block
       ];
       if (rpcStateOverride && rpcBlockOverrides)
-        return [...base, rpcStateOverride, rpcBlockOverrides];
+        return [...base2, rpcStateOverride, rpcBlockOverrides];
       if (rpcStateOverride)
-        return [...base, rpcStateOverride];
+        return [...base2, rpcStateOverride];
       if (rpcBlockOverrides)
-        return [...base, {}, rpcBlockOverrides];
-      return base;
+        return [...base2, {}, rpcBlockOverrides];
+      return base2;
     })();
     const response = await client.request({
       method: "eth_call",
@@ -9556,7 +9556,7 @@ function buildExecuteHandoff(input) {
   }
   const disclose = input.action?.dataToDisclose || [];
   if (disclose.includes("email")) {
-    const email = extractEmailFromText(input.intakeText);
+    const email = input.contactEmail || extractEmailFromText(input.intakeText);
     if (email) handoff.emailLabel = email;
   }
   if (input.hashPrefix && /^[A-Fa-f0-9]{5}$/.test(input.hashPrefix)) {
@@ -13341,23 +13341,23 @@ var ZodEffects = class extends ZodType {
     }
     if (effect.type === "transform") {
       if (ctx.common.async === false) {
-        const base = this._def.schema._parseSync({
+        const base2 = this._def.schema._parseSync({
           data: ctx.data,
           path: ctx.path,
           parent: ctx
         });
-        if (!isValid(base))
+        if (!isValid(base2))
           return INVALID;
-        const result = effect.transform(base.value, checkCtx);
+        const result = effect.transform(base2.value, checkCtx);
         if (result instanceof Promise) {
           throw new Error(`Asynchronous transform encountered during synchronous parse operation. Use .parseAsync instead.`);
         }
         return { status: status.value, value: result };
       } else {
-        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base) => {
-          if (!isValid(base))
+        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base2) => {
+          if (!isValid(base2))
             return INVALID;
-          return Promise.resolve(effect.transform(base.value, checkCtx)).then((result) => ({
+          return Promise.resolve(effect.transform(base2.value, checkCtx)).then((result) => ({
             status: status.value,
             value: result
           }));
@@ -15269,7 +15269,7 @@ async function internal_estimateFeesPerGas(client, args) {
     throw new BaseFeeScalarError();
   const decimals = baseFeeMultiplier.toString().split(".")[1]?.length ?? 0;
   const denominator = 10 ** decimals;
-  const multiply = (base) => base * BigInt(Math.ceil(baseFeeMultiplier * denominator)) / BigInt(denominator);
+  const multiply = (base2) => base2 * BigInt(Math.ceil(baseFeeMultiplier * denominator)) / BigInt(denominator);
   const block = block_ ? block_ : await getAction(client, getBlock, "getBlock")({});
   if (typeof chain?.fees?.estimateFeesPerGas === "function") {
     const fees = await chain.fees.estimateFeesPerGas({
@@ -15637,7 +15637,7 @@ async function fillTransaction(client, parameters) {
       throw new BaseFeeScalarError();
     const decimals = feeMultiplier.toString().split(".")[1]?.length ?? 0;
     const denominator = 10 ** decimals;
-    const multiplyFee = (base) => base * BigInt(Math.ceil(feeMultiplier * denominator)) / BigInt(denominator);
+    const multiplyFee = (base2) => base2 * BigInt(Math.ceil(feeMultiplier * denominator)) / BigInt(denominator);
     if (!transaction.feePayerSignature) {
       if (transaction.maxFeePerGas && !parameters.maxFeePerGas)
         transaction.maxFeePerGas = multiplyFee(transaction.maxFeePerGas);
@@ -17349,12 +17349,12 @@ function createClient(parameters) {
     uid: uid(),
     ...experimental_blockTag ? { experimental_blockTag } : {}
   };
-  function extend(base) {
+  function extend(base2) {
     return (extendFn) => {
-      const extended = extendFn(base);
+      const extended = extendFn(base2);
       for (const key2 in client)
         delete extended[key2];
-      const combined = { ...base, ...extended };
+      const combined = { ...base2, ...extended };
       return Object.assign(combined, { extend: extend(combined) });
     };
   }
@@ -18848,10 +18848,10 @@ function defineChain(chain) {
     serializers: void 0,
     ...chain
   };
-  function extend(base) {
+  function extend(base2) {
     return (fnOrExtended) => {
-      const properties = typeof fnOrExtended === "function" ? fnOrExtended(base) : fnOrExtended;
-      const combined = { ...base, ...properties };
+      const properties = typeof fnOrExtended === "function" ? fnOrExtended(base2) : fnOrExtended;
+      const combined = { ...base2, ...properties };
       return Object.assign(combined, { extend: extend(combined) });
     };
   }
@@ -19126,9 +19126,9 @@ function validateTypedData(parameters) {
       const value = data[name];
       const integerMatch = type.match(integerRegex2);
       if (integerMatch && (typeof value === "number" || typeof value === "bigint")) {
-        const [_type, base, size_] = integerMatch;
+        const [_type, base2, size_] = integerMatch;
         numberToHex(value, {
-          signed: base === "int",
+          signed: base2 === "int",
           size: Number.parseInt(size_, 10) / 8
         });
       }
@@ -24256,8 +24256,68 @@ var chainConfig = {
   serializers
 };
 
+// node_modules/viem/_esm/chains/definitions/base.js
+var sourceId = 1;
+var base = /* @__PURE__ */ defineChain({
+  ...chainConfig,
+  id: 8453,
+  name: "Base",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ["https://mainnet.base.org"]
+    }
+  },
+  blockExplorers: {
+    default: {
+      name: "Basescan",
+      url: "https://basescan.org",
+      apiUrl: "https://api.basescan.org/api"
+    }
+  },
+  contracts: {
+    ...chainConfig.contracts,
+    disputeGameFactory: {
+      [sourceId]: {
+        address: "0x43edB88C4B80fDD2AdFF2412A7BebF9dF42cB40e"
+      }
+    },
+    l2OutputOracle: {
+      [sourceId]: {
+        address: "0x56315b90c40730925ec5485cf004d835058518A0"
+      }
+    },
+    multicall3: {
+      address: "0xca11bde05977b3631167028862be2a173976ca11",
+      blockCreated: 5022
+    },
+    portal: {
+      [sourceId]: {
+        address: "0x49048044D57e1C92A77f79988d21Fa8fAF74E97e",
+        blockCreated: 17482143
+      }
+    },
+    l1StandardBridge: {
+      [sourceId]: {
+        address: "0x3154Cf16ccdb4C6d922629664174b904d80F2C35",
+        blockCreated: 17482143
+      }
+    }
+  },
+  sourceId
+});
+var basePreconf = /* @__PURE__ */ defineChain({
+  ...base,
+  experimental_preconfirmationTime: 200,
+  rpcUrls: {
+    default: {
+      http: ["https://mainnet-preconf.base.org"]
+    }
+  }
+});
+
 // node_modules/viem/_esm/chains/definitions/baseSepolia.js
-var sourceId = 11155111;
+var sourceId2 = 11155111;
 var baseSepolia = /* @__PURE__ */ defineChain({
   ...chainConfig,
   id: 84532,
@@ -24279,23 +24339,23 @@ var baseSepolia = /* @__PURE__ */ defineChain({
   contracts: {
     ...chainConfig.contracts,
     disputeGameFactory: {
-      [sourceId]: {
+      [sourceId2]: {
         address: "0xd6E6dBf4F7EA0ac412fD8b65ED297e64BB7a06E1"
       }
     },
     l2OutputOracle: {
-      [sourceId]: {
+      [sourceId2]: {
         address: "0x84457ca9D0163FbC4bbfe4Dfbb20ba46e48DF254"
       }
     },
     portal: {
-      [sourceId]: {
+      [sourceId2]: {
         address: "0x49f53e41452c74589e85ca1677426ba426459e85",
         blockCreated: 4446677
       }
     },
     l1StandardBridge: {
-      [sourceId]: {
+      [sourceId2]: {
         address: "0xfd0Bf71F60660E2f608ed56e1659C450eB113120",
         blockCreated: 4446677
       }
@@ -24306,7 +24366,7 @@ var baseSepolia = /* @__PURE__ */ defineChain({
     }
   },
   testnet: true,
-  sourceId
+  sourceId: sourceId2
 });
 var baseSepoliaPreconf = /* @__PURE__ */ defineChain({
   ...baseSepolia,
@@ -24330,24 +24390,45 @@ var BASE_SEPOLIA_CHAIN = {
     blockExplorerUrls: ["https://sepolia.basescan.org"]
   }
 };
-var BASE_RPC = "https://sepolia.base.org";
+var BASE_MAINNET_CHAIN = {
+  chainIdHex: "0x2105",
+  chainId: 8453,
+  addChainParams: {
+    chainId: "0x2105",
+    chainName: "Base",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+    rpcUrls: ["https://mainnet.base.org"],
+    blockExplorerUrls: ["https://basescan.org"]
+  }
+};
+var CHAIN_BY_ID = {
+  84532: { viemChain: baseSepolia, meta: BASE_SEPOLIA_CHAIN, rpcUrl: "https://sepolia.base.org" },
+  8453: { viemChain: base, meta: BASE_MAINNET_CHAIN, rpcUrl: "https://mainnet.base.org" }
+};
+function chainConfigFromX402Network(network) {
+  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : 84532;
+  const known = CHAIN_BY_ID[chainId];
+  if (known) return { chainId, ...known };
+  return { chainId, viemChain: baseSepolia, meta: BASE_SEPOLIA_CHAIN, rpcUrl: "https://sepolia.base.org" };
+}
 function buildHttpClient(provider, walletAddress, network) {
+  const { viemChain, rpcUrl } = chainConfigFromX402Network(network);
   const walletClient = createWalletClient({
     account: walletAddress,
-    chain: baseSepolia,
+    chain: viemChain,
     transport: custom2(provider)
   });
   const publicClient = createPublicClient({
-    chain: baseSepolia,
-    transport: http(BASE_RPC)
+    chain: viemChain,
+    transport: http(rpcUrl)
   });
   const signer = toClientEvmSigner(walletClient, publicClient);
   const coreClient = new x402Client();
-  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : baseSepolia.id;
+  const chainId = network?.startsWith("eip155:") ? Number(network.split(":")[1]) : viemChain.id;
   registerExactEvmScheme(coreClient, {
     signer,
     networks: network ? [network] : void 0,
-    schemeOptions: { [chainId]: { rpcUrl: BASE_RPC } }
+    schemeOptions: { [chainId]: { rpcUrl } }
   });
   return new x402HTTPClient(coreClient);
 }
@@ -24364,7 +24445,8 @@ async function settleAgentPayment({
   if (!provider?.request) throw Object.assign(new Error("wallet-provider-missing"), { error: "wallet-provider-missing" });
   if (!walletAddress) throw Object.assign(new Error("wallet-address-missing"), { error: "wallet-address-missing" });
   const network = x402Config?.network || "eip155:84532";
-  await ensureChain(provider, BASE_SEPOLIA_CHAIN);
+  const { meta } = chainConfigFromX402Network(network);
+  await ensureChain(provider, meta);
   const httpClient = buildHttpClient(provider, walletAddress, network);
   const payload = JSON.stringify(body);
   const initial = await fetch(endpoint, {
@@ -24413,7 +24495,7 @@ async function settleAgentPayment({
   throw Object.assign(new Error("x402-payment-failed"), { error: "x402-payment-failed", status: outcome.status, detail: errBody });
 }
 function agentEndpointForMode(mode) {
-  return mode === "subscription" ? "/api/agent/monitor" : "/api/agent/premium-task";
+  return mode === "subscription" ? "/api/credits/monitor" : "/api/credits/purchase";
 }
 
 // public/src/apiClient.js
@@ -31749,8 +31831,11 @@ var state = {
   agentPlan: null,
   connectorResults: [],
   products: [],
-  aiBudget: null,
+  creditRates: null,
+  creditsBalance: null,
   aiEntitlement: null,
+  contactEmail: "",
+  operatorEmailRelay: true,
   hackathon: null,
   hackathonStatus: null,
   integrationsStatus: null,
@@ -31800,7 +31885,9 @@ var state = {
   walletModalOpen: false,
   deleteConfirmCaseId: "",
   preSearchReady: false,
-  privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1"
+  privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
+  sessionHandoffWarning: "",
+  paymentRailsNotice: ""
 };
 var PRIVACY_FILTER_INPUT_IDS = [
   "simple-name",
@@ -32247,9 +32334,46 @@ function write(value) {
   }
 }
 function pillClass(value) {
-  if (value === true || value === "pass" || value === "used" || value === "ready") return "pill pass";
+  if (value === true || value === "pass" || value === "used" || value === "ready" || value === "executed" || value === "paid") {
+    return "pill pass";
+  }
   if (value === false || value === "fail" || value === "blocked") return "pill fail";
   return "pill warn";
+}
+function isLiveExecutorMode() {
+  return state.integrationsStatus?.executorMode === "live";
+}
+function executeActionLabel() {
+  return isLiveExecutorMode() ? "Execute" : "Record";
+}
+function actionTypesNeedingEmailHandoff(actionType) {
+  return actionType === "hibp-email-check" || actionType === "broker-opt-out";
+}
+function handoffReadinessWarning(action) {
+  const warnings = [];
+  if (!state.intakeText && actionTypesNeedingEmailHandoff(action?.actionType)) {
+    warnings.push(
+      "Email handoff needs intake text in this browser session \u2014 re-paste intake or open the case without refreshing."
+    );
+  }
+  if (!state.vaultKey && action?.actionType === "pwned-password-range-check") {
+    warnings.push("Vault key is only in memory for cases opened this session.");
+  }
+  return warnings.join(" ");
+}
+function updateSessionHandoffWarning() {
+  if (!state.currentCaseId) {
+    state.sessionHandoffWarning = "";
+    return;
+  }
+  const parts = [];
+  if (!state.vaultKey) {
+    parts.push("Vault key is only in memory for cases opened this session.");
+  }
+  if (!state.intakeText) {
+    parts.push("Intake text is not loaded \u2014 live email handoffs need intake re-entered after refresh.");
+  }
+  state.sessionHandoffWarning = parts.join(" ");
 }
 function chipClass(value) {
   return pillClass(value).replace("pill", "chip");
@@ -32779,6 +32903,7 @@ async function loadCase(caseId, options = {}) {
     }
     if (!options.silent) write(error);
   }
+  updateSessionHandoffWarning();
   render();
 }
 if (typeof window !== "undefined") {
@@ -32907,7 +33032,7 @@ function renderShell() {
   if (sidebarCollapse) {
     sidebarCollapse.setAttribute("aria-expanded", state.sidebarOpen ? "true" : "false");
     sidebarCollapse.setAttribute("aria-label", state.sidebarOpen ? "Collapse sidebar" : "Expand sidebar");
-    setIcon(sidebarCollapse, state.sidebarOpen ? "layout-sidebar-left" : "layout-sidebar-right");
+    setIcon(sidebarCollapse, state.sidebarOpen ? "pixel:window-close-solid" : "pixel:plus-solid");
   }
   workspace?.classList.toggle("simple-mode", !state.showAdvancedUI);
   agentColumn?.classList.toggle("collapsed", state.appOpen && !state.dockPinned);
@@ -33175,13 +33300,31 @@ function renderPresets() {
         <div class="status-row"><span>Disclosure</span><strong>${escapeHtml(selected.disclosurePoints.join(", "))}</strong></div>
       ` : `<div class="empty">Select a route to see details.</div>`;
 }
+async function refreshCreditsBalance() {
+  if (!state.walletAddress) {
+    state.creditsBalance = null;
+    return null;
+  }
+  try {
+    const view = await request(`/api/credits/balance?walletAddress=${encodeURIComponent(state.walletAddress)}`);
+    state.creditsBalance = view;
+    return view;
+  } catch {
+    state.creditsBalance = null;
+    return null;
+  }
+}
 async function refreshHackathon(options = {}) {
   const products = await request("/api/x402/products");
   state.products = products.products || [];
-  state.aiBudget = products.aiBudget || null;
-  if (state.currentCaseId) {
+  state.creditRates = products.credits || null;
+  await refreshCreditsBalance().catch(() => {
+  });
+  if (state.currentCaseId && state.walletAddress) {
     try {
-      state.aiEntitlement = await request(`/api/cases/${state.currentCaseId}/ai-entitlement`);
+      state.aiEntitlement = await request(
+        `/api/cases/${state.currentCaseId}/ai-entitlement?walletAddress=${encodeURIComponent(state.walletAddress)}`
+      );
     } catch {
       state.aiEntitlement = null;
     }
@@ -33252,7 +33395,7 @@ function shortStepTitle(title) {
     "Relay latest payment": "Relay confirmed",
     "Prepare cleanup approval": "Approval drafted",
     "Waiting for approval": "Approval required",
-    "Record approved action": "Action recorded",
+    "Record approved action": isLiveExecutorMode() ? "Action executed" : "Action recorded",
     "Full demo complete": "Demo complete"
   }[title] || title;
 }
@@ -33290,7 +33433,11 @@ function agentPromptForState() {
     };
   }
   if (readyActions.length > 0) {
-    return { state: "Record", message: "Tap Next to record approved work.", actions: ["run"] };
+    return {
+      state: executeActionLabel(),
+      message: isLiveExecutorMode() ? "Tap Next to execute the approved connector path." : "Tap Next to record approved work.",
+      actions: ["run"]
+    };
   }
   if (plan.currentStep === "complete") {
     return { state: "Done", message: "Cleanup cycle complete.", actions: [] };
@@ -33303,7 +33450,7 @@ function agentPromptForState() {
     "verify-removal-path": "Checking opt-out paths.",
     "draft-actions": "Drafting requests.",
     "request-approval": "Approval needed next.",
-    "execute-approved-action": "Ready to record.",
+    "execute-approved-action": isLiveExecutorMode() ? "Ready to execute." : "Ready to record.",
     "await-confirmation": "Waiting on response.",
     "schedule-recheck": "Scheduling recheck.",
     "escalate-if-needed": "Preparing follow-up."
@@ -33345,12 +33492,16 @@ function renderHackathonChecklist() {
     ["A2A", status?.a2aRedelegationVisible],
     ["1Shot", status?.oneShotRelayerVisible]
   ];
-  target.innerHTML = rows.map(([label, value]) => `
+  const oneShotNote = status?.oneShotRelayerVisible ? "" : state.integrationsStatus?.liveReady?.oneShot ? '<p class="muted small warn">1Shot stays pending until you relay a paid session (Settings \u2192 Relay paid session).</p>' : "";
+  target.innerHTML = rows.map(([label, value]) => {
+    const hint = label === "1Shot" && value ? " (live relay)" : label === "x402" && value && !(state.hackathon?.payments || []).some((session) => session.status === "paid") ? " (session only)" : "";
+    return `
     <div class="status-row">
       <span>${label}</span>
-      <strong class="${pillClass(value)}">${value ? "ready" : "pending"}</strong>
+      <strong class="${pillClass(value)}">${value ? `ready${hint}` : "pending"}</strong>
     </div>
-  `).join("");
+  `;
+  }).join("") + oneShotNote;
 }
 function renderLandingTemplates() {
   const container = $("#landing-preset-starters");
@@ -33495,7 +33646,7 @@ function renderAgentActionCards() {
           <strong>Ready: ${escapeHtml(action.destination)}</strong>
           <div class="muted small">${action.actionType} \xB7 ${action.executionStatus}</div>
         </div>
-        <button data-chat-execute-id="${action.id}" data-testid="record-action">Record action</button>
+        <button data-chat-execute-id="${action.id}" data-testid="record-action">${executeActionLabel()} action</button>
       </div>
     `)
   ];
@@ -33717,7 +33868,7 @@ function formatProductPrice(product) {
   return `$${product.amountUsd} ${product.token}`;
 }
 function paymentPlanLabel(mode) {
-  return mode === "subscription" ? "Weekly monitor ($10 USDC/mo)" : "One-off cleanup ($5 USDC)";
+  return mode === "subscription" ? "Monitor subscription ($10 USDC/mo)" : "Starter credits ($5 USDC)";
 }
 function hasEntitledPayment(mode) {
   const sessions = state.hackathon?.payments || [];
@@ -33760,8 +33911,8 @@ function renderOnboardingPayment() {
   const showOnboarding = state.appOpen && (!hasCase || state.preSearchReady);
   panel.hidden = !showOnboarding;
   selectPaymentMode(state.selectedPaymentMode);
-  const oneOff = state.products.find((item) => item.id === "broker-opt-out-packet");
-  const subscription = state.products.find((item) => item.id === "weekly-monitor");
+  const oneOff = state.products.find((item) => item.id === "credit-starter");
+  const subscription = state.products.find((item) => item.id === "credit-monitor");
   const oneOffCard = document.querySelector('.payment-plan-card[data-payment-plan="one-off"]');
   const subCard = document.querySelector('.payment-plan-card[data-payment-plan="subscription"]');
   if (oneOff && oneOffCard) {
@@ -33769,8 +33920,8 @@ function renderOnboardingPayment() {
     const detail = oneOffCard.querySelector(".payment-plan-detail");
     if (price) price.textContent = formatProductPrice(oneOff);
     if (detail) {
-      const limits = state.aiBudget?.["one-off"];
-      detail.textContent = limits ? `Single supervised run \xB7 ${limits.maxChats} agent chats` : oneOff.description;
+      const credits = state.creditRates?.starterPackCredits || 500;
+      detail.textContent = oneOff.description || `$5 USDC \xB7 ${credits} wallet credits`;
     }
   }
   if (subscription && subCard) {
@@ -33778,8 +33929,8 @@ function renderOnboardingPayment() {
     const detail = subCard.querySelector(".payment-plan-detail");
     if (price) price.textContent = formatProductPrice(subscription);
     if (detail) {
-      const limits = state.aiBudget?.subscription;
-      detail.textContent = limits ? `Weekly rechecks \xB7 ${limits.maxChats} agent chats` : subscription.description;
+      const credits = state.creditRates?.monitorMonthlyCredits || 1200;
+      detail.textContent = subscription.description || `$10 USDC/mo \xB7 ${credits} credits refilled monthly`;
     }
   }
 }
@@ -33852,23 +34003,42 @@ async function ensureCasePayment(options = {}) {
     );
   }
   renderSubscriptionUpsell();
-  return { ok: true, mode, alreadyPaid: hasEntitledPayment(mode) };
+  const paid = hasEntitledPayment(mode);
+  const result = { ok: paid, mode, alreadyPaid: paid, paymentRequired: !paid };
+  if (!paid) {
+    const message = liveX402 ? "Payment not confirmed. Open Settings \u2192 Payment rails and settle USDC on Base Sepolia." : "x402 is not configured on the server \u2014 payment cannot be settled until X402_PAY_TO is set.";
+    if (!options.quiet) {
+      throw { error: "payment-not-confirmed", message };
+    }
+  }
+  return result;
 }
 function productBudgetLine(product) {
-  const limits = state.aiBudget?.[product.mode];
-  if (!limits) return "";
-  return `${limits.maxChats} agent chats \xB7 ${limits.maxAnalyses} AI tasks \xB7 ${limits.maxTokens} token cap`;
+  if (product.id === "credit-starter") {
+    const credits = state.creditRates?.starterPackCredits || 500;
+    return `${credits} credits \xB7 ~50k Venice tokens \xB7 25 credits/email relay`;
+  }
+  if (product.id === "credit-monitor") {
+    const credits = state.creditRates?.monitorMonthlyCredits || 1200;
+    return `${credits} credits/month refill \xB7 metered AI + operator email`;
+  }
+  return product.description || "";
 }
 function renderPayments() {
   renderWalletPanels();
   const grid = $("#payment-rails-grid");
+  const lead = document.querySelector(".payment-rails-lead");
+  if (lead) {
+    lead.textContent = "Pay with USDC on Base Sepolia via x402. Smart account upgrade uses Ethereum Sepolia \u2014 MetaMask will ask you to switch networks.";
+  }
   if (grid) {
+    const x402Notice = !isLiveX402Ready(state.integrationsStatus) ? `<p class="muted small warn payment-rails-notice">x402 is not configured on the API server (set X402_PAY_TO and redeploy). Payment settlement is skipped until then.</p>` : state.paymentRailsNotice ? `<p class="muted small warn payment-rails-notice">${escapeHtml(state.paymentRailsNotice)}</p>` : "";
     grid.innerHTML = state.products.length ? state.products.map((product) => {
       const activeSession = (state.hackathon?.payments || []).find(
         (session) => session.productId === product.id
       );
       const status = activeSession?.status || "not-started";
-      const statusLabel = status === "paid" ? "paid" : status === "payment-required" && isLiveX402Ready(state.integrationsStatus) ? "payment-required \u2014 confirm USDC in MetaMask" : status;
+      const statusLabel = status === "paid" ? "paid" : status === "payment-required" && isLiveX402Ready(state.integrationsStatus) ? "payment-required \u2014 confirm USDC on Base Sepolia in MetaMask" : status === "payment-required" ? "payment-required \u2014 x402 not configured on server" : status;
       return `
             <article class="payment-rail-card" data-payment-product="${product.id}">
               <div class="payment-rail-head">
@@ -33890,6 +34060,7 @@ function renderPayments() {
             </article>
           `;
     }).join("") : `<div class="empty">Payment products are loading.</div>`;
+    grid.innerHTML = x402Notice + grid.innerHTML;
     grid.querySelectorAll("[data-pay-product]").forEach((button) => {
       button.addEventListener("click", () => {
         preparePayment(button.dataset.payMode).catch(write);
@@ -33899,15 +34070,15 @@ function renderPayments() {
   const entitlementEl = $("#ai-entitlement-status");
   if (entitlementEl) {
     const ent = state.aiEntitlement;
-    if (!state.currentCaseId) {
-      entitlementEl.innerHTML = `<div class="status-row"><span>Plan</span><strong>Start a case to pay</strong></div>`;
-    } else if (!ent?.limits) {
-      entitlementEl.innerHTML = `<div class="status-row"><span>Plan</span><strong>Payment required for agent AI</strong></div>`;
+    if (!state.walletAddress) {
+      entitlementEl.innerHTML = `<div class="status-row"><span>Credits</span><strong>Connect wallet</strong></div>`;
     } else {
+      const balance = state.creditsBalance?.balanceCredits ?? ent?.balanceCredits ?? 0;
+      const subscription = state.creditsBalance?.subscriptionActive ? "active" : "none";
       entitlementEl.innerHTML = `
-        <div class="status-row"><span>Active plan</span><strong>${escapeHtml(ent.mode || "\u2014")}</strong></div>
-        <div class="status-row"><span>Agent chats</span><strong>${ent.usage.chats} / ${ent.limits.maxChats}</strong></div>
-        <div class="status-row"><span>AI tasks</span><strong>${ent.usage.analyses} / ${ent.limits.maxAnalyses}</strong></div>
+        <div class="status-row"><span>Credit balance</span><strong>${balance}</strong></div>
+        <div class="status-row"><span>Subscription</span><strong>${escapeHtml(subscription)}</strong></div>
+        <div class="status-row"><span>Email relay</span><strong>${state.creditRates?.emailRelayCredits || 25} credits/send</strong></div>
       `;
     }
   }
@@ -33958,7 +34129,7 @@ function renderRelayer() {
             <strong>${escapeHtml(event.status)}</strong>
             <div class="muted small">${escapeHtml(event.txHash || "pending tx")} \xB7 ${escapeHtml(event.message)}</div>
           </div>
-          <span class="${pillClass(event.status === "confirmed" ? "pass" : "warn")}">1Shot</span>
+          <span class="${pillClass(event.status === "confirmed" && !event.payload?.checklistOnly ? "pass" : "warn")}">${event.payload?.checklistOnly ? "checklist" : "1Shot"}</span>
         </div>
       `).join("") : `<div class="empty">No relayer events yet. Relay a prepared payment session.</div>`;
 }
@@ -33988,7 +34159,7 @@ function renderActions() {
             <strong>${escapeHtml(action.destination)}</strong>
             <div class="muted small">${action.actionType} \xB7 ${action.executionStatus}</div>
           </div>
-          ${action.executionStatus === "ready" ? `<button data-execute-id="${action.id}">Record</button>` : `<span class="${pillClass(action.executionStatus)}">${action.executionStatus}</span>`}
+          ${action.executionStatus === "ready" ? `<button data-execute-id="${action.id}">${executeActionLabel()}</button>` : `<span class="${pillClass(action.executionStatus)}">${escapeHtml(action.executionStatus)}</span>`}
         </div>
       `).join("") : `<div class="empty">No actions yet. Approved tasks will appear here.</div>`;
   document.querySelectorAll("[data-execute-id]").forEach((button) => {
@@ -34017,8 +34188,11 @@ function renderVaultPanel() {
     if (!hasCase) {
       status.textContent = "Select or create a case to export its encrypted backup.";
       status.className = "vault-status muted small";
-    } else if (!hasVaultKey) {
-      status.textContent = "Vault key is only in memory for cases opened this session. You can still download redacted server data; add a passphrase only if the key is available.";
+    } else if (!hasVaultKey || state.sessionHandoffWarning) {
+      status.textContent = [
+        !hasVaultKey ? "Vault key is only in memory for cases opened this session. You can still download redacted server data; add a passphrase only if the key is available." : "",
+        state.sessionHandoffWarning
+      ].filter(Boolean).join(" ");
       status.className = "vault-status muted small warn";
     } else {
       status.textContent = `Ready to export ${caseDeleteLabel(state.currentCaseId)}. Add a passphrase to wrap your vault key in the backup.`;
@@ -34109,18 +34283,25 @@ async function createCase(options = {}) {
     throw { error: "intake-required", message: "Enter your name to continue." };
   }
   applyParsedIntakeToForm(parsed);
+  state.operatorEmailRelay = $("#operator-email-relay")?.checked !== false;
+  state.contactEmail = $("#contact-email")?.value?.trim() || "";
   const created = await request("/api/cases", {
     method: "POST",
     body: {
       jurisdiction: parsed.jurisdiction,
       authorityBasis: parsed.authorityBasis,
-      riskLevel: parsed.riskLevel
+      riskLevel: parsed.riskLevel,
+      casePreferences: { operatorEmailRelay: state.operatorEmailRelay }
     }
   });
   const caseId = created.case.id;
   const intakeText = parsed.intakeText;
   if (!state.vaultKey) state.vaultKey = await createVaultKey();
-  const encryptedIntake = await encryptPayload(state.vaultKey, { notes: intakeText }, caseId);
+  const encryptedIntake = await encryptPayload(
+    state.vaultKey,
+    { notes: intakeText, contactEmail: state.contactEmail || void 0 },
+    caseId
+  );
   const label = parsed.personLabel;
   const intake = await request(`/api/cases/${caseId}/intake`, {
     method: "POST",
@@ -34133,15 +34314,17 @@ async function createCase(options = {}) {
   state.currentStatus = intake.status;
   state.cases.unshift({ ...intake.case, status: intake.status });
   syncPaymentPlanFromForm();
-  await ensureCasePayment({ quiet: options.quietPayment, statusEl: $("#onboarding-payment-status") }).catch(
-    (error) => {
-      if (!options.quietPayment) addChat("agent", error?.message || "Could not prepare payment for this case.");
-      throw error;
-    }
-  );
+  if (options.buyCredits) {
+    await ensureCasePayment({ quiet: options.quietPayment, statusEl: $("#onboarding-payment-status") }).catch(
+      (error) => {
+        if (!options.quietPayment) addChat("agent", error?.message || "Could not buy credits for this wallet.");
+      }
+    );
+  }
   state.agentPlan = null;
   state.connectorResults = [];
   state.intakeText = intakeText;
+  updateSessionHandoffWarning();
   const inferredPreset = recommendPreset({
     jurisdiction: intake.case.jurisdiction,
     riskLevel: intake.case.riskLevel,
@@ -34373,7 +34556,10 @@ async function approve(approvalId) {
   await refreshAgentPlan({ silent: true }).catch(() => {
   });
   await refreshHackathon({ silent: true });
-  addChat("agent", "Approved. I can record it without external submission.");
+  addChat(
+    "agent",
+    isLiveExecutorMode() ? "Approved. I can execute the live connector path when you confirm \u2014 still only what you approved." : "Approved. I can record it without external submission."
+  );
   state.tab = "overview";
   render();
   write(result);
@@ -34381,27 +34567,38 @@ async function approve(approvalId) {
 async function executeAction(actionId) {
   const action = state.currentStatus?.actionsReady?.find((item) => item.id === actionId) || state.currentStatus?.submittedActions?.find((item) => item.id === actionId);
   const passwordPlaintext = action?.actionType === "pwned-password-range-check" ? $("#breach-password-vault")?.value || "" : "";
+  const handoffWarning = handoffReadinessWarning(action);
+  if (handoffWarning) {
+    addChat("agent", handoffWarning);
+    state.sessionHandoffWarning = handoffWarning;
+    renderVaultPanel();
+  }
   const hashPrefix = passwordPlaintext && action?.actionType === "pwned-password-range-check" ? await sha1PrefixFromPassword(passwordPlaintext) : void 0;
   const handoff = buildExecuteHandoff({
     action,
     status: state.currentStatus,
     intakeText: state.intakeText,
+    contactEmail: state.contactEmail,
     hashPrefix
   });
   const result = await request(`/api/actions/${actionId}/execute`, {
     method: "POST",
-    body: handoff
+    body: { ...handoff, walletAddress: state.walletAddress || void 0 }
   });
   state.currentStatus = result.status;
   await refreshAgentPlan({ silent: true }).catch(() => {
   });
   await refreshHackathon({ silent: true });
   const live = result.executorMode === "live";
-  const handoffNote = result.connectorResult?.requiresUserHandoff ? " Open the official path to finish submission." : "";
+  const mailto = result.connectorResult?.mailtoUrl;
+  const handoffNote = mailto ? " Use Open in email app to send the approved draft." : result.connectorResult?.requiresUserHandoff ? " Open the official path to finish submission." : "";
   addChat(
     "agent",
     live ? `Live connector path: ${result.connectorResult?.summary || result.action?.executionRecord || "executed."}${handoffNote}` : "Recorded. No third-party submission without your explicit approval path."
   );
+  if (mailto) {
+    state.lastMailtoUrl = mailto;
+  }
   state.tab = "overview";
   render();
   write(result);
@@ -34505,6 +34702,7 @@ async function refreshWalletConfig() {
 async function refreshIntegrationsStatus() {
   try {
     state.integrationsStatus = await request("/api/integrations/status");
+    if (isLiveX402Ready(state.integrationsStatus)) state.paymentRailsNotice = "";
   } catch {
     state.integrationsStatus = null;
   }
@@ -34521,10 +34719,15 @@ async function ensureWalletProvider() {
   return provider;
 }
 async function settlePaymentForMode(mode, options = {}) {
-  if (!isLiveX402Ready(state.integrationsStatus)) return { settled: false, skipped: true };
+  if (!isLiveX402Ready(state.integrationsStatus)) {
+    state.paymentRailsNotice = "x402 is not configured on the API server \u2014 settlement was skipped. Set X402_PAY_TO and redeploy.";
+    renderPayments();
+    return { settled: false, skipped: true, reason: "x402-not-configured" };
+  }
+  state.paymentRailsNotice = "";
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   const sessions = state.hackathon?.payments || [];
-  const session = sessions.find((item) => item.productId === (mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet"));
+  const session = sessions.find((item) => item.productId === (mode === "subscription" ? "credit-monitor" : "credit-starter"));
   if (!session) throw { error: "payment-session-missing", message: "Prepare payment first." };
   if (session.status === "paid") return { settled: true, alreadyPaid: true, session };
   const provider = await ensureWalletProvider();
@@ -34536,7 +34739,11 @@ async function settlePaymentForMode(mode, options = {}) {
     provider,
     walletAddress: state.walletAddress,
     endpoint: agentEndpointForMode(mode),
-    body: { caseId: state.currentCaseId, paymentSessionId: session.id },
+    body: {
+      caseId: state.currentCaseId,
+      paymentSessionId: session.id,
+      walletAddress: state.walletAddress
+    },
     x402Config: state.x402Config
   });
   await refreshHackathon({ silent: true });
@@ -34720,7 +34927,11 @@ async function preparePayment(mode, options = {}) {
   if (!state.smartAccountAddress) await createSmartAccount({ quiet: true, openHub: false });
   await refreshIntegrationsStatus().catch(() => {
   });
-  const productId = mode === "subscription" ? "weekly-monitor" : "broker-opt-out-packet";
+  if (!isLiveX402Ready(state.integrationsStatus)) {
+    state.paymentRailsNotice = "x402 is not configured on the API server \u2014 only a payment-required session was created.";
+    renderPayments();
+  }
+  const productId = mode === "subscription" ? "credit-monitor" : "credit-starter";
   const result = await request(`/api/x402/${mode === "subscription" ? "subscription" : "one-off"}`, {
     method: "POST",
     body: {
@@ -34791,10 +35002,12 @@ async function finishPendingDeveloperActions(options = {}) {
 async function runVenice(kind) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   const path = kind === "draft-request" ? "/api/ai/draft-request" : kind === "review-approval" ? "/api/ai/review-approval" : "/api/ai/classify-case";
+  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
   const result = await request(path, {
     method: "POST",
     body: {
       caseId: state.currentCaseId,
+      walletAddress: state.walletAddress,
       notes: $("#purpose").value || "Redacted people-search cleanup case.",
       destination: $("#destination").value || "approved broker",
       actionType: state.actionType
@@ -34891,19 +35104,24 @@ async function askAgent() {
   }
   if (state.integrationsStatus?.liveReady?.venice) {
     try {
+      if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
       const result = await request("/api/agent/chat", {
         method: "POST",
-        body: { caseId: state.currentCaseId, message: text || "What should I do next?" }
+        body: {
+          caseId: state.currentCaseId,
+          walletAddress: state.walletAddress,
+          message: text || "What should I do next?"
+        }
       });
       addChat("agent", result.reply || "No reply.");
       await refreshHackathon({ silent: true });
       render();
       return;
     } catch (error) {
-      if (error?.error === "ai-payment-required" || error?.error === "ai-chat-budget-exhausted") {
+      if (error?.error === "credits-insufficient" || error?.error === "ai-payment-required") {
         addChat(
           "agent",
-          error?.error === "ai-chat-budget-exhausted" ? "AI chat budget used up for this plan. Subscribe for more capacity or start a new one-off run." : "Agent AI requires payment \u2014 $5 USDC one-off or $10 USDC/month. Open Payment rails in Settings."
+          "Insufficient wallet credits for Venice AI \u2014 buy 500 credits ($5) or subscribe for 1,200/month in Settings \u2192 Payment rails."
         );
         openPaymentRails();
         render();

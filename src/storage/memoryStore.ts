@@ -7,8 +7,16 @@ import type {
   Approval,
   CaseRecord,
   ConnectorResult,
+  CreditAccount,
+  CreditLedgerEntry,
   Exposure,
   FollowUp,
+  PartnerDataAccessEvent,
+  PartnerInvoice,
+  PartnerRecord,
+  PartnerUsageEntry,
+  PartnerWebhookDelivery,
+  PartnerWebhookInboxEntry,
   PaymentSession,
   PermissionGrant,
   RelayerEvent,
@@ -33,7 +41,21 @@ export class MemoryStore implements OblivionRepository {
   readonly agentTimeline = new Map<string, AgentTimelineEvent>();
   readonly agentPlans = new Map<string, AgentPlan>();
   readonly connectorResults = new Map<string, ConnectorResult>();
+  readonly creditAccounts = new Map<string, CreditAccount>();
+  readonly creditLedger = new Map<string, CreditLedgerEntry>();
+  readonly partners = new Map<string, PartnerRecord>();
+  readonly partnerUsage = new Map<string, PartnerUsageEntry>();
+  readonly partnerInvoices = new Map<string, PartnerInvoice>();
+  readonly partnerDataAccess = new Map<string, PartnerDataAccessEvent>();
+  readonly webhookDeliveries = new Map<string, PartnerWebhookDelivery>();
+  readonly partnerWebhookInbox = new Map<string, PartnerWebhookInboxEntry>();
   readonly tombstones = new Map<string, string>();
+
+  casesForPartner(partnerId: string): CaseRecord[] {
+    return [...this.cases.values()].filter(
+      (caseRecord) => caseRecord.partnerId === partnerId && !caseRecord.deletedAt
+    );
+  }
 
   getCaseOrThrow(caseId: string): CaseRecord {
     const caseRecord = this.cases.get(caseId);

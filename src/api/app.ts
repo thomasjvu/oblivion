@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join } from "node:path";
-import { loadMarkdownDoc, staticDocPageFromMarkdown } from "./markdownPage.js";
+import { docsUrl, redirectToDocs } from "./docsRedirect.js";
 import { buildAttestationProof, type TrustCenterConfig } from "../domain/attestation.js";
 import {
   buildAgentPlanView,
@@ -34,7 +34,7 @@ import {
   runCleanupAgentStep
 } from "../domain/orchestration.js";
 import { redactText } from "../domain/redaction.js";
-import { executeApprovedAction } from "../domain/executor.js";
+import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "../domain/executor.js";
 import {
   applyFindingDecision,
   describeDiscoveryPlan,
@@ -62,11 +62,18 @@ import {
   x402PublicConfig
 } from "../domain/x402.js";
 import {
-  AI_BUDGET_BY_MODE,
   assertAiBudget,
   maxTokensForEntitlement,
   resolveAiEntitlement
 } from "../domain/aiBudget.js";
+import {
+  creditRates,
+  debitCreditsForTokens,
+  resolveCreditsView,
+  settleCreditsForProduct,
+  STARTER_PACK_CREDITS,
+  MONITOR_MONTHLY_CREDITS
+} from "../domain/credits.js";
 import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../domain/venice.js";
 import { sanitizeForLog } from "../domain/safeLogging.js";
 import { createAppStore, storePersistPath } from "../storage/createStore.js";
@@ -86,9 +93,19 @@ import type {
   RelayerStatus,
   RiskLevel
 } from "../domain/types.js";
+import { createCaseRecord, sanitizeScope, validateEncryptedBlob } from "../domain/cases.js";
+import { deploymentEnvironment, deploymentProfile, walletChainConfig } from "../domain/deploymentEnv.js";
+import { purgeCaseData } from "../domain/purgeCase.js";
+import { partnerPresetAllowlist } from "../domain/partners.js";
+import { seedPartnersFromEnv } from "../domain/seedPartners.js";
+import { assertPartnerAiBudget, meterPartnerAiTokens } from "../domain/partnerBilling.js";
+import { recordPartnerDataAccess } from "../domain/partnerAudit.js";
+import { emitCaseDeletedWebhook, emitCaseWebhook, notifyCasePendingApprovals } from "../domain/webhooks.js";
 import { MemoryStore } from "../storage/memoryStore.js";
+import { assertCaseExportAllowed, resolvePartnerAuth } from "./auth.js";
 import { HttpError, toHttpError } from "./errors.js";
 import { bindRequestOrigin, clearRequestOrigin, readJson, securityHeaders, sendBytes, sendJson, sendText } from "./http.js";
+import { emitApprovalPendingWebhook, handleV1Request } from "./routes/v1.js";
 
 const ASSET_CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
@@ -126,6 +143,9 @@ interface CreateCaseBody {
   riskLevel?: RiskLevel;
   authorityBasis: AuthorityBasis;
   retentionDays?: number;
+  casePreferences?: {
+    operatorEmailRelay?: boolean;
+  };
 }
 
 interface IntakeBody {
@@ -195,6 +215,19 @@ interface ExecuteActionBody {
   hashPrefix?: string;
   emailLabel?: string;
   sourceUrl?: string;
+  walletAddress?: string;
+}
+
+interface CasePreferencesBody {
+  operatorEmailRelay: boolean;
+}
+
+interface CreditsPurchaseBody {
+  caseId: string;
+  walletAddress: string;
+  paymentSessionId?: string;
+  smartAccountAddress?: string;
+  productId?: string;
 }
 
 interface AgentRunBody {
@@ -217,22 +250,9 @@ interface PremiumTaskBody {
   paymentSessionId?: string;
 }
 
-async function serveBuiltOrMarkdownPage(
-  publicDir: string,
-  slug: "privacy" | "terms" | "pricing",
-  markdownFile: string,
-  page: { pageTitle: string; heading: string }
-): Promise<string> {
-  try {
-    return await readFile(join(publicDir, `${slug}.html`), "utf8");
-  } catch {
-    const markdown = await loadMarkdownDoc(markdownFile);
-    return staticDocPageFromMarkdown(markdown, page);
-  }
-}
-
 export function createApp(options: AppOptions = {}) {
   const store = options.store ?? createAppStore();
+  seedPartnersFromEnv(store);
   const persistPath = options.store ? null : storePersistPath();
   const publicDir = options.publicDir ?? join(process.cwd(), "public");
   const skillsDir = join(process.cwd(), "skills");
@@ -245,47 +265,53 @@ export function createApp(options: AppOptions = {}) {
       const url = new URL(request.url ?? "/", "http://localhost");
       const method = request.method ?? "GET";
 
-      if (method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      if (
+        method === "OPTIONS" &&
+        (url.pathname.startsWith("/api/") ||
+          url.pathname.startsWith("/v1/") ||
+          url.pathname.startsWith("/examples/") ||
+          url.pathname.startsWith("/packages/"))
+      ) {
         response.writeHead(204, securityHeaders());
         response.end();
         return;
       }
 
+      if (url.pathname.startsWith("/v1/")) {
+        const handled = await handleV1Request(request, response, url, {
+          store,
+          loadTrustCenterConfig: () => loadTrustCenterConfig(trustCenterPath)
+        });
+        if (handled) return;
+      }
+
       if (method === "GET" && url.pathname === "/help") {
-        const markdown = await loadMarkdownDoc("USER_GUIDE.md");
-        sendText(
-          response,
-          200,
-          staticDocPageFromMarkdown(markdown, { pageTitle: "User Guide", heading: "Guide" }),
-          "text/html"
-        );
+        redirectToDocs(response, "/docs/user-guide/overview", process.env.NODE_ENV === "production");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/developers") {
+        redirectToDocs(response, "/docs/developers/partner-api", process.env.NODE_ENV === "production");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/onboarding") {
+        redirectToDocs(response, "/docs/developers/partner-onboarding", process.env.NODE_ENV === "production");
         return;
       }
 
       if (method === "GET" && url.pathname === "/privacy") {
-        const html = await serveBuiltOrMarkdownPage(publicDir, "privacy", "PRIVACY_POLICY.md", {
-          pageTitle: "Privacy Policy",
-          heading: "Privacy"
-        });
-        sendText(response, 200, html, "text/html");
+        redirectToDocs(response, "/docs/legal/privacy", process.env.NODE_ENV === "production");
         return;
       }
 
       if (method === "GET" && url.pathname === "/terms") {
-        const html = await serveBuiltOrMarkdownPage(publicDir, "terms", "TERMS_OF_SERVICE.md", {
-          pageTitle: "Terms of Service",
-          heading: "Terms"
-        });
-        sendText(response, 200, html, "text/html");
+        redirectToDocs(response, "/docs/legal/terms", process.env.NODE_ENV === "production");
         return;
       }
 
       if (method === "GET" && url.pathname === "/pricing") {
-        const html = await serveBuiltOrMarkdownPage(publicDir, "pricing", "PRICING.md", {
-          pageTitle: "Pricing",
-          heading: "Pricing"
-        });
-        sendText(response, 200, html, "text/html");
+        redirectToDocs(response, "/docs/pricing", process.env.NODE_ENV === "production");
         return;
       }
 
@@ -350,6 +376,58 @@ export function createApp(options: AppOptions = {}) {
           sendBytes(response, 200, bytes, contentType, "public, max-age=604800");
         } catch {
           sendJson(response, 404, { error: "font-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/packages/")) {
+        const packagePath = url.pathname.slice("/packages/".length);
+        if (!packagePath || packagePath.includes("..")) {
+          sendJson(response, 400, { error: "invalid-package-path" });
+          return;
+        }
+        const contentType = packagePath.endsWith(".html")
+          ? "text/html; charset=utf-8"
+          : packagePath.endsWith(".js")
+            ? "application/javascript; charset=utf-8"
+            : packagePath.endsWith(".css")
+              ? "text/css; charset=utf-8"
+              : "text/plain; charset=utf-8";
+        try {
+          const content = await readFile(join(process.cwd(), "packages", packagePath), "utf8");
+          sendText(response, 200, content, contentType.split(";")[0]);
+        } catch {
+          sendJson(response, 404, { error: "package-asset-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname.startsWith("/examples/")) {
+        const examplePath = url.pathname.slice("/examples/".length);
+        if (!examplePath || examplePath.includes("..")) {
+          sendJson(response, 400, { error: "invalid-example-path" });
+          return;
+        }
+        const contentType = examplePath.endsWith(".html")
+          ? "text/html; charset=utf-8"
+          : examplePath.endsWith(".js")
+            ? "application/javascript; charset=utf-8"
+            : "text/plain; charset=utf-8";
+        try {
+          const content = await readFile(join(process.cwd(), "examples", examplePath), "utf8");
+          sendText(response, 200, content, contentType.split(";")[0]);
+        } catch {
+          sendJson(response, 404, { error: "example-not-found" });
+        }
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/docs/openapi-v1.yaml") {
+        try {
+          const yaml = await readFile(join(process.cwd(), "spec", "openapi-v1.yaml"), "utf8");
+          sendText(response, 200, yaml, "application/yaml");
+        } catch {
+          sendJson(response, 404, { error: "openapi-not-found" });
         }
         return;
       }
@@ -419,7 +497,7 @@ export function createApp(options: AppOptions = {}) {
       if (method === "GET" && url.pathname === "/api/cases") {
         sendJson(response, 200, {
           cases: [...store.cases.values()]
-            .filter((caseRecord) => !caseRecord.deletedAt)
+            .filter((caseRecord) => !caseRecord.deletedAt && !caseRecord.partnerId)
             .map((caseRecord) => ({
               id: caseRecord.id,
               jurisdiction: caseRecord.jurisdiction,
@@ -497,12 +575,21 @@ export function createApp(options: AppOptions = {}) {
       if (method === "POST" && caseAgentRunMatch) {
         const body = await readJson<CaseAgentRunBody>(request);
         const caseRecord = store.getCaseOrThrow(caseAgentRunMatch[1]);
+        const beforeStep = store.agentPlanForCase(caseRecord.id)?.currentStep;
         const result = await runCleanupAgentStep({
           store,
           caseRecord,
           trustCenterConfig: () => loadTrustCenterConfig(trustCenterPath),
           highAutonomy: body.highAutonomy
         });
+        const afterStep = store.agentPlanForCase(caseRecord.id)?.currentStep;
+        if (afterStep && afterStep !== beforeStep) {
+          await emitCaseWebhook(store, caseRecord.id, "case.phase_changed", {
+            currentStep: afterStep,
+            blockedReasons: result.plan?.blockedReasons ?? []
+          });
+        }
+        await notifyCasePendingApprovals(store, caseRecord.id);
         sendJson(response, 200, result);
         return;
       }
@@ -550,6 +637,7 @@ export function createApp(options: AppOptions = {}) {
           const presetId = plan?.presetId;
           const discovered = await discoverExposureCandidates({
             caseId: caseRecord.id,
+            store,
             scope: caseRecord.redactedScope,
             pastedUrls: body.pastedUrls,
             existingUrls,
@@ -558,6 +646,11 @@ export function createApp(options: AppOptions = {}) {
           });
           for (const exposure of discovered) {
             store.exposures.set(exposure.id, exposure);
+            await emitCaseWebhook(store, caseRecord.id, "exposure.discovered", {
+              exposureId: exposure.id,
+              sourceUrl: exposure.sourceUrl,
+              matchScore: exposure.matchScore
+            });
           }
           const timeline = createTimelineEvent(
             caseRecord.id,
@@ -622,6 +715,7 @@ export function createApp(options: AppOptions = {}) {
             dataToDisclose: body.dataToDisclose ?? []
           }
         });
+        await emitApprovalPendingWebhook(store, caseRecord.id, approval);
         sendJson(response, 201, {
           policy: { allowed: true, reasons: [] },
           approval,
@@ -645,6 +739,7 @@ export function createApp(options: AppOptions = {}) {
         for (const action of store.actions.values()) {
           if (action.approvalId === approval.id) action.executionStatus = "ready";
         }
+        await emitCaseWebhook(store, approval.caseId, "approval.approved", { approvalId: approval.id });
         sendJson(response, 200, { approval, status: buildStatus(store, approval.caseId) });
         return;
       }
@@ -660,18 +755,27 @@ export function createApp(options: AppOptions = {}) {
           action.executionStatus = "blocked";
           throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
         }
-        const handoff = await readJson<ExecuteActionBody>(request);
+        const body = await readJson<ExecuteActionBody>(request);
+        const caseRecord = store.getCaseOrThrow(action.caseId);
         const executed = await executeApprovedAction({
           store,
           action,
           approval,
           trustCenterConfig: await loadTrustCenterConfig(trustCenterPath),
-          handoff
+          walletAddress: body.walletAddress,
+          operatorEmailRelay: caseRecord.casePreferences?.operatorEmailRelay !== false,
+          handoff: body
         });
-        action.executionStatus = executed.connectorResult?.status === "failed" ? "failed" : "recorded";
+        action.executionStatus = resolveExecutionStatusAfterExecute(executed);
         action.executedAt = new Date().toISOString();
         action.executionRecord = executed.executionRecord;
         approval.status = "used";
+        await emitCaseWebhook(store, action.caseId, "action.executed", {
+          actionId: action.id,
+          brokerId: action.brokerId,
+          status: action.executionStatus,
+          mode: executed.mode
+        });
         sendJson(response, 200, {
           action,
           approval,
@@ -707,18 +811,53 @@ export function createApp(options: AppOptions = {}) {
         sendJson(response, 200, {
           products: X402_PRODUCTS,
           config: x402PublicConfig(),
-          aiBudget: AI_BUDGET_BY_MODE,
+          credits: creditRates(),
           note: isX402Configured()
-            ? "Live x402 catalog. Pay $5 USDC one-off or $10 USDC/month subscription via x402. Agent AI usage is capped per plan."
+            ? "Live x402 catalog. Pay $5 USDC for 500 credits or $10 USDC/month for 1,200 credits via x402."
             : "Configure X402_PAY_TO and X402_FACILITATOR_URL for live HTTP 402 settlement."
         });
         return;
       }
 
+      if (method === "GET" && url.pathname === "/api/credits/catalog") {
+        sendJson(response, 200, {
+          products: X402_PRODUCTS,
+          rates: creditRates(),
+          config: x402PublicConfig()
+        });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/credits/balance") {
+        const walletAddress = url.searchParams.get("walletAddress");
+        if (!walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+        sendJson(response, 200, resolveCreditsView(store, walletAddress));
+        return;
+      }
+
       if (method === "GET" && url.pathname.startsWith("/api/cases/") && url.pathname.endsWith("/ai-entitlement")) {
         const caseId = url.pathname.split("/")[3];
-        const caseRecord = store.getCaseOrThrow(caseId);
-        sendJson(response, 200, resolveAiEntitlement(store, caseRecord.id));
+        store.getCaseOrThrow(caseId);
+        const walletAddress = url.searchParams.get("walletAddress");
+        if (walletAddress?.startsWith("0x")) {
+          sendJson(response, 200, resolveCreditsView(store, walletAddress));
+          return;
+        }
+        sendJson(response, 200, { balanceCredits: 0, rates: creditRates(), walletRequired: true });
+        return;
+      }
+
+      const preferencesMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/preferences$/);
+      if (method === "PATCH" && preferencesMatch) {
+        const caseRecord = store.getCaseOrThrow(preferencesMatch[1]);
+        const body = await readJson<CasePreferencesBody>(request);
+        const updated: CaseRecord = {
+          ...caseRecord,
+          casePreferences: { operatorEmailRelay: body.operatorEmailRelay !== false },
+          updatedAt: new Date().toISOString()
+        };
+        store.cases.set(updated.id, updated);
+        sendJson(response, 200, { case: updated });
         return;
       }
 
@@ -728,20 +867,17 @@ export function createApp(options: AppOptions = {}) {
       }
 
       if (method === "GET" && url.pathname === "/api/integrations/wallet-config") {
-        const chainId = Number(process.env.WALLET_CHAIN_ID || "11155111");
+        const chain = walletChainConfig();
         const liveEnabled = process.env.WALLET_LIVE_MODE === "true";
+        const profile = deploymentProfile();
         sendJson(response, 200, {
           mode: liveEnabled ? "live" : "demo",
           liveEnabled,
-          chainId,
-          chainIdHex: `0x${chainId.toString(16)}`,
-          addChainParams: {
-            chainId: `0x${chainId.toString(16)}`,
-            chainName: "Sepolia",
-            nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
-            rpcUrls: ["https://rpc.sepolia.org"],
-            blockExplorerUrls: ["https://sepolia.etherscan.io"]
-          },
+          environment: deploymentEnvironment(),
+          environmentLabel: profile.label,
+          chainId: chain.chainId,
+          chainIdHex: chain.chainIdHex,
+          addChainParams: chain.addChainParams,
           poll: { attempts: 12, delayMs: 1500 }
         });
         return;
@@ -750,7 +886,11 @@ export function createApp(options: AppOptions = {}) {
       if (method === "GET" && url.pathname === "/api/integrations/status") {
         const trustConfig = await loadTrustCenterConfig(trustCenterPath);
         const attestationProof = await buildAttestationProof(trustConfig, { fetchLive: true });
+        const deployProfile = deploymentProfile();
         sendJson(response, 200, {
+          deploymentEnvironment: deploymentEnvironment(),
+          deploymentLabel: deployProfile.label,
+          x402Network: deployProfile.x402Network,
           mode: isVeniceConfigured() ? "live-agent" : "wallet-and-policy",
           executorMode: isLiveExecutorEnabled() ? "live" : "record-only",
           liveReady: {
@@ -766,6 +906,17 @@ export function createApp(options: AppOptions = {}) {
             platformAbuseEmail: isBrokerEmailConfigured(),
             liveExecutor: isLiveExecutorEnabled(),
             phalaAttestation: attestationProof.verifierResult === "pass"
+          },
+          partnerApi: {
+            enabled: store.partners.size > 0,
+            partnersConfigured: store.partners.size,
+            productionPartners: [...store.partners.values()].filter((partner) => partner.environment === "production").length,
+            sandboxPartners: [...store.partners.values()].filter((partner) => partner.environment === "sandbox").length,
+            version: "v1",
+            docs: docsUrl("/docs/developers/partner-api"),
+            onboarding: docsUrl("/docs/developers/partner-onboarding"),
+            openapi: "/docs/openapi-v1.yaml",
+            presets: [...partnerPresetAllowlist()]
           },
           privacyInvariant:
             "Live adapters must stay behind the same approval, redaction, logging, and attestation gates."
@@ -833,11 +984,12 @@ export function createApp(options: AppOptions = {}) {
         const mode: PaymentMode = url.pathname.endsWith("subscription") ? "subscription" : "one-off";
         const body = await readJson<PaymentBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
+        if (!body.walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
         const session = createPaymentSession({
           caseId: caseRecord.id,
           mode,
-          productId: body.productId,
-          walletAddress: body.walletAddress ? redactText(body.walletAddress) : undefined,
+          productId: body.productId || (mode === "subscription" ? "credit-monitor" : "credit-starter"),
+          walletAddress: body.walletAddress,
           smartAccountAddress: body.smartAccountAddress
         });
         const permission = createPaymentPermission(caseRecord.id, session);
@@ -854,10 +1006,18 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
-      if (method === "POST" && (url.pathname === "/api/agent/premium-task" || url.pathname === "/api/agent/monitor")) {
-        const body = await readJson<PremiumTaskBody>(request);
+      if (
+        method === "POST" &&
+        (url.pathname === "/api/credits/purchase" ||
+          url.pathname === "/api/credits/monitor" ||
+          url.pathname === "/api/agent/premium-task" ||
+          url.pathname === "/api/agent/monitor")
+      ) {
+        const body = await readJson<CreditsPurchaseBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        const expectedMode: PaymentMode = url.pathname.endsWith("monitor") ? "subscription" : "one-off";
+        if (!body.walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+        const expectedMode: PaymentMode =
+          url.pathname.endsWith("monitor") || url.pathname.endsWith("/monitor") ? "subscription" : "one-off";
         if (isX402Configured()) {
           const x402Result = await processX402Request({ request, url });
           if (x402Result?.type === "payment-error" && x402Result.response) {
@@ -872,23 +1032,26 @@ export function createApp(options: AppOptions = {}) {
             const sessions = store.paymentSessionsForCase(caseRecord.id);
             const session = body.paymentSessionId
               ? store.paymentSessions.get(body.paymentSessionId)
-              : sessions.find((item) => item.mode === expectedMode);
+              : sessions.find((item) => item.mode === expectedMode && item.walletKey);
             if (session && session.caseId === caseRecord.id) {
               const paid = markSessionPaid(session, settlement.transaction);
               store.paymentSessions.set(paid.id, paid);
             }
+            const credits = settleCreditsForProduct(store, body.walletAddress, expectedMode, caseRecord.id);
             const timeline = createTimelineEvent(
               caseRecord.id,
               "x402",
-              expectedMode === "subscription" ? "Monitor paid via x402" : "Premium task paid via x402",
-              "Facilitator settlement confirmed. Cleanup still requires a separate disclosure approval."
+              expectedMode === "subscription" ? "Monitor credits refilled via x402" : "Starter credits purchased via x402",
+              `Wallet credited ${expectedMode === "subscription" ? MONITOR_MONTHLY_CREDITS : STARTER_PACK_CREDITS} credits.`
             );
             store.agentTimeline.set(timeline.id, timeline);
             sendJson(response, 200, {
-              entitlement: "x402-settled",
+              entitlement: "credits-settled",
               settlement,
               session,
-              nextRequired: "explicit-cleanup-approval",
+              credits: resolveCreditsView(store, body.walletAddress),
+              balanceCredits: credits.balanceCredits,
+              nextRequired: "metered-apis-require-credits",
               timeline
             });
             return;
@@ -901,12 +1064,14 @@ export function createApp(options: AppOptions = {}) {
         if (!session || session.caseId !== caseRecord.id || session.mode !== expectedMode) {
           throw new HttpError(402, "x402-payment-required", {
             products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
-            config: x402PublicConfig()
+            config: x402PublicConfig(),
+            rates: creditRates()
           });
         }
         throw new HttpError(402, "x402-payment-required", {
           products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
-          config: x402PublicConfig()
+          config: x402PublicConfig(),
+          rates: creditRates()
         });
       }
 
@@ -1000,7 +1165,7 @@ export function createApp(options: AppOptions = {}) {
       }
 
       if (method === "POST" && url.pathname === "/api/agent/chat") {
-        const body = await readJson<{ caseId: string; message: string }>(request);
+        const body = await readJson<{ caseId: string; message: string; walletAddress?: string }>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
         if (!body.message?.trim()) throw new HttpError(422, "agent-message-required");
         if (!isVeniceConfigured()) {
@@ -1008,42 +1173,74 @@ export function createApp(options: AppOptions = {}) {
             message: "Set VENICE_API_KEY to enable the live agent."
           });
         }
-        let entitlement;
-        try {
-          entitlement = assertAiBudget(store, caseRecord.id, "chat");
-        } catch (error) {
-          const err = error as Error & { statusCode?: number; code?: string };
-          if (err.statusCode === 402) {
-            throw new HttpError(402, err.code || "ai-payment-required", {
-              products: X402_PRODUCTS,
-              entitlement: resolveAiEntitlement(store, caseRecord.id),
-              config: x402PublicConfig()
-            });
-          }
-          throw error;
-        }
         const plan = store.agentPlanForCase(caseRecord.id);
-        const reply = await runVeniceAgentReply({
+        let maxTokens = 800;
+        if (caseRecord.partnerId) {
+          assertPartnerAiBudget(store, caseRecord.id);
+        } else {
+          if (!body.walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+          let entitlement;
+          try {
+            entitlement = assertAiBudget(store, body.walletAddress, "chat");
+          } catch (error) {
+            const err = error as Error & { statusCode?: number; code?: string };
+            if (err.statusCode === 402) {
+              throw new HttpError(402, err.code || "credits-insufficient", {
+                products: X402_PRODUCTS,
+                credits: resolveCreditsView(store, body.walletAddress),
+                config: x402PublicConfig()
+              });
+            }
+            throw error;
+          }
+          maxTokens = maxTokensForEntitlement(entitlement);
+        }
+        const venice = await runVeniceAgentReply({
           caseId: caseRecord.id,
           message: body.message,
           planStep: plan?.currentStep,
           presetId: plan?.presetId,
-          maxTokens: maxTokensForEntitlement(entitlement)
+          maxTokens
         });
-        const timeline = createTimelineEvent(caseRecord.id, "Venice", "Agent reply", reply);
+        let balanceCredits: number | undefined;
+        if (caseRecord.partnerId) {
+          const partner = meterPartnerAiTokens(store, caseRecord.id, venice.tokensUsed);
+          balanceCredits = partner?.balanceCredits;
+        } else {
+          const account = debitCreditsForTokens(store, body.walletAddress!, venice.tokensUsed, {
+            caseId: caseRecord.id,
+            kind: "token"
+          });
+          balanceCredits = account.balanceCredits;
+        }
+        const timeline = createTimelineEvent(caseRecord.id, "Venice", "Agent reply", venice.reply);
         store.agentTimeline.set(timeline.id, timeline);
-        sendJson(response, 200, { reply, timeline });
+        sendJson(response, 200, {
+          reply: venice.reply,
+          timeline,
+          balanceCredits
+        });
         return;
       }
 
       if (method === "POST" && url.pathname === "/api/agent/run-next") {
         const body = await readJson<AgentRunBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
-        sendJson(response, 200, await runCleanupAgentStep({
+        const beforeStep = store.agentPlanForCase(caseRecord.id)?.currentStep;
+        const result = await runCleanupAgentStep({
           store,
           caseRecord,
           trustCenterConfig: () => loadTrustCenterConfig(trustCenterPath)
-        }));
+        });
+        const afterStep = store.agentPlanForCase(caseRecord.id)?.currentStep;
+        if (afterStep && afterStep !== beforeStep) {
+          await emitCaseWebhook(store, caseRecord.id, "case.phase_changed", {
+            currentStep: afterStep,
+            blockedReasons: result.plan?.blockedReasons ?? []
+          });
+        }
+        await notifyCasePendingApprovals(store, caseRecord.id);
+        sendJson(response, 200, result);
         return;
       }
 
@@ -1062,7 +1259,7 @@ export function createApp(options: AppOptions = {}) {
         method === "POST" &&
         ["/api/ai/classify-case", "/api/ai/draft-request", "/api/ai/review-approval"].includes(url.pathname)
       ) {
-        const body = await readJson<VeniceBody>(request);
+        const body = await readJson<VeniceBody & { walletAddress?: string }>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
         const kind =
           url.pathname === "/api/ai/draft-request"
@@ -1075,19 +1272,26 @@ export function createApp(options: AppOptions = {}) {
             message: "Set VENICE_API_KEY to enable Venice.ai."
           });
         }
-        let entitlement;
-        try {
-          entitlement = assertAiBudget(store, caseRecord.id, "analysis");
-        } catch (error) {
-          const err = error as Error & { statusCode?: number; code?: string };
-          if (err.statusCode === 402) {
-            throw new HttpError(402, err.code || "ai-payment-required", {
-              products: X402_PRODUCTS,
-              entitlement: resolveAiEntitlement(store, caseRecord.id),
-              config: x402PublicConfig()
-            });
+        let maxTokens = 1200;
+        if (caseRecord.partnerId) {
+          assertPartnerAiBudget(store, caseRecord.id);
+        } else {
+          if (!body.walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+          let entitlement;
+          try {
+            entitlement = assertAiBudget(store, body.walletAddress, "analysis");
+          } catch (error) {
+            const err = error as Error & { statusCode?: number; code?: string };
+            if (err.statusCode === 402) {
+              throw new HttpError(402, err.code || "credits-insufficient", {
+                products: X402_PRODUCTS,
+                credits: resolveCreditsView(store, body.walletAddress),
+                config: x402PublicConfig()
+              });
+            }
+            throw error;
           }
-          throw error;
+          maxTokens = maxTokensForEntitlement(entitlement);
         }
         const analysis = await runVeniceAnalysis({
           caseId: caseRecord.id,
@@ -1095,12 +1299,24 @@ export function createApp(options: AppOptions = {}) {
           notes: body.notes,
           destination: body.destination,
           actionType: body.actionType,
-          maxTokens: maxTokensForEntitlement(entitlement)
+          maxTokens
         });
-        store.veniceAnalyses.set(analysis.id, analysis);
-        const timeline = createTimelineEvent(caseRecord.id, "Venice", analysis.output.title, analysis.output.summary);
+        const { tokensUsed, ...stored } = analysis;
+        store.veniceAnalyses.set(stored.id, stored);
+        let balanceCredits: number | undefined;
+        if (caseRecord.partnerId) {
+          const partner = meterPartnerAiTokens(store, caseRecord.id, tokensUsed);
+          balanceCredits = partner?.balanceCredits;
+        } else {
+          const account = debitCreditsForTokens(store, body.walletAddress!, tokensUsed, {
+            caseId: caseRecord.id,
+            kind: "token"
+          });
+          balanceCredits = account.balanceCredits;
+        }
+        const timeline = createTimelineEvent(caseRecord.id, "Venice", stored.output.title, stored.output.summary);
         store.agentTimeline.set(timeline.id, timeline);
-        sendJson(response, 201, { analysis, timeline });
+        sendJson(response, 201, { analysis: stored, timeline, balanceCredits });
         return;
       }
 
@@ -1156,7 +1372,8 @@ export function createApp(options: AppOptions = {}) {
         const caseId = url.searchParams.get("caseId");
         if (!caseId) throw new HttpError(422, "case-id-required");
         store.getCaseOrThrow(caseId);
-        const status = buildHackathonStatusForCase(store, caseId);
+        const walletAddress = url.searchParams.get("walletAddress") ?? undefined;
+        const status = buildHackathonStatusForCase(store, caseId, walletAddress);
         sendJson(response, 200, {
           status,
           pending: pendingHackathonTracks(status)
@@ -1170,7 +1387,7 @@ export function createApp(options: AppOptions = {}) {
         const result = await completePendingHackathonTracks({
           store,
           caseId: caseRecord.id,
-          walletAddress: body.walletAddress ? redactText(body.walletAddress) : undefined,
+          walletAddress: body.walletAddress?.startsWith("0x") ? body.walletAddress : undefined,
           smartAccountAddress: body.smartAccountAddress,
           notes: body.notes,
           destination: body.destination,
@@ -1183,6 +1400,18 @@ export function createApp(options: AppOptions = {}) {
       if (method === "POST" && url.pathname === "/api/export") {
         const body = await readJson<CaseBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
+        assertCaseExportAllowed(request, store, caseRecord);
+        if (caseRecord.partnerId) {
+          const partner = resolvePartnerAuth(request, store);
+          if (partner) {
+            recordPartnerDataAccess(store, {
+              partnerId: partner.id,
+              caseId: caseRecord.id,
+              action: "export",
+              source: "api"
+            });
+          }
+        }
         sendJson(response, 200, {
           exportedAt: new Date().toISOString(),
           case: caseRecord,
@@ -1207,6 +1436,19 @@ export function createApp(options: AppOptions = {}) {
       if (method === "POST" && url.pathname === "/api/delete") {
         const body = await readJson<CaseBody>(request);
         const caseRecord = store.getCaseOrThrow(body.caseId);
+        assertCaseExportAllowed(request, store, caseRecord);
+        if (caseRecord.partnerId) {
+          const partner = resolvePartnerAuth(request, store);
+          if (partner) {
+            recordPartnerDataAccess(store, {
+              partnerId: partner.id,
+              caseId: caseRecord.id,
+              action: "delete",
+              source: "api"
+            });
+          }
+          await emitCaseDeletedWebhook(store, caseRecord.id);
+        }
         const deletedAt = new Date().toISOString();
         caseRecord.deletedAt = deletedAt;
         caseRecord.encryptedIntake = undefined;
@@ -1247,83 +1489,6 @@ async function loadTrustCenterConfig(trustCenterPath: string): Promise<TrustCent
     phalaVerifierEndpoint: process.env.PHALA_VERIFIER_ENDPOINT ?? config.phalaVerifierEndpoint ?? null,
     maxAttestationAgeSeconds: Number(process.env.ATTESTATION_MAX_AGE_SECONDS ?? config.maxAttestationAgeSeconds ?? 600)
   };
-}
-
-function createCaseRecord(body: CreateCaseBody): CaseRecord {
-  if (!["US", "EU", "UK"].includes(body.jurisdiction)) throw new HttpError(422, "unsupported-jurisdiction");
-  if (!body.authorityBasis) throw new HttpError(422, "authority-basis-required");
-  const now = new Date().toISOString();
-  const id = `case_${crypto.randomUUID()}`;
-  return {
-    id,
-    jurisdiction: body.jurisdiction,
-    riskLevel: body.riskLevel ?? "standard",
-    authorityBasis: body.authorityBasis,
-    encryptedVaultPointer: `vault://${id}`,
-    retentionDays: body.retentionDays ?? 90,
-    createdAt: now,
-    updatedAt: now
-  };
-}
-
-function validateEncryptedBlob(blob: EncryptedBlob): void {
-  if (!blob || blob.alg !== "AES-256-GCM" || !blob.keyId || !blob.nonce || !blob.ciphertext) {
-    throw new HttpError(422, "valid-encrypted-intake-required");
-  }
-}
-
-function sanitizeScope(scope: RedactedScope): RedactedScope {
-  return {
-    personLabel: redactText(scope.personLabel ?? "User"),
-    aliases: (scope.aliases ?? []).map(redactText),
-    approvedIdentifierLabels: (scope.approvedIdentifierLabels ?? []).map(redactText),
-    sensitiveConstraints: (scope.sensitiveConstraints ?? []).map(redactText)
-  };
-}
-
-function purgeCaseData(store: MemoryStore, caseId: string): void {
-  for (const [id, approval] of store.approvals) {
-    if (approval.caseId === caseId) store.approvals.delete(id);
-  }
-  for (const [id, action] of store.actions) {
-    if (action.caseId === caseId) store.actions.delete(id);
-  }
-  for (const [id, exposure] of store.exposures) {
-    if (exposure.caseId === caseId) store.exposures.delete(id);
-  }
-  for (const [id, sourceCheck] of store.sourceChecks) {
-    if (sourceCheck.caseId === caseId) store.sourceChecks.delete(id);
-  }
-  for (const [id, followUp] of store.followUps) {
-    if (followUp.caseId === caseId) store.followUps.delete(id);
-  }
-  for (const [id, session] of store.paymentSessions) {
-    if (session.caseId === caseId) store.paymentSessions.delete(id);
-  }
-  for (const [id, grant] of store.permissionGrants) {
-    if (grant.caseId === caseId) store.permissionGrants.delete(id);
-  }
-  for (const [id, event] of store.relayerEvents) {
-    if (event.caseId === caseId) store.relayerEvents.delete(id);
-  }
-  for (const [id, analysis] of store.veniceAnalyses) {
-    if (analysis.caseId === caseId) store.veniceAnalyses.delete(id);
-  }
-  for (const [id, delegation] of store.agentDelegations) {
-    if (delegation.caseId === caseId) store.agentDelegations.delete(id);
-  }
-  for (const [id, message] of store.agentMessages) {
-    if (message.caseId === caseId) store.agentMessages.delete(id);
-  }
-  for (const [id, event] of store.agentTimeline) {
-    if (event.caseId === caseId) store.agentTimeline.delete(id);
-  }
-  for (const [id, plan] of store.agentPlans) {
-    if (plan.caseId === caseId) store.agentPlans.delete(id);
-  }
-  for (const [id, result] of store.connectorResults) {
-    if (result.caseId === caseId) store.connectorResults.delete(id);
-  }
 }
 
 function parseAgentName(value: string): AgentName {

@@ -16,7 +16,9 @@ export function buildCaseStatus(input: {
     confirmedFindings,
     approvalsNeeded: input.approvals.filter((approval) => approval.status === "pending"),
     actionsReady: input.actions.filter((action) => action.executionStatus === "ready"),
-    submittedActions: input.actions.filter((action) => action.executionStatus === "recorded"),
+    submittedActions: input.actions.filter((action) =>
+      action.executionStatus === "recorded" || action.executionStatus === "executed"
+    ),
     nextChecks: input.followUps
   };
 }

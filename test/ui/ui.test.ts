@@ -24,7 +24,9 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /clean-online-identity/);
   assert.match(html, /skill\.sh/);
   assert.match(html, /setupLandingSkillInstall/);
-  assert.match(html, /REMOVE YOURSELF FROM DIGITAL REALITY/);
+  assert.match(html, /PERSONAL INFORMATION REMOVAL WITHOUT GIVING AWAY YOUR PERSONAL INFORMATION/);
+  assert.match(html, /id="partner-api"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/developers\/partner-api"/);
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-send"/);
@@ -108,27 +110,14 @@ test("landing page links legal docs and skill install", async () => {
   assert.match(html, /setSkillInstallTab/);
   assert.doesNotMatch(html, /\.landing-skill-inner\s*\{[^}]*border:/s);
   assert.doesNotMatch(html, /\.skill-install-panel\s*\{[^}]*border:/s);
-  assert.match(html, /href="\/help"/);
-  assert.match(html, /href="\/pricing"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/user-guide\/overview"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/developers\/partner-api"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/pricing"/);
   assert.match(html, /site-footer-external-link/);
   assert.match(html, /SKILL\.md/);
   assert.match(html, /skills\/clean-online-identity\/SKILL\.md/);
-  assert.match(html, /href="\/privacy"/);
-  assert.match(html, /href="\/terms"/);
-
-  const pricingHtml = await readFile(new URL("../../public/pricing.html", import.meta.url), "utf8");
-  assert.match(pricingHtml, /pricing-page/);
-  assert.match(pricingHtml, /\$5 USDC/);
-  assert.match(pricingHtml, /\$10 USDC\/mo/);
-  assert.match(pricingHtml, /Local agent \(SKILL\)/);
-  assert.match(pricingHtml, /Incogni/);
-
-  const privacyHtml = await readFile(new URL("../../public/privacy.html", import.meta.url), "utf8");
-  assert.match(privacyHtml, /Privacy Policy/);
-  assert.match(privacyHtml, /do not collect, sell, or profile your personal data/i);
-  const termsHtml = await readFile(new URL("../../public/terms.html", import.meta.url), "utf8");
-  assert.match(termsHtml, /Terms of Service/);
-  assert.match(termsHtml, /No data harvesting/i);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/legal\/privacy"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/legal\/terms"/);
   assert.doesNotMatch(html, /id="how-it-works"/);
   assert.doesNotMatch(html, /landing-flow/);
 });
@@ -146,7 +135,7 @@ test("landing page includes cinematic hero and proof visuals", async () => {
   assert.match(html, /data-testid="user-guide"/);
   assert.doesNotMatch(html, /data-testid="guide-primary-action"/);
   assert.match(html, /performGuidePrimaryAction/);
-  assert.match(html, /href="\/help"/);
+  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/user-guide\/overview"/);
   assert.match(html, /docs\/grok-visual-prompts\.md/);
 
   assert.match(html, /\/assets\/approval-ceremony\.webp/);
@@ -246,7 +235,7 @@ test("agent dock has mobile bottom-sheet behavior", async () => {
   assert.match(html, /\.app-chrome\.agent-collapsed \.agent-dock\.open[\s\S]*transform:\s*translateY\(0\)/);
 });
 
-test("onboarding asks for one-off or subscription payment", async () => {
+test("onboarding supports optional credit purchase and email relay preferences", async () => {
   const html = await readUiBundle();
 
   assert.match(html, /data-testid="onboarding-payment"/);
@@ -254,7 +243,10 @@ test("onboarding asks for one-off or subscription payment", async () => {
   assert.match(html, /width: 1px/);
   assert.match(html, /data-testid="payment-plan-one-off"/);
   assert.match(html, /data-testid="payment-plan-subscription"/);
-  assert.match(html, /ensureCasePayment/);
+  assert.match(html, /data-testid="operator-email-relay"/);
+  assert.match(html, /data-testid="contact-email"/);
+  assert.match(html, /refreshCreditsBalance/);
+  assert.match(html, /credit-starter/);
   assert.match(html, /selectedPaymentMode/);
   assert.match(html, /data-testid="subscription-upsell"/);
   assert.match(html, /upsell-subscribe/);

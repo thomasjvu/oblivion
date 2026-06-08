@@ -10,6 +10,7 @@ import {
 } from "@x402/core/server";
 import type { Network } from "@x402/core/types";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
+import { deploymentEnvironment, deploymentProfile } from "./deploymentEnv.js";
 import { isX402Configured, x402FacilitatorUrl, x402Network, x402PayTo } from "./integrations.js";
 import type { PaymentProduct, PaymentSession } from "./types.js";
 import { productForMode } from "./hackathon.js";
@@ -25,8 +26,8 @@ function buildRoutes(): RoutesConfig {
   const payTo = x402PayTo() as `0x${string}`;
   const network = x402Network() as Network;
   const routes: RoutesConfig = {};
-  for (const product of ["broker-opt-out-packet", "weekly-monitor"] as const) {
-    const item = productForMode(product === "weekly-monitor" ? "subscription" : "one-off", product);
+  for (const product of ["credit-starter", "credit-monitor"] as const) {
+    const item = productForMode(product === "credit-monitor" ? "subscription" : "one-off", product);
     const path = item.x402Endpoint;
     routes[`POST ${path}`] = {
       accepts: [
@@ -156,8 +157,11 @@ export async function settleX402Payment(input: {
 
 export function x402PublicConfig() {
   const enabled = isX402Configured();
+  const profile = deploymentProfile();
   return {
     enabled,
+    environment: deploymentEnvironment(),
+    environmentLabel: profile.label,
     protocolVersion: "x402-v2",
     facilitatorUrl: x402FacilitatorUrl(),
     network: x402Network(),

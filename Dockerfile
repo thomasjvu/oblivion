@@ -6,12 +6,12 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY config ./config
-COPY docs ./docs
+COPY spec ./spec
 COPY public ./public
 COPY scripts ./scripts
 COPY src ./src
 
-RUN npm run build:client && npm run build:fonts && npm run build:legal
+RUN npm run build:client && npm run build:fonts
 
 FROM node:22-bookworm-slim@sha256:7af03b14a13c8cdd38e45058fd957bf00a72bbe17feac43b1c15a689c029c732
 
@@ -27,7 +27,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY config ./config
-COPY docs ./docs
+COPY spec ./spec
 COPY src ./src
 COPY --from=build /app/public ./public
 
