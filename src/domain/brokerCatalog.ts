@@ -63,6 +63,29 @@ function seedToEntry(seed: BrokerCatalogSeed): BrokerCatalogEntry {
   };
 }
 
+const BROKER_SWEEP_PRIORITY: string[] = [
+  "spokeo",
+  "beenverified",
+  "truepeoplesearch",
+  "fastpeoplesearch",
+  "whitepages",
+  "intelius",
+  "truthfinder",
+  "instantcheckmate",
+  "radaris",
+  "peekyou",
+  "zabasearch",
+  "peoplefinders",
+  "nuwber",
+  "thatsthem",
+  "usphonebook",
+  "familytreenow",
+  "cyberbackgroundchecks",
+  "neighborwho",
+  "ussearch",
+  "veripages"
+];
+
 const BROKER_CATALOG_SEEDS: BrokerCatalogSeed[] = [
   { brokerId: "spokeo", brokerLabel: "Spokeo", hostSuffix: "spokeo.com", officialOptOutUrl: "https://www.spokeo.com/opt-out", submissionMethod: "web-form" },
   { brokerId: "beenverified", brokerLabel: "BeenVerified", hostSuffix: "beenverified.com", officialOptOutUrl: "https://www.beenverified.com/app/optout/search", submissionMethod: "web-form" },
@@ -119,7 +142,21 @@ const BROKER_CATALOG_SEEDS: BrokerCatalogSeed[] = [
   { brokerId: "publicsearcher", brokerLabel: "PublicSearcher", hostSuffix: "publicsearcher.com", officialOptOutUrl: "https://www.publicsearcher.com/opt-out", submissionMethod: "web-form" },
   { brokerId: "findpeoplesearch", brokerLabel: "FindPeopleSearch", hostSuffix: "findpeoplesearch.com", officialOptOutUrl: "https://www.findpeoplesearch.com/opt-out", submissionMethod: "web-form" },
   { brokerId: "courtrecords", brokerLabel: "CourtRecords.org", hostSuffix: "courtrecords.org", officialOptOutUrl: "https://www.courtrecords.org/opt-out/", submissionMethod: "web-form" },
-  { brokerId: "reversephonelookup", brokerLabel: "ReversePhoneLookup", hostSuffix: "reversephonelookup.com", officialOptOutUrl: "https://www.reversephonelookup.com/opt-out", submissionMethod: "web-form" }
+  { brokerId: "reversephonelookup", brokerLabel: "ReversePhoneLookup", hostSuffix: "reversephonelookup.com", officialOptOutUrl: "https://www.reversephonelookup.com/opt-out", submissionMethod: "web-form" },
+  { brokerId: "advancedbackgroundchecks", brokerLabel: "AdvancedBackgroundChecks", hostSuffix: "advancedbackgroundchecks.com", officialOptOutUrl: "https://www.advancedbackgroundchecks.com/removal", submissionMethod: "web-form" },
+  { brokerId: "gladiknow", brokerLabel: "GladIKnow", hostSuffix: "gladiknow.com", officialOptOutUrl: "https://gladiknow.com/optout", submissionMethod: "web-form" },
+  { brokerId: "peoplewhiz", brokerLabel: "PeopleWhiz", hostSuffix: "peoplewhiz.com", officialOptOutUrl: "https://www.peoplewhiz.com/optout", submissionMethod: "web-form" },
+  { brokerId: "usa-people-search", brokerLabel: "USA People Search", hostSuffix: "usa-people-search.com", officialOptOutUrl: "https://www.usa-people-search.com/opt-out", submissionMethod: "web-form" },
+  { brokerId: "freepeopledirectory", brokerLabel: "FreePeopleDirectory", hostSuffix: "freepeopledirectory.com", officialOptOutUrl: "https://www.freepeopledirectory.com/optout.php", submissionMethod: "web-form" },
+  { brokerId: "telephonedirectories", brokerLabel: "TelephoneDirectories.us", hostSuffix: "telephonedirectories.us", officialOptOutUrl: "https://www.telephonedirectories.us/OptOut.aspx", submissionMethod: "web-form" },
+  { brokerId: "staterecords", brokerLabel: "StateRecords.org", hostSuffix: "staterecords.org", officialOptOutUrl: "https://staterecords.org/optout", submissionMethod: "web-form" },
+  { brokerId: "publicrecords", brokerLabel: "PublicRecords.com", hostSuffix: "publicrecords.com", officialOptOutUrl: "https://www.publicrecords.com/optout/", submissionMethod: "web-form" },
+  { brokerId: "profileengine", brokerLabel: "ProfileEngine", hostSuffix: "profileengine.com", officialOptOutUrl: "https://profileengine.com/optout", submissionMethod: "web-form" },
+  { brokerId: "reunion", brokerLabel: "Reunion.com", hostSuffix: "reunion.com", officialOptOutUrl: "https://www.reunion.com/optout", submissionMethod: "web-form" },
+  { brokerId: "peoplebyphone", brokerLabel: "PeopleByPhone", hostSuffix: "peoplebyphone.com", officialOptOutUrl: "https://www.peoplebyphone.com/optout", submissionMethod: "web-form" },
+  { brokerId: "phoneowner", brokerLabel: "PhoneOwner", hostSuffix: "phoneowner.com", officialOptOutUrl: "https://www.phoneowner.com/optout", submissionMethod: "web-form" },
+  { brokerId: "reversephonecheck", brokerLabel: "ReversePhoneCheck", hostSuffix: "reversephonecheck.com", officialOptOutUrl: "https://www.reversephonecheck.com/opt-out", submissionMethod: "web-form" },
+  { brokerId: "governmentregistry", brokerLabel: "GovernmentRegistry.org", hostSuffix: "governmentregistry.org", officialOptOutUrl: "https://www.governmentregistry.org/optout", submissionMethod: "web-form" }
 ];
 
 export const BROKER_CATALOG: BrokerCatalogEntry[] = BROKER_CATALOG_SEEDS.map(seedToEntry);
@@ -146,11 +183,30 @@ export function tier1BrokersForJurisdiction(jurisdiction: Jurisdiction): BrokerC
 
 export function brokerSweepLimit(): number {
   const raw = process.env.BROKER_SWEEP_LIMIT?.trim();
-  const parsed = raw ? Number.parseInt(raw, 10) : 12;
-  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 25) : 12;
+  const parsed = raw ? Number.parseInt(raw, 10) : 20;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 25) : 20;
 }
 
-export function buildBrokerSweepQueries(scope: { personLabel?: string; aliases?: string[] } | undefined): Array<{
+export function previewBrokerSweepLimit(): number {
+  const raw = Number(process.env.OBLIVION_PREVIEW_BROKER_SWEEP || "5");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 10) : 5;
+}
+
+function orderedTier1Brokers(): BrokerCatalogEntry[] {
+  const brokers = tier1BrokersForJurisdiction("US").filter((entry) => entry.teeAutomatable);
+  const priorityIndex = new Map(BROKER_SWEEP_PRIORITY.map((brokerId, index) => [brokerId, index]));
+  return brokers.sort((left, right) => {
+    const leftRank = priorityIndex.get(left.brokerId) ?? 999;
+    const rightRank = priorityIndex.get(right.brokerId) ?? 999;
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return left.brokerLabel.localeCompare(right.brokerLabel);
+  });
+}
+
+export function buildBrokerSweepQueries(
+  scope: { personLabel?: string; aliases?: string[] } | undefined,
+  options?: { limit?: number; preview?: boolean }
+): Array<{
   brokerId: string;
   host: string;
   query: string;
@@ -160,8 +216,9 @@ export function buildBrokerSweepQueries(scope: { personLabel?: string; aliases?:
     .filter(Boolean);
   const name = parts.length ? parts.join(" ") : "";
   if (!name) return [];
-  const brokers = tier1BrokersForJurisdiction("US").filter((entry) => entry.teeAutomatable);
-  return brokers.slice(0, brokerSweepLimit()).map((entry) => ({
+  const limit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());
+  const brokers = orderedTier1Brokers();
+  return brokers.slice(0, limit).map((entry) => ({
     brokerId: entry.brokerId,
     host: entry.primaryHost,
     query: `"${name}" site:${entry.primaryHost}`

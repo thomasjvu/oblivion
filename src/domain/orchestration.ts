@@ -21,6 +21,7 @@ export { buildAgentRunResponse, exposureFromConnector, runCleanupAgentStep } fro
 export function buildStatus(store: MemoryStore, caseId: string) {
   const caseRecord = store.getCaseOrThrow(caseId);
   return buildCaseStatus({
+    store,
     caseRecord,
     exposures: store.exposuresForCase(caseId),
     approvals: store.approvalsForCase(caseId),

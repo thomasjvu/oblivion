@@ -95,3 +95,36 @@ export async function wrapVaultKey(stateVaultKey, passphrase) {
     wrappedKey: bytesToBase64(new Uint8Array(wrapped))
   };
 }
+
+export async function unwrapVaultKey(wrapped, passphrase) {
+  if (!wrapped?.wrappedKey || !wrapped?.kdfSalt) {
+    throw { error: "wrapped-key-invalid", message: "Recovery kit is missing a wrapped vault key." };
+  }
+  if (!passphrase || passphrase.length < 12) {
+    throw { error: "passphrase-too-short", message: "Use at least 12 characters to unwrap the vault key." };
+  }
+  const salt = base64ToBytes(wrapped.kdfSalt);
+  const nonce = base64ToBytes(wrapped.nonce);
+  const passphraseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  const wrappingKey = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: wrapped.kdfIterations || 310000, hash: "SHA-256" },
+    passphraseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+  const raw = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce, additionalData: new TextEncoder().encode(wrapped.keyId) },
+    wrappingKey,
+    base64ToBytes(wrapped.wrappedKey)
+  );
+  const rawBytes = new Uint8Array(raw);
+  const key = await crypto.subtle.importKey("raw", rawBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return { id: wrapped.keyId, raw: rawBytes, key };
+}

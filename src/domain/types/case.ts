@@ -85,6 +85,8 @@ export interface CaseRecord {
   partnerId?: string;
   externalRef?: string;
   callbackUrl?: string;
+  activatedAt?: string;
+  activatedWalletKey?: string;
 }
 
 export interface RedactedScope {
@@ -230,4 +232,6 @@ export interface CaseStatus {
   actionsReady: ActionRequest[];
   submittedActions: ActionRequest[];
   nextChecks: FollowUp[];
+  activated: boolean;
+  activationRequired: boolean;
 }

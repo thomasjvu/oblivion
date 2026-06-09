@@ -7,7 +7,13 @@ import {
 } from "./brokerCatalog.js";
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
-import { braveSearchBaseUrl, braveSearchCount, isBraveSearchConfigured } from "./integrations.js";
+import {
+  braveSearchBaseUrl,
+  braveSearchCount,
+  isBraveSearchConfigured,
+  isDiscoverySearchConfigured,
+  isVeniceSearchConfigured
+} from "./integrations.js";
 import type {
   Exposure,
   ExposureMatchScore,
@@ -16,7 +22,8 @@ import type {
 } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
-import { veniceChatCompletion, isVeniceConfigured } from "./venice.js";
+import { discoveryCredits } from "./credits.js";
+import { veniceChatCompletion, isVeniceConfigured, veniceWebSearch } from "./venice.js";
 
 export type { BrokerCatalogEntry };
 export { brokerForUrl, brokerCatalogEntryById, BROKER_HOST_HINT };
@@ -25,7 +32,7 @@ export interface DiscoveryCandidate {
   sourceUrl: string;
   title?: string;
   snippet?: string;
-  origin: "pasted" | "brave-search" | "broker-sweep";
+  origin: "pasted" | "brave-search" | "venice-search" | "broker-sweep";
   brokerId?: string;
 }
 
@@ -51,6 +58,39 @@ export function buildBraveSearchQuery(scope: RedactedScope | undefined): string 
   return redactText(`${base} people search background check listing`);
 }
 
+function discoverySearchLimit(): number {
+  return Math.min(braveSearchCount(), 20);
+}
+
+function candidatesFromSearchResults(
+  results: Array<{ url: string; title?: string; snippet?: string }>,
+  origin: "brave-search" | "venice-search"
+): DiscoveryCandidate[] {
+  const candidates: DiscoveryCandidate[] = [];
+  for (const item of results) {
+    const sourceUrl = normalizeDiscoveryUrl(item.url);
+    if (!sourceUrl) continue;
+    const broker = brokerForUrl(sourceUrl);
+    candidates.push({
+      sourceUrl,
+      title: item.title ? redactText(item.title) : undefined,
+      snippet: item.snippet ? redactText(item.snippet) : undefined,
+      origin,
+      brokerId: broker?.brokerId
+    });
+  }
+  return candidates;
+}
+
+export async function fetchVeniceSearchCandidates(query: string): Promise<DiscoveryCandidate[]> {
+  if (!isVeniceSearchConfigured()) return [];
+  const results = await veniceWebSearch(query, { limit: discoverySearchLimit(), searchProvider: "brave" });
+  return candidatesFromSearchResults(
+    results.map((item) => ({ url: item.url, title: item.title, snippet: item.content })),
+    "venice-search"
+  );
+}
+
 export async function fetchBraveSearchCandidates(query: string): Promise<DiscoveryCandidate[]> {
   if (!isBraveSearchConfigured()) return [];
   const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
@@ -71,29 +111,42 @@ export async function fetchBraveSearchCandidates(query: string): Promise<Discove
     web?: { results?: Array<{ url?: string; title?: string; description?: string }> };
   };
   const results = json.web?.results ?? [];
-  const candidates: DiscoveryCandidate[] = [];
-  for (const item of results) {
-    const sourceUrl = item.url ? normalizeDiscoveryUrl(item.url) : null;
-    if (!sourceUrl) continue;
-    const broker = brokerForUrl(sourceUrl);
-    candidates.push({
-      sourceUrl,
-      title: item.title ? redactText(item.title) : undefined,
-      snippet: item.description ? redactText(item.description) : undefined,
-      origin: "brave-search",
-      brokerId: broker?.brokerId
-    });
+  return candidatesFromSearchResults(
+    results
+      .map((item) => ({
+        url: item.url ?? "",
+        title: item.title,
+        snippet: item.description
+      }))
+      .filter((item) => item.url),
+    "brave-search"
+  );
+}
+
+export async function fetchWebSearchCandidates(query: string): Promise<DiscoveryCandidate[]> {
+  if (isVeniceSearchConfigured()) {
+    try {
+      return await fetchVeniceSearchCandidates(query);
+    } catch (error) {
+      if (isBraveSearchConfigured()) {
+        return fetchBraveSearchCandidates(query);
+      }
+      throw error;
+    }
   }
-  return candidates;
+  if (isBraveSearchConfigured()) {
+    return fetchBraveSearchCandidates(query);
+  }
+  return [];
 }
 
 export async function fetchBrokerSweepCandidates(scope: RedactedScope | undefined): Promise<DiscoveryCandidate[]> {
-  if (!isBraveSearchConfigured()) return [];
+  if (!isDiscoverySearchConfigured()) return [];
   const queries = buildBrokerSweepQueries(scope);
   const candidates: DiscoveryCandidate[] = [];
   for (const item of queries) {
     try {
-      const results = await fetchBraveSearchCandidates(item.query);
+      const results = await fetchWebSearchCandidates(item.query);
       for (const result of results) {
         const broker = brokerForUrl(result.sourceUrl);
         if (broker?.brokerId === item.brokerId) {
@@ -245,7 +298,7 @@ export async function discoverExposureCandidates(input: {
     candidates.push({ sourceUrl, origin: "pasted", brokerId: broker?.brokerId });
   }
 
-  if (isBraveSearchConfigured()) {
+  if (isDiscoverySearchConfigured()) {
     try {
       if (input.brokerSweep !== false && !input.contentTakedown) {
         const sweepResults = await fetchBrokerSweepCandidates(input.scope);
@@ -256,7 +309,7 @@ export async function discoverExposureCandidates(input: {
         }
       }
       const query = buildBraveSearchQuery(input.scope);
-      const braveResults = await fetchBraveSearchCandidates(query);
+      const braveResults = await fetchWebSearchCandidates(query);
       for (const item of braveResults) {
         if (seen.has(item.sourceUrl)) continue;
         seen.add(item.sourceUrl);
@@ -356,11 +409,16 @@ export function describeDiscoveryPlan(input: {
   brokerSweep?: boolean;
   contentTakedown?: boolean;
 }): { methods: DiscoveryPlanMethod[]; canAutoDiscover: boolean; summary: string } {
-  const braveReady = isBraveSearchConfigured();
+  const searchReady = isDiscoverySearchConfigured();
+  const veniceSearchReady = isVeniceSearchConfigured();
+  const braveDirectReady = isBraveSearchConfigured();
   const veniceReady = isVeniceConfigured();
   const pastedCount = input.pastedUrlCount ?? 0;
   const brokerSweepEnabled =
-    input.brokerSweep !== false && !input.contentTakedown && braveReady;
+    input.brokerSweep !== false && !input.contentTakedown && searchReady;
+  const searchProviderLabel = veniceSearchReady
+    ? "Venice web search (Brave ZDR)"
+    : "Brave search";
   const name = input.scope?.personLabel?.trim() || "";
   const methods: DiscoveryPlanMethod[] = [];
 
@@ -381,25 +439,25 @@ export function describeDiscoveryPlan(input: {
     methods.push({
       id: "broker-sweep",
       label: "Broker sweep",
-      detail: `Site-scoped Brave search on ${sweepQueries.length} people-search brokers (${preview}${more}) for “${redactText(name)}”.`,
+      detail: `Site-scoped ${searchProviderLabel} on ${sweepQueries.length} people-search brokers (${preview}${more}) for “${redactText(name)}”.`,
       enabled: true
     });
   }
 
-  if (braveReady && name && !input.contentTakedown) {
+  if (searchReady && name && !input.contentTakedown) {
     methods.push({
       id: "web-search",
       label: "Web search",
-      detail: `Broader Brave query: ${buildBraveSearchQuery(input.scope)}`,
+      detail: `Broader ${searchProviderLabel} query: ${buildBraveSearchQuery(input.scope)}`,
       enabled: true
     });
   }
 
-  if (input.contentTakedown && braveReady && name) {
+  if (input.contentTakedown && searchReady && name) {
     methods.push({
       id: "web-search",
       label: "Content search",
-      detail: `Brave query for takedown targets: ${buildBraveSearchQuery(input.scope)}`,
+      detail: `${searchProviderLabel} query for takedown targets: ${buildBraveSearchQuery(input.scope)}`,
       enabled: true
     });
   }
@@ -415,28 +473,35 @@ export function describeDiscoveryPlan(input: {
     });
   }
 
-  if (!braveReady && pastedCount === 0) {
+  if (!searchReady && pastedCount === 0) {
     methods.push({
       id: "manual-only",
       label: "Automated search off",
-      detail: "Set BRAVE_SEARCH_API_KEY on the server, or paste profile URLs you already found.",
+      detail: veniceSearchReady || braveDirectReady
+        ? "Automated search is unavailable — paste profile URLs you already found."
+        : "Set VENICE_API_KEY (hosted) or BRAVE_SEARCH_API_KEY (self-hosted), or paste profile URLs you already found.",
       enabled: false
     });
   }
 
-  const canAutoDiscover = braveReady || pastedCount > 0;
+  const canAutoDiscover = searchReady || pastedCount > 0;
+  const creditNote =
+    brokerSweepEnabled && name ? ` Full broker sweep debits ${discoveryCredits()} wallet credits.` : "";
   const summary = canAutoDiscover
-    ? "Discover runs the steps below using only redacted case labels — never raw vault data."
-    : "Paste at least one profile URL below, or enable Brave search on the server.";
+    ? `Discover runs the steps below using only redacted case labels — never raw vault data.${creditNote}`
+    : "Paste at least one profile URL below, or enable Venice or Brave search on the server.";
 
   return { methods, canAutoDiscover, summary };
 }
 
 export function discoveryReadinessMessage(): string {
   const parts: string[] = [];
-  if (isBraveSearchConfigured()) parts.push("Brave search + broker sweep");
+  if (isVeniceSearchConfigured()) parts.push("Venice web search (Brave ZDR) + broker sweep");
+  else if (isBraveSearchConfigured()) parts.push("Brave search + broker sweep");
   if (isVeniceConfigured()) parts.push("Venice match scoring");
-  if (!parts.length) return "Paste URLs to discover listings (configure BRAVE_SEARCH_API_KEY for automated search).";
+  if (!parts.length) {
+    return "Paste URLs to discover listings (configure VENICE_API_KEY or BRAVE_SEARCH_API_KEY for automated search).";
+  }
   return `${parts.join(" + ")} ready. Paste known links or run search.`;
 }
 

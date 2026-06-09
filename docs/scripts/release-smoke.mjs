@@ -51,6 +51,9 @@ function main() {
   assert(existsSync(join(distDir, 'llms', 'index.html')), 'Missing dist/llms/index.html.');
   assert(existsSync(join(distDir, '404.html')), 'Missing dist/404.html.');
   assert(existsSync(distHeadersPath), 'Missing dist/_headers.');
+  assert(existsSync(join(distDir, 'openapi-v1.yaml')), 'Missing dist/openapi-v1.yaml.');
+  assert(existsSync(join(distDir, 'openapi-consumer.yaml')), 'Missing dist/openapi-consumer.yaml.');
+  assert(existsSync(join(distDir, '_redirects')), 'Missing dist/_redirects.');
 
   const indexHtml = ensureRouteHtml('/');
   assert(indexHtml.includes('/js/theme-init.js'), 'index.html is missing the local theme init script.');

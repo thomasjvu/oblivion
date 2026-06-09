@@ -14,7 +14,7 @@ URL: /docs/user-guide/overview
 
 > **Beta — experimental software.** Use at your own risk. Approvals are your responsibility; this is not legal or security advice.
 
-Private cleanup agent for people-search listings, breach checks, and search suppression. **Nothing sends until you approve** the exact disclosure.
+Oblivion is a private cleanup agent that removes your personal information from third-party data brokers **without asking you to give it to another middleman**. Your sensitive details stay encrypted in your browser; the server stores only encrypted blobs and redacted metadata. We discover people-search listings, draft broker opt-outs, run breach checks, and suppress search results — **nothing sends until you approve** the exact disclosure.
 
 **Building an app?** [Partner API](/docs/developers/partner-api) · **Choosing a template?** [Templates](/docs/user-guide/templates)
 
@@ -62,15 +62,17 @@ Your browser stores a private **case access token** when a case is created. It i
 
 Sidebar: Overview · Approvals · Settings · Cases
 
-## Credits and AI
+## Credits and wallet
 
-Core cleanup (discovery, approvals, record-only steps) works **without** a wallet. Connect a wallet when you want:
+Starting a cleanup requires a **connected wallet** and a **paid credit purchase for that case** (Starter pack — 500 credits / $5 USDC — or Monitor subscription — 1,200 credits/month / $10 USDC). Until payment settles for the case, the dashboard stays on onboarding and workflow APIs return `case-activation-required`.
 
-- **Venice AI** (agent chat, classify, draft) — debits wallet credits per use
+Metered features then debit the same wallet balance:
+
+- **Venice AI** (agent chat, classify, draft)
 - **Live operator email relay** — 25 credits per send when enabled
-- **x402 payment demos** — Smart Account / USDC on Base Sepolia
+- **x402 / Smart Account demos** — USDC on Base Sepolia
 
-Buy credits in **Settings → Payment rails**: **Starter pack** — 500 credits ($5) — or **Monitor** — 1,200 credits/month ($10). See [Pricing](/docs/pricing).
+Buy or manage credits in **Settings → Payment rails**. See [Pricing](/docs/pricing).
 
 ---
 
@@ -78,7 +80,7 @@ Buy credits in **Settings → Payment rails**: **Starter pack** — 500 credits 
 
 | Issue | Fix |
 |-------|-----|
-| No dashboard | Finish **Start cleanup** |
+| No dashboard | Connect wallet, buy credits for this case, then **Start cleanup** |
 | Blocked | Check **Approvals** |
 | Wrong case | **Cases** → new or switch |
 | Venice blocked | Connect wallet + buy credits in **Payment rails** |
@@ -124,15 +126,21 @@ flowchart TB
 
 ## Pick a template
 
-| Goal | Template | What you provide | Review each match? |
-|------|----------|------------------|-------------------|
-| Remove people-search listings | People-search cleanup | Name, email, city/state | Yes |
-| Hide Google results | Search suppression | Name, email | No |
-| California DROP request | California DROP | Name, email, address | No |
-| EU/UK erasure | GDPR erasure | Name, email | No |
-| Breach check | Breach exposure | Email | No |
-| Urgent address or relative exposure | High-risk safety | Name, address, relative | Yes |
-| Copied content takedown | Content takedown | Name, email, URL, work reference | Yes |
+| Goal | Template | Requirements | What you provide | Review each match? |
+|------|----------|--------------|------------------|-------------------|
+| Remove people-search listings | People-search cleanup | US, EU, or UK | Name, email, city/state | Yes |
+| Hide Google results | Search suppression | US, EU, or UK | Name, email | No |
+| California DROP request | California DROP | US case + **California residency** | Name, email, address | No |
+| EU/UK erasure | GDPR erasure | **EU or UK** case | Name, email | No |
+| Breach check | Breach exposure | US, EU, or UK | Email | No |
+| Urgent address or relative exposure | High-risk safety | US, EU, or UK | Name, address, relative | Yes |
+| Copied content takedown | Content takedown | US, EU, or UK; you control the original work | Name, email, URL, work reference | Yes |
+
+**Requirements** are set when you start a case (jurisdiction) and by what the official route allows:
+
+- **California DROP** — only for people who live in California. Oblivion guides and tracks the flow; you submit on the [official DROP site](https://privacy.ca.gov/drop/).
+- **GDPR erasure** — only when your case jurisdiction is EU or UK (not US-only).
+- **Content takedown** — you must be the rights holder or authorized to act for the work being copied.
 
 Integrators: preset IDs and API details are in the [Partner API](/docs/developers/partner-api).
 
@@ -161,7 +169,7 @@ Integrators: preset IDs and API details are in the [Partner API](/docs/developer
 
 - **People-search cleanup** — broker listings, opt-out paths, California DROP guidance where relevant
 - **Search suppression** — Google removal planning; you complete submission on Google’s site
-- **California DROP** — guided state registry workflow
+- **California DROP** — California-resident guided workflow on the official state registry (you complete submission)
 - **GDPR erasure** — erasure templates plus search suppression planning
 - **Breach exposure** — email breach check; password check uses prefix-only ranges, never full passwords
 - **High-risk safety** — same discovery family as people-search with stricter match review
@@ -609,7 +617,7 @@ flowchart TB
   Agent --> WH
 ```
 
-[Onboarding runbook](/docs/developers/partner-onboarding) · [API reference](/docs/developers/api-reference) · [`openapi-v1.yaml`](openapi-v1.yaml) · [Open in Swagger Editor](https://editor.swagger.io/?url=https://oblivion-docs.pages.dev/openapi-v1.yaml)
+[Onboarding runbook](/docs/developers/partner-onboarding) · [API reference](/docs/developers/api-reference) · [`openapi-v1.yaml`](/openapi-v1.yaml) · [Open in Swagger Editor](https://editor.swagger.io/?url=https://oblivion-docs.pages.dev/openapi-v1.yaml)
 
 **Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case, discovery, execute, and AI — no user wallet required.
 
@@ -838,7 +846,7 @@ Machine-readable OpenAPI specs live outside the docs reader so guides stay unclu
 | Partner API (`/v1/*`) | [`openapi-v1.yaml`](/openapi-v1.yaml) |
 | Consumer API (`/api/*`) | [`openapi-consumer.yaml`](/openapi-consumer.yaml) |
 
-The hosted app also mirrors partner YAML at `/docs/openapi-v1.yaml` for local demos.
+On this docs site, specs are served at `/openapi-v1.yaml` and `/openapi-consumer.yaml`. The Oblivion API server also mirrors partner YAML at `/docs/openapi-v1.yaml` when you run the app locally.
 
 ## Open in external explorer
 

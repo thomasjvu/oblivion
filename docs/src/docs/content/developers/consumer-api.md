@@ -53,11 +53,42 @@ The Oblivion browser app attaches the header automatically when a token exists f
 ## Public routes (no case token)
 
 - `POST /api/cases` — create
+- `POST /api/discovery/preview` — limited broker preview (rate-limited by IP/wallet; no case created)
 - `GET /api/presets`, `GET /api/health`, `GET /api/config`
 - `GET /api/trust/*`, `GET /api/integrations/*`
 - Wallet / x402 catalog endpoints that do not target a specific case
 
 `GET /api/cases` returns `401 case-list-not-available`. The UI keeps case summaries in `localStorage` and refreshes individual cases with tokens.
+
+---
+
+## Wallet case index (no token re-issue)
+
+After a case is activated, link it to the paying wallet for cross-device lookup of **case IDs** (redacted labels only):
+
+```sh
+# List cases paid/linked to a wallet (no access tokens returned)
+curl -sS "http://localhost:8080/api/wallet/cases?walletAddress=0x..."
+
+# Link case to wallet (requires case Bearer token + wallet address)
+curl -sS -X POST http://localhost:8080/api/wallet/cases/link \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"caseId":"case_...","walletAddress":"0x..."}'
+```
+
+Users still import `caseId` + `accessToken` from a client-side **recovery kit** — the server never re-issues tokens.
+
+---
+
+## Discovery preview vs full discover
+
+| Route | Auth | Behavior |
+|-------|------|----------|
+| `POST /api/discovery/preview` | None | Heuristic broker sweep only; daily cap (default 3 previews per IP/wallet per day) |
+| `POST /api/cases/:id/findings/discover` | Bearer + activation | Venice-scored discovery; debits discovery credits (default 15) from wallet |
+
+Full discover accepts optional `walletAddress` in the body for subscription auto-activation and credit debit.
 
 ---
 

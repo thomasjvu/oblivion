@@ -46,7 +46,12 @@ Templates are preset cleanup routes (people-search, breach check, search suppres
 
 ### What is a case access token?
 
-When you create a case, the app stores a **case access token** in your browser. Consumer `/api/*` routes require this token — there is no account login. Keep the same browser/device or you will need a new case.
+When you create a case, the app stores a **case access token** in your browser (like a one-time API key for that case only). Consumer `/api/*` routes require this token on every case-scoped request. There is no email/password account — but you still need **both** credentials for full cleanup:
+
+- **Wallet** — billing identity (credits, subscription, per-case activation)
+- **Case access token** — capability to read/write that case on `/api/*`
+
+Download a **recovery kit** (Vault tab) to move `caseId` + token to another device. Wallet-linked cases can be listed after connect, but tokens are never re-issued server-side.
 
 ### Can anything send without my approval?
 
@@ -62,14 +67,21 @@ By default, connectors run in **record-only** mode: the agent logs what *would* 
 
 ### Do I need a wallet to use Oblivion?
 
-**No** for core cleanup — discovery, approvals, and practice-run execution work without credits.
+**Free preview:** The landing page can run a limited broker preview (no wallet, no case token) — a few site-scoped checks per day.
 
-Connect a wallet when you want **Venice AI** (chat, classify, draft), **live operator email relay**, or **x402 payment demos**.
+**Full cleanup** requires a connected wallet, **per-case activation** (Starter pack or Monitor subscription), and wallet credits for metered steps:
+
+- Full broker discovery (Venice-scored sweep) debits discovery credits per run
+- Venice AI chat/classify/draft debits per token use
+- Live operator email relay debits per send
+
+Monitor subscribers get monthly credit refills; an active subscription also auto-activates new cases for that wallet without a separate per-case payment.
 
 ### What do credits buy?
 
 | Use | Default cost |
 |-----|----------------|
+| Full broker discovery sweep | 15 credits per run |
 | Venice agent chat | 1 credit per 100 tokens (minimum 1) |
 | Live operator email relay | 25 credits per send |
 

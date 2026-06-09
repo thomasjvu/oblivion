@@ -9,6 +9,7 @@ import { UI_CLASSES } from '../constants/ui';
 import { useCommandPalette } from '../providers/CommandPaletteProvider';
 import { useTheme } from '../providers/ThemeProvider';
 
+import SiteBrandMark from './SiteBrandMark';
 import FontSelector from './FontSelector';
 import MotionToggle from './MotionToggle';
 import SettingsMenu from './SettingsMenu';
@@ -266,15 +267,14 @@ export default function Navigation({
           tabIndex={0}
         >
           <span
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-black"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border"
             style={{
               borderColor: 'var(--border-unified)',
               backgroundColor: 'var(--card-color)',
-              color: 'var(--text-color)',
-              fontFamily: 'var(--mono-font)',
             }}
+            aria-hidden="true"
           >
-            P
+            <SiteBrandMark size={32} className="h-full w-full" />
           </span>
           <span
             className="text-lg tracking-wider uppercase font-black"

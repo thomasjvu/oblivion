@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encryptedBlob, get, post, startTestServer } from "../helpers/http.js";
+import { creditWallet, getOrCreateCreditAccount, walletKeyFromAddress } from "../../src/domain/credits.js";
+import { activateTestCase, encryptedBlob, get, post, startTestServer } from "../helpers/http.js";
+
+const TEST_WALLET = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd";
 
 const originalFetch = globalThis.fetch;
 
@@ -14,7 +17,7 @@ test("findings discover confirm and reject advance match review", async () => {
     }
     return originalFetch(url, init);
   };
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
     const created = await post(base, "/api/cases", { jurisdiction: "US", authorityBasis: "self" }, 201);
@@ -28,12 +31,16 @@ test("findings discover confirm and reject advance match review", async () => {
         sensitiveConstraints: []
       }
     });
+    activateTestCase(store, caseId);
+    getOrCreateCreditAccount(store, TEST_WALLET);
+    creditWallet(store, walletKeyFromAddress(TEST_WALLET), 500, { kind: "purchase" });
     await post(base, `/api/cases/${caseId}/preset`, { presetId: "people-search-cleanup" }, 201);
 
     const discovered = await post(
       base,
       `/api/cases/${caseId}/findings/discover`,
       {
+        walletAddress: TEST_WALLET,
         pastedUrls: [
           "https://www.fastbackgroundcheck.com/people/john-smith/id/f-example123",
           "https://rocketreach.co/john-smith-email_example",

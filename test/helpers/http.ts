@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { createApp } from "../../src/api/app.js";
+import { activateCaseForTest } from "../../src/domain/caseActivation.js";
 import type { Jurisdiction, RiskLevel } from "../../src/domain/types.js";
+import type { MemoryStore } from "../../src/storage/memoryStore.js";
 
 const caseTokens = new Map<string, string>();
 const approvalCases = new Map<string, string>();
@@ -64,14 +66,18 @@ export function clearCaseToken(caseId: string) {
   caseTokens.delete(caseId);
 }
 
-export async function startTestServer(): Promise<{ server: Server; base: string }> {
-  const { server } = createApp();
+export async function startTestServer(): Promise<{ server: Server; base: string; store: MemoryStore }> {
+  const { server, store } = createApp();
   server.listen(0);
   await once(server, "listening");
   const address = server.address();
   assert.equal(typeof address, "object");
   const base = `http://127.0.0.1:${(address as { port: number }).port}`;
-  return { server, base };
+  return { server, base, store };
+}
+
+export function activateTestCase(store: MemoryStore, caseId: string): void {
+  activateCaseForTest(store, caseId);
 }
 
 export async function get(base: string, path: string, expectedStatus = 200): Promise<any> {
@@ -112,7 +118,8 @@ export function encryptedBlob(aad: string) {
 export async function createCaseWithIntake(
   base: string,
   jurisdiction: Jurisdiction,
-  riskLevel: RiskLevel = "standard"
+  riskLevel: RiskLevel = "standard",
+  store?: MemoryStore
 ): Promise<{ caseId: string; accessToken: string }> {
   const created = await post(
     base,
@@ -133,6 +140,7 @@ export async function createCaseWithIntake(
       sensitiveConstraints: []
     }
   });
+  if (store) activateCaseForTest(store, created.case.id);
   return { caseId: created.case.id, accessToken: created.accessToken as string };
 }
 

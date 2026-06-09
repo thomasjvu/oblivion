@@ -8,6 +8,7 @@ export const STARTER_PACK_CREDITS = Number(process.env.OBLIVION_STARTER_PACK_CRE
 export const MONITOR_MONTHLY_CREDITS = Number(process.env.OBLIVION_MONITOR_MONTHLY_CREDITS || "1200");
 export const CREDITS_PER_100_TOKENS = Number(process.env.OBLIVION_CREDITS_PER_100_TOKENS || "1");
 export const EMAIL_RELAY_CREDITS = Number(process.env.OBLIVION_EMAIL_RELAY_CREDITS || "25");
+export const DISCOVERY_CREDITS = Number(process.env.OBLIVION_DISCOVERY_CREDITS || "15");
 
 export interface CreditRates {
   creditsPerUsd: number;
@@ -15,6 +16,7 @@ export interface CreditRates {
   monitorMonthlyCredits: number;
   creditsPer100Tokens: number;
   emailRelayCredits: number;
+  discoveryCredits: number;
 }
 
 export interface CreditsView {
@@ -25,13 +27,20 @@ export interface CreditsView {
   rates: CreditRates;
 }
 
+export function discoveryCredits(): number {
+  return Number.isFinite(DISCOVERY_CREDITS) && DISCOVERY_CREDITS > 0
+    ? Math.floor(DISCOVERY_CREDITS)
+    : 15;
+}
+
 export function creditRates(): CreditRates {
   return {
     creditsPerUsd: CREDITS_PER_USD,
     starterPackCredits: STARTER_PACK_CREDITS,
     monitorMonthlyCredits: MONITOR_MONTHLY_CREDITS,
     creditsPer100Tokens: CREDITS_PER_100_TOKENS,
-    emailRelayCredits: EMAIL_RELAY_CREDITS
+    emailRelayCredits: EMAIL_RELAY_CREDITS,
+    discoveryCredits: discoveryCredits()
   };
 }
 
@@ -46,6 +55,11 @@ export function walletKeyFromAddress(walletAddress: string): string {
 function subscriptionActive(account: CreditAccount): boolean {
   if (!account.subscriptionExpiresAt) return false;
   return new Date(account.subscriptionExpiresAt).getTime() > Date.now();
+}
+
+export function subscriptionActiveForWalletKey(store: MemoryStore, walletKey: string): boolean {
+  const account = store.creditAccounts.get(walletKey);
+  return account ? subscriptionActive(account) : false;
 }
 
 export function getOrCreateCreditAccount(store: MemoryStore, walletAddress: string): CreditAccount {
@@ -218,6 +232,40 @@ export function debitCreditsForEmailRelay(
     kind: "email",
     caseId,
     meta: { relay: "operator" }
+  });
+}
+
+export function assertCreditsForDiscovery(store: MemoryStore, walletAddress: string): CreditAccount {
+  if (creditsBypassEnabled()) {
+    return getOrCreateCreditAccount(store, walletAddress);
+  }
+  const account = getOrCreateCreditAccount(store, walletAddress);
+  const required = discoveryCredits();
+  if (account.balanceCredits < required) {
+    throw Object.assign(new Error("credits-insufficient"), {
+      statusCode: 402,
+      code: "credits-insufficient",
+      balanceCredits: account.balanceCredits,
+      requiredCredits: required
+    });
+  }
+  return account;
+}
+
+export function debitCreditsForDiscovery(
+  store: MemoryStore,
+  walletAddress: string,
+  caseId: string
+): CreditAccount {
+  const walletKey = walletKeyFromAddress(walletAddress);
+  if (creditsBypassEnabled()) {
+    return getOrCreateCreditAccount(store, walletAddress);
+  }
+  const credits = discoveryCredits();
+  return debitCredits(store, walletKey, credits, {
+    kind: "discovery",
+    caseId,
+    meta: { sweep: "broker" }
   });
 }
 

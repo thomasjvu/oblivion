@@ -4,7 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oblivion</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" type="image/webp" sizes="48x48" href="/assets/brand/oblivion-agent-icon.webp" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <link rel="manifest" href="/favicon/site.webmanifest" />
+    <link rel="shortcut icon" href="/favicon/favicon.ico" />
     <link rel="preload" href="/fonts/GeistPixel-Square.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="/styles.css" />
     <script>window.OBLIVION_API_ORIGIN = "";</script>
@@ -14,6 +19,10 @@
       <section class="landing" id="landing-region">
         <div class="landing-hero landing-hero-minimal">
           <div class="cinematic-hero" aria-label="Oblivion cleanup agent">
+            <video class="cinematic-video" autoplay muted loop playsinline aria-hidden="true">
+              <source src="/assets/oblivion-agent-pfp-video.mp4" type="video/mp4" />
+            </video>
+            <img class="cinematic-fallback" src="/assets/oblivion-agent-pfp.jpg" alt="" aria-hidden="true" />
             <div class="landing-copy">
               <pre class="landing-ascii-title" aria-label="OBLIVION"> ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓██████▓▒░░▒▓███████▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
@@ -22,15 +31,22 @@
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
-              <h2>PERSONAL INFORMATION REMOVAL WITHOUT GIVING AWAY YOUR PERSONAL INFORMATION</h2>
-              <p class="landing-lead muted">Supervised people-search cleanup, breach awareness, and search suppression — encrypted in your browser. Nothing sends without your explicit approval.</p>
+              <h2>REMOVE YOUR PERSONAL INFO ONLINE<br>WITHOUT GIVING MORE DATA AWAY</h2>
               <div class="landing-chat" id="landing-chat">
                 <div class="landing-template-panel" id="landing-template-panel">
                   <div class="landing-preset-starters" id="landing-preset-starters" role="group" aria-label="Cleanup templates"></div>
                 </div>
                 <div class="composer landing-composer">
-                  <input id="landing-input" data-testid="landing-input" placeholder="Describe what to clean up…" aria-label="Start your cleanup request" />
-                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Send" disabled><span class="btn-label">Send</span></button>
+                  <input id="landing-input" data-testid="landing-input" placeholder="Enter your name" aria-label="Enter your name" />
+                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
+                </div>
+                <div class="landing-preview-panel" id="landing-preview-panel" hidden data-testid="landing-preview-panel">
+                  <p class="muted small" id="landing-preview-status" aria-live="polite"></p>
+                  <ul class="landing-preview-results" id="landing-preview-results"></ul>
+                  <div class="landing-preview-actions">
+                    <button type="button" class="secondary compact" id="landing-preview-again" data-testid="landing-preview-again">Check again</button>
+                    <button type="button" id="landing-start-cleanup" data-testid="landing-start-cleanup" data-icon="arrow-right"><span class="btn-label">Start full cleanup</span></button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -93,7 +109,7 @@
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
               </button>
-              <button type="button" class="ghost compact icon-only app-sidebar-collapse" id="sidebar-collapse" data-testid="sidebar-collapse" data-icon="pixel:window-close-solid" aria-label="Collapse sidebar" aria-expanded="true"><span class="btn-label">Collapse</span></button>
+              <button type="button" class="ghost compact icon-only app-sidebar-collapse" id="sidebar-collapse" data-testid="sidebar-collapse" data-icon="pixel:bars-solid" aria-label="Collapse sidebar" aria-expanded="true"><span class="btn-label">Collapse</span></button>
             </div>
             <nav class="app-sidebar-nav tabs-vertical" role="tablist" aria-label="Case workspace">
               <button class="tab active tab-essential" type="button" role="tab" data-tab="overview" data-icon="chart"><span class="tab-label">Overview</span></button>
@@ -519,14 +535,19 @@
                 <h3>Encrypted backup</h3>
                 <span class="pill">Vault</span>
               </div>
-              <p class="muted small vault-lead">Sensitive identifiers stay in your browser. The server only stores encrypted intake. Export a portable backup of redacted case data — optionally wrap your in-memory vault key with a passphrase.</p>
+              <p class="muted small vault-lead">Sensitive identifiers stay in your browser. The server only stores encrypted intake. Download a recovery kit with your case access token and optional wrapped vault key, or import a kit on a new device.</p>
               <p class="vault-status muted small" id="vault-status" aria-live="polite"></p>
               <label for="export-passphrase">Export passphrase <em class="muted">(optional, 12+ characters)</em></label>
               <input id="export-passphrase" type="password" autocomplete="new-password" placeholder="Only needed to wrap the vault key" />
               <div class="actions vault-actions">
-                <button type="button" id="export" data-icon="download"><span class="btn-label">Download backup</span></button>
+                <button type="button" id="export-recovery-kit" data-testid="export-recovery-kit" data-icon="download"><span class="btn-label">Download recovery kit</span></button>
+                <button type="button" class="secondary" id="export" data-icon="download"><span class="btn-label">Download server export</span></button>
               </div>
-              <p class="muted small vault-footnote">Delete cases from the sidebar case list. Vault keys are not recovered after refresh — use export during the same session if you need a wrapped key.</p>
+              <label for="import-recovery-kit">Import recovery kit</label>
+              <input id="import-recovery-kit" type="file" accept="application/json,.json" data-testid="import-recovery-kit" />
+              <label for="import-passphrase">Import passphrase <em class="muted">(if kit wraps vault key)</em></label>
+              <input id="import-passphrase" type="password" autocomplete="current-password" placeholder="Passphrase used when exporting" />
+              <p class="muted small vault-footnote">Recovery kits store caseId + access token locally encrypted with your passphrase. Wallet-linked cases can be listed after connect — tokens are never re-issued server-side.</p>
             </div>
             </div>
           </div>
@@ -576,7 +597,7 @@
           <aside class="agent-dock" id="agent-dock" role="complementary">
             <header class="agent-dock-head agent-dock-header">
               <strong class="agent-dock-title">Agent</strong>
-              <button type="button" class="ghost icon-only agent-dock-collapse" id="agent-dock-collapse" data-icon="minus" data-testid="dock-collapse" aria-label="Hide agent panel" aria-expanded="true"><span class="btn-label">Hide</span></button>
+              <button type="button" class="ghost icon-only agent-dock-collapse agent-dock-collapse--pinned" id="agent-dock-collapse" data-icon="pixel:plus-solid" data-testid="dock-collapse" aria-label="Hide agent panel" aria-expanded="true"><span class="btn-label">Hide</span></button>
             </header>
 
             <div class="agent-chat-body">

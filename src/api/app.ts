@@ -15,6 +15,7 @@ import {
   handleAssets,
   handleExamples,
   handleFavicon,
+  handleFaviconAsset,
   handleFonts,
   handleIndexHtml,
   handleOpenApiYaml,
@@ -81,8 +82,13 @@ export function createApp(options: AppOptions = {}) {
         return;
       }
 
+      if (method === "GET" && url.pathname.startsWith("/favicon/")) {
+        await handleFaviconAsset(response, url.pathname.slice("/favicon/".length), publicDir);
+        return;
+      }
+
       if (method === "GET" && (url.pathname === "/favicon.ico" || url.pathname === "/favicon.svg")) {
-        await handleFavicon(response, publicDir);
+        await handleFavicon(response, publicDir, url.pathname);
         return;
       }
 

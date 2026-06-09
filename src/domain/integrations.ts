@@ -94,6 +94,14 @@ export function isBraveSearchConfigured(): boolean {
   return Boolean(envString("BRAVE_SEARCH_API_KEY"));
 }
 
+export function isVeniceSearchConfigured(): boolean {
+  return isVeniceEnvConfigured();
+}
+
+export function isDiscoverySearchConfigured(): boolean {
+  return isVeniceSearchConfigured() || isBraveSearchConfigured();
+}
+
 export function braveSearchBaseUrl(): string {
   return envString("BRAVE_SEARCH_BASE_URL", "https://api.search.brave.com/res/v1/web/search");
 }

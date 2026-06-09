@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { encryptedBlob, get, post, startTestServer } from "../helpers/http.js";
+import { activateTestCase, encryptedBlob, get, post, startTestServer } from "../helpers/http.js";
 
 const originalFetch = globalThis.fetch;
 const originalVeniceKey = process.env.VENICE_API_KEY;
@@ -239,7 +239,10 @@ test("complete-pending does not fake 1shot relay completion", async () => {
 });
 
 test("agent run-next endpoint now requires a cleanup preset and advances the cleanup plan", async () => {
-  const { server, base } = await startTestServer();
+  delete process.env.OBLIVION_CREDITS_BYPASS;
+  delete process.env.OBLIVION_AI_BYPASS_PAYMENT;
+  delete process.env.HACKATHON_MODE;
+  const { server, base, store } = await startTestServer();
 
   try {
     const created = await post(base, "/api/cases", {
@@ -250,7 +253,7 @@ test("agent run-next endpoint now requires a cleanup preset and advances the cle
 
     const nextWithoutPreset = await get(base, `/api/agent/next?caseId=${caseId}`);
     assert.equal(nextWithoutPreset.action, "select-preset");
-    await post(base, "/api/agent/run-next", { caseId }, 409);
+    await post(base, "/api/agent/run-next", { caseId }, 402);
 
     await post(base, `/api/cases/${caseId}/intake`, {
       encryptedIntake: encryptedBlob(caseId),
@@ -262,6 +265,8 @@ test("agent run-next endpoint now requires a cleanup preset and advances the cle
       }
     });
 
+    activateTestCase(store, caseId);
+    await post(base, "/api/agent/run-next", { caseId }, 409);
     await post(base, `/api/cases/${caseId}/preset`, { presetId: "people-search-cleanup" }, 201);
     const run = await post(base, `/api/cases/${caseId}/agent/run`, {}, 200);
     assert.ok(run.plan);

@@ -76,6 +76,7 @@ declare module '*/shared/documentation-config.js' {
     betaNotice?: string;
     sidebarBrand: {
       subtitle: string | null;
+      logoAlt: string;
     };
   }
 

@@ -29,7 +29,8 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /clean-online-identity/);
   assert.match(html, /skill\.sh/);
   assert.match(html, /setupLandingSkillInstall/);
-  assert.match(html, /PERSONAL INFORMATION REMOVAL WITHOUT GIVING AWAY YOUR PERSONAL INFORMATION/);
+  assert.match(html, /REMOVE YOUR PERSONAL INFO ONLINE<br>WITHOUT GIVING MORE DATA AWAY/);
+  assert.match(html, /placeholder="Enter your name"/);
   assert.doesNotMatch(html, /id="partner-api"/);
   assert.doesNotMatch(html, /Embed removal in your app/);
   assert.match(html, /beta-banner--footer/);

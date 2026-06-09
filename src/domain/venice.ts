@@ -31,6 +31,67 @@ export interface VeniceChatResult {
   tokensUsed: number;
 }
 
+export interface VeniceWebSearchResult {
+  title: string;
+  url: string;
+  content: string;
+  date?: string;
+}
+
+interface VeniceWebSearchResponse {
+  query?: string;
+  results?: Array<{
+    title?: string;
+    url?: string;
+    content?: string;
+    date?: string;
+  }>;
+}
+
+export async function veniceWebSearch(
+  query: string,
+  options: { limit?: number; searchProvider?: "brave" | "google" } = {}
+): Promise<VeniceWebSearchResult[]> {
+  const apiKey = process.env.VENICE_API_KEY?.trim();
+  if (!apiKey) {
+    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+  }
+  const response = await fetch(`${veniceBaseUrl()}/augment/search`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      query,
+      limit: options.limit ?? 10,
+      search_provider: options.searchProvider ?? "brave"
+    })
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    throw Object.assign(new Error(`venice-search-${response.status}`), {
+      statusCode: response.status === 401 ? 502 : 502,
+      detail: sanitizeForLog(raw.slice(0, 240))
+    });
+  }
+  let parsed: VeniceWebSearchResponse;
+  try {
+    parsed = JSON.parse(raw) as VeniceWebSearchResponse;
+  } catch {
+    throw Object.assign(new Error("venice-search-invalid-json"), { statusCode: 502 });
+  }
+  const results = parsed.results ?? [];
+  return results
+    .map((item) => ({
+      title: typeof item.title === "string" ? item.title : "",
+      url: typeof item.url === "string" ? item.url : "",
+      content: typeof item.content === "string" ? item.content : "",
+      date: typeof item.date === "string" ? item.date : undefined
+    }))
+    .filter((item) => item.url.trim().length > 0);
+}
+
 export async function veniceChatCompletion(
   messages: Array<{ role: "system" | "user"; content: string }>,
   options: { maxTokens?: number } = {}

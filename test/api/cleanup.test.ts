@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  activateTestCase,
   createCaseWithIntake,
   get,
   post,
@@ -9,7 +10,7 @@ import {
 } from "../helpers/http.js";
 
 test("cleanup presets render every launch route and enforce jurisdiction", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
     const presets = await get(base, "/api/presets");
@@ -27,6 +28,7 @@ test("cleanup presets render every launch route and enforce jurisdiction", async
       jurisdiction: "EU",
       authorityBasis: "self"
     }, 201);
+    activateTestCase(store, euCase.case.id);
     await post(base, `/api/cases/${euCase.case.id}/preset`, {
       presetId: "california-drop"
     }, 422);
@@ -36,10 +38,10 @@ test("cleanup presets render every launch route and enforce jurisdiction", async
 });
 
 test("high-risk safety plan stops at candidate confirmation", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
-    const created = await createCaseWithIntake(base, "US", "high-risk-safety");
+    const created = await createCaseWithIntake(base, "US", "high-risk-safety", store);
     const caseId = created.caseId;
     await post(base, `/api/cases/${caseId}/preset`, {
       presetId: "high-risk-safety"
@@ -62,12 +64,12 @@ test("high-risk safety plan stops at candidate confirmation", async () => {
 });
 
 test("HIBP password range connector sends only the SHA-1 prefix", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
   const originalFetch = globalThis.fetch;
   let requestedUrl = "";
 
   try {
-    const created = await createCaseWithIntake(base, "US", "standard");
+    const created = await createCaseWithIntake(base, "US", "standard", store);
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const target = String(url);
       if (target.startsWith("https://api.pwnedpasswords.com/range/")) {
@@ -92,10 +94,10 @@ test("HIBP password range connector sends only the SHA-1 prefix", async () => {
 });
 
 test("HIBP email check requires exact approval and TEE verified runtime", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
-    const created = await createCaseWithIntake(base, "US", "standard");
+    const created = await createCaseWithIntake(base, "US", "standard", store);
     await post(base, "/api/connectors/hibp/email-check", {
       caseId: created.caseId,
       emailLabel: "person@example.com"
@@ -123,10 +125,10 @@ test("HIBP email check requires exact approval and TEE verified runtime", async 
 });
 
 test("Google removal connector separates source deletion from search suppression", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
-    const created = await createCaseWithIntake(base, "US", "standard");
+    const created = await createCaseWithIntake(base, "US", "standard", store);
     const plan = await post(base, "/api/connectors/google/removal-plan", {
       caseId: created.caseId,
       sourceUrl: "https://example.invalid/profile"

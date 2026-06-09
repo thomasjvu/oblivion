@@ -22,7 +22,7 @@ Machine-readable OpenAPI specs live outside the docs reader so guides stay unclu
 | Partner API (`/v1/*`) | [`openapi-v1.yaml`](/openapi-v1.yaml) |
 | Consumer API (`/api/*`) | [`openapi-consumer.yaml`](/openapi-consumer.yaml) |
 
-The hosted app also mirrors partner YAML at `/docs/openapi-v1.yaml` for local demos.
+On this docs site, specs are served at `/openapi-v1.yaml` and `/openapi-consumer.yaml`. The Oblivion API server also mirrors partner YAML at `/docs/openapi-v1.yaml` when you run the app locally.
 
 ## Open in external explorer
 

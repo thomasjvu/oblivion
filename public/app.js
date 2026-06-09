@@ -9466,6 +9466,12 @@ function bytesToBase64(bytes) {
   });
   return btoa(binary);
 }
+function base64ToBytes(value) {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
 async function createVaultKey() {
   const raw = crypto.getRandomValues(new Uint8Array(32));
   const key = await crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
@@ -9531,6 +9537,38 @@ async function wrapVaultKey(stateVaultKey, passphrase) {
     nonce: bytesToBase64(nonce),
     wrappedKey: bytesToBase64(new Uint8Array(wrapped))
   };
+}
+async function unwrapVaultKey(wrapped, passphrase) {
+  if (!wrapped?.wrappedKey || !wrapped?.kdfSalt) {
+    throw { error: "wrapped-key-invalid", message: "Recovery kit is missing a wrapped vault key." };
+  }
+  if (!passphrase || passphrase.length < 12) {
+    throw { error: "passphrase-too-short", message: "Use at least 12 characters to unwrap the vault key." };
+  }
+  const salt = base64ToBytes(wrapped.kdfSalt);
+  const nonce = base64ToBytes(wrapped.nonce);
+  const passphraseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  const wrappingKey = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: wrapped.kdfIterations || 31e4, hash: "SHA-256" },
+    passphraseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+  const raw = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce, additionalData: new TextEncoder().encode(wrapped.keyId) },
+    wrappingKey,
+    base64ToBytes(wrapped.wrappedKey)
+  );
+  const rawBytes = new Uint8Array(raw);
+  const key = await crypto.subtle.importKey("raw", rawBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return { id: wrapped.keyId, raw: rawBytes, key };
 }
 
 // src/domain/executeHandoff.ts
@@ -32776,7 +32814,7 @@ function renderChatBubble(message) {
   if (role === "user") {
     return `<div class="chat-row user" data-chat-role="user"${rowAttrs}>${body}</div>`;
   }
-  const avatar = `<span class="chat-avatar chat-avatar-agent" title="Agent" aria-label="Agent" data-icon="message"></span>`;
+  const avatar = `<span class="chat-avatar chat-avatar-agent" title="Agent" aria-label="Agent"><img src="/assets/oblivion-agent-pfp.jpg" alt="" width="36" height="36" /></span>`;
   return `<div class="chat-row agent" data-chat-role="agent"${rowAttrs}>${avatar}${body}</div>`;
 }
 function cancelChatTypewriters() {
@@ -32900,6 +32938,10 @@ async function loadCase(caseId, options = {}) {
     });
     await refreshHackathon({ silent: true }).catch(() => {
     });
+    if (state.currentStatus && !caseIsActivated()) {
+      state.preSearchReady = false;
+      resetPreSearchUi();
+    }
   } catch (error) {
     state.currentStatus = null;
     if (error?.error === "case-not-found") {
@@ -33044,12 +33086,13 @@ function renderShell() {
   if (sidebarCollapse) {
     sidebarCollapse.setAttribute("aria-expanded", state.sidebarOpen ? "true" : "false");
     sidebarCollapse.setAttribute("aria-label", state.sidebarOpen ? "Collapse sidebar" : "Expand sidebar");
-    setIcon(sidebarCollapse, state.sidebarOpen ? "pixel:window-close-solid" : "pixel:plus-solid");
+    setIcon(sidebarCollapse, "pixel:bars-solid");
   }
   workspace?.classList.toggle("simple-mode", !state.showAdvancedUI);
   agentColumn?.classList.toggle("collapsed", state.appOpen && !state.dockPinned);
-  const showOnboarding = state.appOpen && (!hasCase || state.preSearchReady);
-  const showDashboard = state.appOpen && hasCase && !state.preSearchReady;
+  const activated = caseIsActivated();
+  const showOnboarding = state.appOpen && (!hasCase || !activated || state.preSearchReady);
+  const showDashboard = state.appOpen && hasCase && activated && !state.preSearchReady;
   $("#onboarding-region")?.classList.toggle("active", showOnboarding);
   $("#dashboard-region")?.classList.toggle("active", showDashboard);
   applyAdvancedUiVisibility();
@@ -33058,7 +33101,8 @@ function renderShell() {
     dockCollapse.setAttribute("aria-expanded", state.dockPinned ? "true" : "false");
     dockCollapse.setAttribute("aria-label", state.dockPinned ? "Hide agent panel" : "Show agent panel");
     setButtonLabel(dockCollapse, state.dockPinned ? "Hide" : "Show");
-    setIcon(dockCollapse, state.dockPinned ? "minus" : "plus");
+    dockCollapse.classList.toggle("agent-dock-collapse--pinned", state.dockPinned);
+    setIcon(dockCollapse, "pixel:plus-solid");
   }
   $("#agent-dock")?.classList.toggle("agent-dock-expanded", state.dockPinned);
 }
@@ -33195,14 +33239,18 @@ function renderFindings() {
     ).join("") : "";
   }
 }
+function discoverySearchReady() {
+  const live = state.integrationsStatus?.liveReady;
+  return Boolean(live?.veniceSearch || live?.braveSearch);
+}
 async function maybeAutoDiscoverFindings(options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   if (!options.force && (!peopleSearchPresetActive() || !needsExposureDiscovery())) {
     return { ran: false, reason: "not-needed" };
   }
   const pastedUrls = discoveryUrlHints();
-  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
-  if (!pastedUrls.length && !braveReady) {
+  const searchReady = discoverySearchReady();
+  if (!pastedUrls.length && !searchReady) {
     if (!options.quiet) {
       openFindingsPastePanel();
       addChat("agent", "Automated search is off \u2014 paste profile URLs in the review panel, then tap Discover listings.");
@@ -33214,7 +33262,10 @@ async function maybeAutoDiscoverFindings(options = {}) {
   try {
     const result = await request(`/api/cases/${state.currentCaseId}/findings/discover`, {
       method: "POST",
-      body: { pastedUrls }
+      body: {
+        pastedUrls,
+        walletAddress: state.walletAddress || void 0
+      }
     });
     state.discoveryPlan = result.discoveryPlan ?? null;
     state.currentStatus = result.status ?? (await request(`/api/cases/${state.currentCaseId}`)).status;
@@ -33241,6 +33292,7 @@ async function maybeAutoDiscoverFindings(options = {}) {
   }
 }
 async function discoverFindings() {
+  assertCaseActivatedClient();
   await refreshIntegrationsStatus().catch(() => {
   });
   try {
@@ -33889,6 +33941,21 @@ function hasEntitledPayment(mode) {
 function hasSubscriptionEntitlement() {
   return hasEntitledPayment("subscription") || state.aiEntitlement?.mode === "subscription";
 }
+function caseIsActivated() {
+  if (state.currentStatus?.activated) return true;
+  return hasEntitledPayment(state.selectedPaymentMode || "one-off");
+}
+function assertCaseActivatedClient(options = {}) {
+  if (caseIsActivated()) return;
+  if (!options.quiet) {
+    addChat("agent", "Connect your wallet and buy credits for this case before continuing.");
+    openPaymentRails();
+  }
+  throw {
+    error: "case-activation-required",
+    message: "Buy credits for this case to continue cleanup."
+  };
+}
 function upsellDismissKey(caseId) {
   return `oblivion.upsellDismissed.${caseId}`;
 }
@@ -33920,7 +33987,7 @@ function renderOnboardingPayment() {
   const panel = $("#onboarding-payment");
   if (!panel) return;
   const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
-  const showOnboarding = state.appOpen && (!hasCase || state.preSearchReady);
+  const showOnboarding = state.appOpen && (!hasCase || !caseIsActivated() || state.preSearchReady);
   panel.hidden = !showOnboarding;
   selectPaymentMode(state.selectedPaymentMode);
   const oneOff = state.products.find((item) => item.id === "credit-starter");
@@ -34264,10 +34331,63 @@ function updateLandingSendState() {
   send2.classList.toggle("send-ready", hasText);
   send2.setAttribute("aria-disabled", hasText ? "false" : "true");
 }
+function renderLandingPreview(candidates, message) {
+  const panel = $("#landing-preview-panel");
+  const list = $("#landing-preview-results");
+  const status = $("#landing-preview-status");
+  if (!panel || !list || !status) return;
+  panel.hidden = false;
+  status.textContent = message;
+  const rows = (candidates || []).slice(0, 12);
+  if (!rows.length) {
+    list.innerHTML = `<li class="muted">No broker listings matched yet. Start full cleanup for Venice-scored discovery.</li>`;
+    return;
+  }
+  list.innerHTML = rows.map((item) => {
+    const score = item.matchScore ? ` \xB7 ${item.matchScore}` : "";
+    const broker = item.brokerLabel ? `${escapeHtml(item.brokerLabel)}` : shortenUrl(item.sourceUrl);
+    return `<li><a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}</li>`;
+  }).join("");
+}
+async function runLandingPreview(personLabel) {
+  const status = $("#landing-preview-status");
+  const panel = $("#landing-preview-panel");
+  if (panel) panel.hidden = false;
+  if (status) status.textContent = "Checking people-search brokers\u2026";
+  const result = await request("/api/discovery/preview", {
+    method: "POST",
+    body: {
+      personLabel,
+      walletAddress: state.walletAddress || void 0
+    }
+  });
+  const remaining = result.remainingPreviews ?? 0;
+  const message = result.candidates?.length ? `Preview found ${result.candidates.length} possible listing(s). ${remaining} free preview(s) left today.` : `No broker hits in preview. ${remaining} free preview(s) left today \u2014 full cleanup uses Venice scoring.`;
+  renderLandingPreview(result.candidates, message);
+  return result;
+}
 async function submitLandingIntake() {
   const text = $("#landing-input")?.value?.trim();
   if (!text) {
     updateLandingSendState();
+    return;
+  }
+  state.landingPreviewName = text;
+  updateLandingSendState();
+  try {
+    await runLandingPreview(text);
+  } catch (error) {
+    const status = $("#landing-preview-status");
+    if (status) {
+      status.textContent = error?.message || "Preview unavailable. Try again or start full cleanup.";
+    }
+    write(error);
+  }
+}
+async function startLandingFullCleanup() {
+  const text = state.landingPreviewName || $("#landing-input")?.value?.trim();
+  if (!text) {
+    pulseFocusField($("#landing-input"));
     return;
   }
   $("#landing-input").value = "";
@@ -34279,6 +34399,12 @@ async function createCase(options = {}) {
   state.appOpen = true;
   state.dockOpen = true;
   location.hash = "app";
+  if (!state.walletAddress) {
+    await connectWallet({ openHub: false });
+  }
+  if (!state.walletAddress) {
+    throw { error: "wallet-required", message: "Connect MetaMask to start cleanup." };
+  }
   const parsed = options.parsed ? { ...options.parsed } : parseIntakeForCase(options.intakeText ?? $("#agent-intake")?.value ?? $("#intake")?.value ?? "");
   if (!parsed.intakeText) {
     throw { error: "intake-required", message: "Enter your name to continue." };
@@ -34316,12 +34442,17 @@ async function createCase(options = {}) {
   state.currentStatus = intake.status;
   state.cases.unshift({ ...intake.case, status: intake.status });
   syncPaymentPlanFromForm();
-  if (options.buyCredits) {
-    await ensureCasePayment({ quiet: options.quietPayment, statusEl: $("#onboarding-payment-status") }).catch(
-      (error) => {
-        if (!options.quietPayment) addChat("agent", error?.message || "Could not buy credits for this wallet.");
-      }
-    );
+  try {
+    await ensureCasePayment({ quiet: false, statusEl: $("#onboarding-payment-status") });
+  } catch (error) {
+    await syncCurrentCaseStatus();
+    if (!caseIsActivated()) throw error;
+  }
+  if (!caseIsActivated()) {
+    throw {
+      error: "case-activation-required",
+      message: "Buy credits for this case to continue cleanup."
+    };
   }
   state.agentPlan = null;
   state.connectorResults = [];
@@ -34358,9 +34489,50 @@ async function createCase(options = {}) {
   } else {
     addChat("agent", `Ready \u2014 ${presetTitle(state.selectedPresetId)}. Tap Next.`);
   }
+  if (state.walletAddress) {
+    await linkCurrentCaseToWallet(caseId).catch(() => {
+    });
+    await syncWalletCases().catch(() => {
+    });
+  }
   saveLocalCases();
   render();
   write(intake);
+}
+async function linkCurrentCaseToWallet(caseId = state.currentCaseId) {
+  if (!state.walletAddress || !caseId) return;
+  await request("/api/wallet/cases/link", {
+    method: "POST",
+    body: { caseId, walletAddress: state.walletAddress }
+  });
+}
+async function syncWalletCases() {
+  if (!state.walletAddress) return;
+  const result = await request(
+    `/api/wallet/cases?walletAddress=${encodeURIComponent(state.walletAddress)}`
+  );
+  const remote = result.cases || [];
+  const byId = new Map(state.cases.map((item) => [item.id, item]));
+  for (const item of remote) {
+    if (!byId.has(item.id) && getCaseToken(item.id)) {
+      byId.set(item.id, {
+        id: item.id,
+        jurisdiction: item.jurisdiction,
+        redactedScope: item.personLabel ? { personLabel: item.personLabel } : void 0,
+        updatedAt: item.updatedAt,
+        createdAt: item.createdAt
+      });
+    } else if (byId.has(item.id)) {
+      const existing = byId.get(item.id);
+      byId.set(item.id, {
+        ...existing,
+        redactedScope: existing.redactedScope || (item.personLabel ? { personLabel: item.personLabel } : void 0),
+        updatedAt: item.updatedAt || existing.updatedAt
+      });
+    }
+  }
+  state.cases = [...byId.values()].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+  saveLocalCases();
 }
 function resetPreSearchUi() {
   state.preSearchReady = false;
@@ -34391,6 +34563,7 @@ function renderPreSearchPreview(findings, message) {
   }).join("");
 }
 async function runPreliminarySearch(parsed) {
+  assertCaseActivatedClient();
   const statusEl = $("#simple-start-status");
   const preStatus = $("#pre-search-status");
   if (statusEl) statusEl.textContent = "Searching for exposure\u2026";
@@ -34408,11 +34581,11 @@ async function runPreliminarySearch(parsed) {
   const discovery = await maybeAutoDiscoverFindings({ force: true, quiet: true });
   await syncCurrentCaseStatus();
   const findings = state.currentStatus?.findings || [];
-  const braveReady = Boolean(state.integrationsStatus?.liveReady?.braveSearch);
+  const searchReady = discoverySearchReady();
   let message = "";
   if (discovery.ran && findings.length) {
     message = `Found ${findings.length} link(s) to review. Continue to start cleanup.`;
-  } else if (discovery.reason === "urls-needed" && !braveReady) {
+  } else if (discovery.reason === "urls-needed" && !searchReady) {
     message = "Automated search is not configured \u2014 paste profile URLs above or continue anyway.";
   } else if (discovery.ran) {
     message = "Search complete. No new links yet \u2014 you can continue or paste URLs above.";
@@ -34428,6 +34601,7 @@ async function runPreliminarySearch(parsed) {
   render();
 }
 async function continueAfterPreSearch() {
+  assertCaseActivatedClient();
   const statusEl = $("#simple-start-status");
   if (statusEl) statusEl.textContent = "Starting cleanup\u2026";
   state.preSearchReady = false;
@@ -34502,6 +34676,7 @@ async function startWithAgent() {
 }
 async function startPreset(options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  assertCaseActivatedClient({ quiet: options.quiet });
   const result = await request(`/api/cases/${state.currentCaseId}/preset`, {
     method: "POST",
     body: {
@@ -34604,6 +34779,66 @@ async function executeAction(actionId) {
   state.tab = "overview";
   render();
   write(result);
+}
+async function exportRecoveryKit() {
+  if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
+  const accessToken = getCaseToken(state.currentCaseId);
+  if (!accessToken) {
+    throw { error: "token-missing", message: "Case access token is not in this browser. Import a recovery kit first." };
+  }
+  const passphrase = $("#export-passphrase")?.value?.trim() || "";
+  if (passphrase && passphrase.length < 12) {
+    throw { error: "passphrase-too-short", message: "Use at least 12 characters to wrap the recovery kit." };
+  }
+  if (passphrase && !state.vaultKey) {
+    throw {
+      error: "vault-key-missing",
+      message: "Vault key is not in memory. Omit the passphrase or open the case in this session."
+    };
+  }
+  const kit = {
+    format: "oblivion-recovery-kit-v1",
+    exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    caseId: state.currentCaseId,
+    accessToken,
+    wrappedVaultKey: passphrase ? await wrapVaultKey(state.vaultKey, passphrase) : void 0
+  };
+  const label = (currentCase()?.redactedScope?.personLabel || "case").replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "").slice(0, 40) || "case";
+  downloadJson(`oblivion-recovery-${label}-${state.currentCaseId.slice(0, 8)}.json`, kit);
+  const status = $("#vault-status");
+  if (status) {
+    status.textContent = `Recovery kit downloaded${passphrase ? " with wrapped vault key" : ""}.`;
+    status.className = "vault-status muted small pass";
+  }
+}
+async function importRecoveryKit(file, passphrase = "") {
+  if (!file) throw { error: "file-required", message: "Choose a recovery kit JSON file." };
+  const text = await file.text();
+  const kit = JSON.parse(text);
+  if (kit.format !== "oblivion-recovery-kit-v1" || !kit.caseId || !kit.accessToken) {
+    throw { error: "recovery-kit-invalid", message: "File is not a valid Oblivion recovery kit." };
+  }
+  setCaseToken(kit.caseId, kit.accessToken);
+  if (kit.wrappedVaultKey) {
+    state.vaultKey = await unwrapVaultKey(kit.wrappedVaultKey, passphrase);
+  }
+  const summary = {
+    id: kit.caseId,
+    jurisdiction: kit.jurisdiction || "US",
+    updatedAt: kit.exportedAt || (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (!state.cases.some((item) => item.id === kit.caseId)) {
+    state.cases.unshift(summary);
+  }
+  state.currentCaseId = kit.caseId;
+  saveLocalCases();
+  await loadCase(kit.caseId, { silent: true, openApp: true }).catch(() => {
+  });
+  const status = $("#vault-status");
+  if (status) {
+    status.textContent = `Imported recovery kit for ${caseDeleteLabel(kit.caseId)}.`;
+    status.className = "vault-status muted small pass";
+  }
 }
 async function exportCase() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
@@ -34813,6 +35048,10 @@ async function connectWallet(options = {}) {
   if (options.openHub) openWalletHub();
   else render();
   $("#wallet-feedback-primary")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  await syncWalletCases().catch(() => {
+  });
+  await refreshCreditsBalance().catch(() => {
+  });
   write({
     walletAddress: state.walletAddress,
     mode: state.walletMode
@@ -35098,7 +35337,17 @@ async function askAgent() {
     return;
   }
   if (lower.includes("run") || lower.includes("do it") || lower.includes("continue")) {
-    await agentAutopilot();
+    try {
+      assertCaseActivatedClient();
+      await agentAutopilot();
+    } catch (error) {
+      if (error?.error === "case-activation-required") {
+        addChat("agent", error.message);
+        render();
+        return;
+      }
+      throw error;
+    }
     return;
   }
   if (lower.includes("disclosure") || lower.includes("explain")) {
@@ -35142,6 +35391,7 @@ async function askAgent() {
 }
 async function agentRunNext(options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  assertCaseActivatedClient({ quiet: options.quiet });
   await refreshHackathon({ silent: true });
   if (state.agentNext?.action === "select-preset") {
     await startPreset({ quiet: true });
@@ -35217,6 +35467,7 @@ async function agentRunNext(options = {}) {
 }
 async function agentAutopilot(options = {}) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
+  assertCaseActivatedClient({ quiet: options.silentUser });
   if (!options.silentUser) addChat("user", "Run route.");
   for (let index2 = 0; index2 < 12; index2 += 1) {
     await refreshHackathon({ silent: true });
@@ -35293,6 +35544,8 @@ function backToLanding() {
 }
 $("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
 $("#landing-send")?.addEventListener("click", () => submitLandingIntake().catch(write));
+$("#landing-start-cleanup")?.addEventListener("click", () => startLandingFullCleanup().catch(write));
+$("#landing-preview-again")?.addEventListener("click", () => submitLandingIntake().catch(write));
 $("#landing-input")?.addEventListener("input", updateLandingSendState);
 $("#landing-input")?.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
@@ -35422,7 +35675,16 @@ $("#agent-dock")?.querySelector(".agent-dock-head")?.addEventListener("click", (
   if (event.target.closest("button")) return;
   openAgentDock();
 });
+$("#export-recovery-kit")?.addEventListener("click", () => exportRecoveryKit().catch(write));
 $("#export")?.addEventListener("click", () => exportCase().catch(write));
+$("#import-recovery-kit")?.addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  const passphrase = $("#import-passphrase")?.value?.trim() || "";
+  if (!file) return;
+  importRecoveryKit(file, passphrase).catch(write).finally(() => {
+    event.target.value = "";
+  });
+});
 $("#delete-case-modal-close")?.addEventListener("click", closeDeleteCaseModal);
 $("#delete-case-modal-cancel")?.addEventListener("click", closeDeleteCaseModal);
 $("#delete-case-modal-confirm")?.addEventListener("click", () => confirmDeleteCase().catch(write));

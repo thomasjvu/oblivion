@@ -37,6 +37,7 @@ import { describeDiscoveryPlan, discoveryReadinessMessage } from "../../domain/e
 import { isBrokerEmailConfigured } from "../../domain/brokerMailer.js";
 import {
   isBraveSearchConfigured,
+  isVeniceSearchConfigured,
   isHibpConfigured,
   isLiveExecutorEnabled,
   isOneShotConfigured,
@@ -55,7 +56,11 @@ import {
   x402PublicConfig
 } from "../../domain/x402.js";
 import {
+  assertCreditsForDiscovery,
   creditRates,
+  creditsBypassEnabled,
+  debitCreditsForDiscovery,
+  discoveryCredits,
   resolveCreditsView,
   settleCreditsForProduct,
   STARTER_PACK_CREDITS,
@@ -75,6 +80,20 @@ import type {
   PresetId,
   RiskLevel
 } from "../../domain/types.js";
+import {
+  assertCaseActivated,
+  autoActivateCaseForSubscriptionWallet,
+  markCaseActivated
+} from "../../domain/caseActivation.js";
+import {
+  assertPreviewQuota,
+  previewDailyLimit,
+  previewUsageRemaining,
+  recordPreviewUsage,
+  runDiscoveryPreview
+} from "../../domain/discoveryPreview.js";
+import { casesForWallet, linkCaseToWallet, walletAddressForCase } from "../../domain/walletCases.js";
+import { clientIp } from "../clientIp.js";
 import { createCaseRecord, publicCaseView } from "../../domain/cases.js";
 import { deploymentEnvironment, deploymentProfile, walletChainConfig } from "../../domain/deploymentEnv.js";
 import { purgeCaseData } from "../../domain/purgeCase.js";
@@ -233,6 +252,46 @@ export async function handleConsumerApi(
     throw new HttpError(401, "case-list-not-available");
   }
 
+  if (method === "POST" && url.pathname === "/api/discovery/preview") {
+    const body = await readJson<{
+      personLabel?: string;
+      aliases?: string[];
+      regionLabel?: string;
+      walletAddress?: string;
+    }>(request);
+    const ip = clientIp(request);
+    assertPreviewQuota(store, ip, body.walletAddress);
+    const candidates = await runDiscoveryPreview({
+      personLabel: body.personLabel || "",
+      aliases: body.aliases,
+      regionLabel: body.regionLabel
+    });
+    const remainingPreviews = recordPreviewUsage(store, ip, body.walletAddress);
+    sendJson(response, 200, {
+      candidates,
+      remainingPreviews,
+      dailyLimit: previewDailyLimit()
+    });
+    return true;
+  }
+
+  if (method === "GET" && url.pathname === "/api/wallet/cases") {
+    const walletAddress = url.searchParams.get("walletAddress");
+    if (!walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+    sendJson(response, 200, { cases: casesForWallet(store, walletAddress) });
+    return true;
+  }
+
+  if (method === "POST" && url.pathname === "/api/wallet/cases/link") {
+    const body = await readJson<{ caseId: string; walletAddress: string }>(request);
+    if (!body.walletAddress?.startsWith("0x")) throw new HttpError(422, "wallet-address-required");
+    if (!body.caseId) throw new HttpError(422, "case-id-required");
+    const caseRecord = getCaseWithAccess(request, store, body.caseId);
+    const updated = linkCaseToWallet(store, caseRecord, body.walletAddress);
+    sendJson(response, 200, { case: publicCaseView(updated) });
+    return true;
+  }
+
   if (method === "POST" && url.pathname === "/api/cases") {
     const body = await readJson<CreateCaseBody>(request);
     const { caseRecord, accessToken } = createCaseRecord(body);
@@ -257,8 +316,15 @@ export async function handleConsumerApi(
 
   const presetMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/preset$/);
   if (method === "POST" && presetMatch) {
-    const body = await readJson<{ presetId: PresetId; autonomyMode?: AutonomyMode }>(request);
-    const caseRecord = getCaseWithAccess(request, store, presetMatch[1]);
+    const body = await readJson<{ presetId: PresetId; autonomyMode?: AutonomyMode; walletAddress?: string }>(
+      request
+    );
+    let caseRecord = getCaseWithAccess(request, store, presetMatch[1]);
+    if (body.walletAddress?.startsWith("0x")) {
+      const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
+      if (activated) caseRecord = activated;
+    }
+    assertCaseActivated(store, caseRecord);
     const { preset, plan, timeline } = await handleApplyPreset(store, caseRecord, body);
     sendJson(response, 201, {
       preset,
@@ -286,6 +352,7 @@ export async function handleConsumerApi(
   if (method === "POST" && caseAgentRunMatch) {
     const body = await readJson<CaseAgentRunBody>(request);
     const caseRecord = getCaseWithAccess(request, store, caseAgentRunMatch[1]);
+    assertCaseActivated(store, caseRecord);
     const result = await handleAgentRunStep(store, caseRecord, trustCenterPath, {
       highAutonomy: body.highAutonomy
     });
@@ -328,12 +395,27 @@ export async function handleConsumerApi(
 
   const findingsDiscoverMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/discover$/);
   if (method === "POST" && findingsDiscoverMatch) {
-    const caseRecord = getCaseWithAccess(request, store, findingsDiscoverMatch[1]);
-    const body = await readJson<{ pastedUrls?: string[] }>(request);
+    let caseRecord = getCaseWithAccess(request, store, findingsDiscoverMatch[1]);
+    const body = await readJson<{ pastedUrls?: string[]; walletAddress?: string }>(request);
+    if (body.walletAddress?.startsWith("0x")) {
+      const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
+      if (activated) caseRecord = activated;
+    }
+    assertCaseActivated(store, caseRecord);
+    const walletAddress =
+      body.walletAddress?.startsWith("0x") ? body.walletAddress : walletAddressForCase(store, caseRecord.id);
+    if (!walletAddress && !creditsBypassEnabled()) {
+      throw new HttpError(422, "wallet-address-required");
+    }
+    if (walletAddress) assertCreditsForDiscovery(store, walletAddress);
     const plan = store.agentPlanForCase(caseRecord.id);
     const presetId = plan?.presetId;
+    const brokerSweep = presetId ? presetUsesBrokerDiscovery(presetId) : true;
     try {
       const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(store, caseRecord, body, presetId);
+      if (walletAddress && brokerSweep) {
+        debitCreditsForDiscovery(store, walletAddress, caseRecord.id);
+      }
       const timeline = createTimelineEvent(
         caseRecord.id,
         "ScoutAgent",
@@ -348,7 +430,9 @@ export async function handleConsumerApi(
         status: buildStatus(store, caseRecord.id),
         timeline,
         discovery,
-        discoveryPlan
+        discoveryPlan,
+        credits: walletAddress ? resolveCreditsView(store, walletAddress) : undefined,
+        discoveryCreditsDebited: walletAddress && brokerSweep ? discoveryCredits() : 0
       });
     } catch (error) {
       throw new HttpError(502, "discovery-failed", {
@@ -362,6 +446,7 @@ export async function handleConsumerApi(
   const findingConfirmMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/([^/]+)\/(confirm|reject)$/);
   if (method === "POST" && findingConfirmMatch) {
     const caseRecord = getCaseWithAccess(request, store, findingConfirmMatch[1]);
+    assertCaseActivated(store, caseRecord);
     const decision = findingConfirmMatch[3] === "confirm" ? "confirmed" : "rejected";
     const { exposure, timeline, status } = handleFindingDecision(
       store,
@@ -376,6 +461,7 @@ export async function handleConsumerApi(
   if (method === "POST" && url.pathname === "/api/actions/propose") {
     const body = await readJson<ProposeActionBody>(request);
     const caseRecord = getCaseWithAccess(request, store, body.caseId);
+    assertCaseActivated(store, caseRecord);
     const { approval, action } = proposeApprovedAction({
       store,
       caseRecord,
@@ -398,6 +484,10 @@ export async function handleConsumerApi(
   const approveMatch = url.pathname.match(/^\/api\/approvals\/([^/]+)\/approve$/);
   if (method === "POST" && approveMatch) {
     const body = await readJson<{ userConfirmation: string }>(request);
+    const pendingApproval = store.approvals.get(approveMatch[1]);
+    if (!pendingApproval) throw new HttpError(404, "approval-not-found");
+    const approvalCase = getCaseWithAccess(request, store, pendingApproval.caseId);
+    assertCaseActivated(store, approvalCase);
     const { approval, caseId } = await handleApprove(store, approveMatch[1], body);
     getCaseWithAccess(request, store, caseId);
     sendJson(response, 200, { approval, status: buildStatus(store, caseId) });
@@ -407,6 +497,10 @@ export async function handleConsumerApi(
   const executeMatch = url.pathname.match(/^\/api\/actions\/([^/]+)\/execute$/);
   if (method === "POST" && executeMatch) {
     const body = await readJson<{ hashPrefix?: string; emailLabel?: string; sourceUrl?: string; walletAddress?: string }>(request);
+    const pendingAction = store.actions.get(executeMatch[1]);
+    if (!pendingAction) throw new HttpError(404, "action-not-found");
+    const executeCase = getCaseWithAccess(request, store, pendingAction.caseId);
+    assertCaseActivated(store, executeCase);
     const { action, approval, executed, caseRecord } = await handleExecute(
       store,
       executeMatch[1],
@@ -539,6 +633,7 @@ export async function handleConsumerApi(
         oneShot: isOneShotLiveReady(),
         brokerWebForm: process.env.BROKER_WEBFORM_AUTOMATION === "true",
         hibpEmail: isHibpConfigured(),
+        veniceSearch: isVeniceSearchConfigured(),
         braveSearch: isBraveSearchConfigured(),
         brokerEmail: isBrokerEmailConfigured(),
         platformAbuseEmail: isBrokerEmailConfigured(),
@@ -674,6 +769,7 @@ export async function handleConsumerApi(
         if (session && session.caseId === caseRecord.id) {
           const paid = markSessionPaid(session, settlement.transaction);
           store.paymentSessions.set(paid.id, paid);
+          markCaseActivated(store, caseRecord.id, paid);
         }
         const credits = settleCreditsForProduct(store, body.walletAddress, expectedMode, caseRecord.id);
         const timeline = createTimelineEvent(
@@ -706,6 +802,9 @@ export async function handleConsumerApi(
         rates: creditRates()
       });
     }
+    const paid = markSessionPaid(session);
+    store.paymentSessions.set(paid.id, paid);
+    markCaseActivated(store, caseRecord.id, paid);
     const credits = settleCreditsForProduct(store, body.walletAddress, expectedMode, caseRecord.id);
     const timeline = createTimelineEvent(
       caseRecord.id,
@@ -829,6 +928,7 @@ export async function handleConsumerApi(
   if (method === "POST" && url.pathname === "/api/agent/run-next") {
     const body = await readJson<AgentRunBody>(request);
     const caseRecord = getCaseWithAccess(request, store, body.caseId);
+    assertCaseActivated(store, caseRecord);
     const result = await handleAgentRunStep(store, caseRecord, trustCenterPath);
     sendJson(response, 200, result);
     return true;

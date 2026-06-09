@@ -30,15 +30,21 @@ flowchart TB
 
 ## Pick a template
 
-| Goal | Template | What you provide | Review each match? |
-|------|----------|------------------|-------------------|
-| Remove people-search listings | People-search cleanup | Name, email, city/state | Yes |
-| Hide Google results | Search suppression | Name, email | No |
-| California DROP request | California DROP | Name, email, address | No |
-| EU/UK erasure | GDPR erasure | Name, email | No |
-| Breach check | Breach exposure | Email | No |
-| Urgent address or relative exposure | High-risk safety | Name, address, relative | Yes |
-| Copied content takedown | Content takedown | Name, email, URL, work reference | Yes |
+| Goal | Template | Requirements | What you provide | Review each match? |
+|------|----------|--------------|------------------|-------------------|
+| Remove people-search listings | People-search cleanup | US, EU, or UK | Name, email, city/state | Yes |
+| Hide Google results | Search suppression | US, EU, or UK | Name, email | No |
+| California DROP request | California DROP | US case + **California residency** | Name, email, address | No |
+| EU/UK erasure | GDPR erasure | **EU or UK** case | Name, email | No |
+| Breach check | Breach exposure | US, EU, or UK | Email | No |
+| Urgent address or relative exposure | High-risk safety | US, EU, or UK | Name, address, relative | Yes |
+| Copied content takedown | Content takedown | US, EU, or UK; you control the original work | Name, email, URL, work reference | Yes |
+
+**Requirements** are set when you start a case (jurisdiction) and by what the official route allows:
+
+- **California DROP** — only for people who live in California. Oblivion guides and tracks the flow; you submit on the [official DROP site](https://privacy.ca.gov/drop/).
+- **GDPR erasure** — only when your case jurisdiction is EU or UK (not US-only).
+- **Content takedown** — you must be the rights holder or authorized to act for the work being copied.
 
 Integrators: preset IDs and API details are in the [Partner API](/docs/developers/partner-api).
 
@@ -67,7 +73,7 @@ Integrators: preset IDs and API details are in the [Partner API](/docs/developer
 
 - **People-search cleanup** — broker listings, opt-out paths, California DROP guidance where relevant
 - **Search suppression** — Google removal planning; you complete submission on Google’s site
-- **California DROP** — guided state registry workflow
+- **California DROP** — California-resident guided workflow on the official state registry (you complete submission)
 - **GDPR erasure** — erasure templates plus search suppression planning
 - **Breach exposure** — email breach check; password check uses prefix-only ranges, never full passwords
 - **High-risk safety** — same discovery family as people-search with stricter match review

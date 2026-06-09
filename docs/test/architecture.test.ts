@@ -34,6 +34,7 @@ import {
 } from '../shared/docsRouting.js';
 import { findPathToFile, mergeExpandedPaths } from '../src/components/FileTree/treeState.ts';
 import { findAdjacentPages, findDirectoryDefaultPath, findFirstDocumentPath } from '../src/lib/navigation.ts';
+import { resolveStaticAssetHref } from '../src/lib/markdownLinks.ts';
 
 import { buildMarkdownRenderState } from '../src/utils/markdownCore.ts';
 import { loadThemeManifest, readRegistry, resolveThemeId } from '../scripts/lib/themeRegistry.mjs';
@@ -909,6 +910,17 @@ export const architectureTests: ArchitectureTestCase[] = [
 
       assert.equal(prev?.path, 'user-guide/overview');
       assert.equal(next?.path, 'pricing');
+    },
+  },
+  {
+    name: 'markdown static asset links resolve to site-root OpenAPI files',
+    run: () => {
+      const context = { currentPath: 'developers/partner-api' };
+
+      assert.equal(resolveStaticAssetHref('/openapi-v1.yaml', context), '/openapi-v1.yaml');
+      assert.equal(resolveStaticAssetHref('openapi-v1.yaml', context), '/openapi-v1.yaml');
+      assert.equal(resolveStaticAssetHref('/openapi-consumer.yaml', context), '/openapi-consumer.yaml');
+      assert.equal(resolveStaticAssetHref('/docs/developers/partner-api', context), null);
     },
   },
   {

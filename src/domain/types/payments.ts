@@ -93,7 +93,7 @@ export interface RelayerEvent {
   createdAt: string;
 }
 
-export type CreditLedgerKind = "purchase" | "token" | "email" | "subscription-refill";
+export type CreditLedgerKind = "purchase" | "token" | "email" | "discovery" | "subscription-refill";
 
 export interface CreditAccount {
   id: string;

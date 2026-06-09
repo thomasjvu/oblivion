@@ -11,6 +11,7 @@ import {
 } from '../utils/MarkdownProcessor';
 import { createLogger } from '../utils/logger';
 import { resolveDocumentPath } from '../lib/content';
+import { resolveStaticAssetHref } from '../lib/markdownLinks';
 import { buildCanonicalDocsPath, parseDocsRoutePath } from '../../shared/docsRouting.js';
 
 import CodeBlock from './CodeBlock';
@@ -84,6 +85,10 @@ function resolveInternalHref(
   context: Pick<RenderContext, 'currentPath' | 'activeLocale' | 'activeVersion'>
 ): string | null {
   if (!href || href === '#' || href.startsWith('#') || EXTERNAL_PROTOCOL_PATTERN.test(href)) {
+    return null;
+  }
+
+  if (resolveStaticAssetHref(href, context)) {
     return null;
   }
 
@@ -309,7 +314,16 @@ function renderNode(node: ChildNode, key: string, context: RenderContext): React
     const dataUrl = element.getAttribute('data-url');
     const props = getElementProps(element, key);
     const children = renderNodes(element.childNodes, key, context);
+    const staticAssetHref = resolveStaticAssetHref(href, context);
     const internalHref = resolveInternalHref(href, context);
+
+    if (staticAssetHref) {
+      return (
+        <a {...props} href={staticAssetHref}>
+          {children}
+        </a>
+      );
+    }
 
     if (dataFile) {
       return (

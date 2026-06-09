@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { encryptVaultPayload, createVaultKey } from "../../src/crypto/clientVault.js";
-import { get, post, startTestServer } from "../helpers/http.js";
+import { activateTestCase, get, post, startTestServer } from "../helpers/http.js";
 
 test("serves split frontend assets with restrictive security headers", async () => {
   const { server, base } = await startTestServer();
@@ -59,8 +59,13 @@ test("serves split frontend assets with restrictive security headers", async () 
     const wc = (await walletConfig.json()) as { chainId: number; mode: string };
     assert.equal(wc.chainId, 11155111);
 
-    const favicon = await fetch(`${base}/favicon.svg`);
+    const favicon = await fetch(`${base}/favicon.ico`);
     assert.equal(favicon.status, 200);
+    assert.match(favicon.headers.get("content-type") ?? "", /image\/x-icon|image\/vnd\.microsoft\.icon/);
+
+    const brandIcon = await fetch(`${base}/assets/brand/oblivion-agent-icon.webp`);
+    assert.equal(brandIcon.status, 200);
+    assert.match(brandIcon.headers.get("content-type") ?? "", /image\/webp/);
 
     const help = await fetch(`${base}/help`, { redirect: "manual" });
     assert.equal(help.status, 302);
@@ -115,7 +120,7 @@ test("rejects malformed and oversized JSON request bodies", async () => {
 });
 
 test("case lifecycle enforces approval before execution", async () => {
-  const { server, base } = await startTestServer();
+  const { server, base, store } = await startTestServer();
 
   try {
     const created = await post(base, "/api/cases", {
@@ -135,6 +140,7 @@ test("case lifecycle enforces approval before execution", async () => {
         sensitiveConstraints: []
       }
     });
+    activateTestCase(store, caseId);
 
     const readBack = await get(base, `/api/cases/${caseId}`);
     assert.equal(readBack.case.id, caseId);

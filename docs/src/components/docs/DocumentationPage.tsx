@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { siteConfig } from '../../../shared/documentation-config.js';
+import SiteBrandMark from '../SiteBrandMark';
 import { documentationTree } from '../../data/documentation';
 import { useCommandPalette } from '../../providers/CommandPaletteProvider';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -366,15 +367,14 @@ const DocumentationPage = React.memo(
                     style={{ color: 'var(--text-color)' }}
                   >
                     <span
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-sm font-black"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border"
                       style={{
                         borderColor: 'var(--border-unified)',
                         backgroundColor: 'var(--card-color)',
-                        color: 'var(--text-color)',
-                        fontFamily: 'var(--mono-font)',
                       }}
+                      aria-hidden="true"
                     >
-                      P
+                      <SiteBrandMark size={40} className="h-full w-full" />
                     </span>
                     <span className="min-w-0">
                       {siteConfig.sidebarBrand.subtitle ? (

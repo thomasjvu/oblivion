@@ -1393,6 +1393,7 @@ button.skill-install-tab {
 }
 
 .cinematic-fallback {
+  display: none;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1659,6 +1660,28 @@ button.landing-preset-starter.active {
   outline: none;
   border-color: var(--gb-3);
   box-shadow: 0 0 0 2px var(--gb-2);
+}
+
+.landing-preview-panel {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(185, 255, 104, 0.22);
+  display: grid;
+  gap: 10px;
+}
+
+.landing-preview-results {
+  margin: 0;
+  padding-left: 1.1rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.landing-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .landing-status {
@@ -3889,6 +3912,16 @@ a.pricing-plan-cta:focus-visible {
   font-size: 0.72rem;
 }
 
+.agent-dock-collapse iconify-icon {
+  display: inline-block;
+  transform-origin: center;
+  transition: transform 0.15s ease;
+}
+
+.agent-dock-collapse--pinned iconify-icon {
+  transform: rotate(45deg);
+}
+
 .agent-dock {
   --dock-bg: var(--gb-3);
   --dock-fg: var(--gb-0);
@@ -4190,8 +4223,20 @@ button.agent-preset-starter.active {
 }
 
 .chat-avatar-agent {
-  background: var(--gb-1);
-  color: var(--dock-bg);
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 50%;
+}
+
+.chat-avatar-agent img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
 }
 
 .chat-avatar iconify-icon {
@@ -4899,6 +4944,7 @@ pre {
   }
 
   .cinematic-fallback {
+    display: block;
     opacity: 0.62;
   }
 

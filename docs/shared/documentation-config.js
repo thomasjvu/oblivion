@@ -20,10 +20,11 @@ export const i18nConfig = {
   locales: ['en'],
 };
 
-/** @type {{ sidebarBrand: { subtitle: string | null } }} */
+/** @type {{ sidebarBrand: { subtitle: string | null; logoAlt: string } }} */
 export const siteConfig = {
   sidebarBrand: {
     subtitle: null,
+    logoAlt: 'Oblivion agent',
   },
 };
 

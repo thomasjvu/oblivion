@@ -72,8 +72,8 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 
 | Secret | Enables |
 |--------|---------|
-| `BRAVE_SEARCH_API_KEY` | Exposure URL discovery |
-| `VENICE_API_KEY` | Agent classify/draft/review/chat |
+| `VENICE_API_KEY` | Agent classify/draft/review/chat + exposure web search (`augment/search`, Brave ZDR) |
+| `BRAVE_SEARCH_API_KEY` | Optional direct Brave Search fallback for self-hosted discovery |
 | `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real x402 settlement |
 | `ONESHOT_API_KEY` | Live 1Shot JSON-RPC relay |
 | `HIBP_API_KEY` | Live breach email check (TEE-gated) |
@@ -102,6 +102,17 @@ The browser app and direct `/api/*` integrations use **case access tokens**, not
 5. Partner-scoped cases (`partnerId` set) **must** use `/v1/*` with a partner API key. Consumer `/api/*` returns `403 partner-case-use-v1-api`.
 
 Treat `caseId` + `accessToken` together as a capability credential. Do not log tokens, embed them in URLs, or expose them in referrers. Rotate by creating a new case if a token is compromised (there is no server-side rotation endpoint for consumer tokens today).
+
+### Wallet index and recovery kit
+
+- `GET /api/wallet/cases` returns only redacted summaries (`caseId`, `personLabel`, timestamps) for a `walletKey` — never `accessToken` or vault plaintext.
+- `POST /api/wallet/cases/link` requires a valid case Bearer token plus `walletAddress`; it sets `activatedWalletKey` for cross-device lookup.
+- Recovery kits are **client-side exports** (`caseId`, `accessToken`, optional passphrase-wrapped vault key). Operators must not add server endpoints that store or re-issue raw tokens.
+
+### Discovery preview
+
+- `POST /api/discovery/preview` accepts redacted labels only (no email/phone), does not create cases or store intake, and is rate-limited per IP/wallet.
+- Full `POST /api/cases/:id/findings/discover` requires case activation and debits wallet discovery credits when broker sweep runs.
 
 ## Partner API (B2B)
 

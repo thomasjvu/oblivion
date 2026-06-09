@@ -1,0 +1,11 @@
+[
+  {
+    "brokerId": "example-extra-broker",
+    "brokerLabel": "Example Extra Broker",
+    "hostSuffix": "example-extra-broker.test",
+    "officialOptOutUrl": "https://example-extra-broker.test/opt-out",
+    "submissionMethod": "web-form",
+    "source": "manual",
+    "note": "Template entry for curated imports — merge into brokerCatalog.ts after spot-check"
+  }
+]

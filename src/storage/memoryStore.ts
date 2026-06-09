@@ -50,6 +50,7 @@ export class MemoryStore implements OblivionRepository {
   readonly webhookDeliveries = new Map<string, PartnerWebhookDelivery>();
   readonly partnerWebhookInbox = new Map<string, PartnerWebhookInboxEntry>();
   readonly tombstones = new Map<string, string>();
+  readonly discoveryPreviewUsage = new Map<string, { day: string; count: number }>();
 
   casesForPartner(partnerId: string): CaseRecord[] {
     return [...this.cases.values()].filter(

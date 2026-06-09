@@ -8,7 +8,8 @@ const ASSET_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
-  ".mp4": "video/mp4"
+  ".mp4": "video/mp4",
+  ".ico": "image/x-icon"
 };
 
 const FONT_CONTENT_TYPES: Record<string, string> = {
@@ -42,9 +43,40 @@ export function serveStaticWithTraversalGuard(
   return true;
 }
 
-export async function handleFavicon(response: ServerResponse, publicDir: string): Promise<void> {
-  const svg = await readFile(join(publicDir, "favicon.svg"), "utf8");
-  sendText(response, 200, svg, "image/svg+xml");
+export async function handleFavicon(
+  response: ServerResponse,
+  publicDir: string,
+  pathname: string
+): Promise<void> {
+  if (pathname === "/favicon.svg") {
+    const bytes = await readFile(join(publicDir, "favicon/favicon-32x32.png"));
+    sendBytes(response, 200, bytes, "image/png", "public, max-age=86400");
+    return;
+  }
+  const bytes = await readFile(join(publicDir, "favicon/favicon.ico"));
+  sendBytes(response, 200, bytes, "image/x-icon", "public, max-age=86400");
+}
+
+export async function handleFaviconAsset(
+  response: ServerResponse,
+  assetName: string,
+  publicDir: string
+): Promise<void> {
+  if (!serveStaticWithTraversalGuard(assetName, { allowSubdirs: false })) {
+    sendJson(response, 400, { error: "invalid-favicon-path" });
+    return;
+  }
+  const contentType = ASSET_CONTENT_TYPES[extname(assetName).toLowerCase()];
+  if (!contentType) {
+    sendJson(response, 404, { error: "favicon-not-found" });
+    return;
+  }
+  try {
+    const bytes = await readFile(join(publicDir, "favicon", assetName));
+    sendBytes(response, 200, bytes, contentType, "public, max-age=86400");
+  } catch {
+    sendJson(response, 404, { error: "favicon-not-found" });
+  }
 }
 
 export async function handleIndexHtml(response: ServerResponse, publicDir: string): Promise<void> {
@@ -67,7 +99,7 @@ export async function handleAssets(
   assetName: string,
   publicDir: string
 ): Promise<void> {
-  if (!serveStaticWithTraversalGuard(assetName)) {
+  if (!serveStaticWithTraversalGuard(assetName, { allowSubdirs: true })) {
     sendJson(response, 400, { error: "invalid-asset-path" });
     return;
   }

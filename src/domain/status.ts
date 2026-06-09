@@ -1,6 +1,9 @@
+import { caseActivationView } from "./caseActivation.js";
 import type { ActionRequest, Approval, CaseRecord, CaseStatus, Exposure, FollowUp } from "./types.js";
+import type { MemoryStore } from "../storage/memoryStore.js";
 
 export function buildCaseStatus(input: {
+  store: MemoryStore;
   caseRecord: CaseRecord;
   exposures: Exposure[];
   approvals: Approval[];
@@ -9,6 +12,7 @@ export function buildCaseStatus(input: {
 }): CaseStatus {
   const pendingFindings = input.exposures.filter((exposure) => (exposure.matchStatus ?? "pending") === "pending");
   const confirmedFindings = input.exposures.filter((exposure) => exposure.matchStatus === "confirmed");
+  const activation = caseActivationView(input.store, input.caseRecord);
   return {
     scope: input.caseRecord.redactedScope ?? null,
     findings: input.exposures,
@@ -19,6 +23,8 @@ export function buildCaseStatus(input: {
     submittedActions: input.actions.filter((action) =>
       action.executionStatus === "recorded" || action.executionStatus === "executed"
     ),
-    nextChecks: input.followUps
+    nextChecks: input.followUps,
+    activated: activation.activated,
+    activationRequired: activation.activationRequired
   };
 }

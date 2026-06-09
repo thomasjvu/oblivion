@@ -5,6 +5,7 @@ import {
   brokerForUrl,
   brokerCatalogEntryById,
   buildBrokerSweepQueries,
+  previewBrokerSweepLimit,
   tier1BrokersForJurisdiction,
   validateBrokerCatalog
 } from "../../src/domain/brokerCatalog.js";
@@ -30,4 +31,10 @@ test("buildBrokerSweepQueries returns site-scoped queries from redacted labels",
   assert.ok(queries.length > 0);
   assert.match(queries[0].query, /site:spokeo\.com|"John Smith"/);
   assert.equal(brokerCatalogEntryById(queries[0].brokerId)?.primaryHost, queries[0].host);
+});
+
+test("preview broker sweep uses priority hosts and preview limit", () => {
+  const queries = buildBrokerSweepQueries({ personLabel: "John Smith" }, { preview: true });
+  assert.equal(queries.length, previewBrokerSweepLimit());
+  assert.equal(queries[0].brokerId, "spokeo");
 });

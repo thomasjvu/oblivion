@@ -33,13 +33,14 @@ Buy in the app: **Settings → Payment rails**. A scoped payment permission is r
 
 | Use | Cost (default) |
 |-----|----------------|
+| Full broker discovery sweep | 15 credits per run |
 | Venice agent chat | 1 credit per 100 tokens (minimum 1) |
 | Venice classify / draft / review | Same token metering |
 | Live operator email relay | 25 credits per send |
 
 **Token budget** scales with balance (roughly 120–4,000 max tokens per request). Usage is metered until credits run out — there are no fixed per-plan chat caps.
 
-Core cleanup (discovery, approvals, practice-run execution) works **without** credits. Venice AI and live email relay require a connected wallet with sufficient balance.
+**Per-case activation** is required before workflow APIs run (preset, discover, agent). Pay once per case with Starter, or subscribe to Monitor — an active subscription auto-activates new cases for that wallet. The landing **preview** (limited broker check, no Venice scoring) is free and does not create a case.
 
 ---
 
@@ -69,7 +70,7 @@ Billing-specific questions are summarized here. For product, privacy, approvals,
 
 ## How Oblivion compares
 
-Oblivion is a **supervised cleanup agent** — not a traditional “set and forget” data-broker subscription. You stay in the loop: identifiers live in a **browser vault**, and **every disclosure requires explicit approval**. Optional wallet credits pay for AI and live email relay; core discovery, approvals, and practice-run execution work without credits.
+Oblivion is a **supervised cleanup agent** — not a traditional “set and forget” data-broker subscription. You stay in the loop: identifiers live in a **browser vault**, and **every disclosure requires explicit approval**. Wallet credits fund per-case activation, full Venice-scored discovery, AI, and live email relay. A free landing preview shows sample broker hits before you pay.
 
 Competitor pricing and features below are from **public listings** (June 2026). Promotional coupons and regional offers change often — verify on each vendor’s site before buying.
 
@@ -77,7 +78,7 @@ Competitor pricing and features below are from **public listings** (June 2026). 
 
 | Service | Listed starting price | Billing model |
 |---------|----------------------|---------------|
-| **Oblivion** | **$0** (core workflow) · **$5** Starter pack · **$10/mo** Monitor | Pay-as-you-go credits; no subscription required for cleanup |
+| **Oblivion** | **$0** (limited preview) · **$5** Starter pack · **$10/mo** Monitor | Per-case activation + metered credits; free preview before signup |
 | [Optery](https://www.optery.com/) | ~$3.99/mo | Subscription |
 | [Incogni](https://incogni.com/) | ~$7.99/mo | Subscription |
 | [DeleteMe](https://joindeleteme.com/) | ~$8.71/mo | Subscription |
