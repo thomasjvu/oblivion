@@ -32,8 +32,10 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /PERSONAL INFORMATION REMOVAL WITHOUT GIVING AWAY YOUR PERSONAL INFORMATION/);
   assert.doesNotMatch(html, /id="partner-api"/);
   assert.doesNotMatch(html, /Embed removal in your app/);
-  assert.match(html, /beta-banner/);
-  assert.match(html, /Beta — experimental software/);
+  assert.match(html, /beta-banner--footer/);
+  assert.match(html, /Beta — experimental software\. Use at your own risk\./);
+  assert.doesNotMatch(html, /Approvals are your responsibility/);
+  assert.doesNotMatch(html, /Portable cleanup workflow for Cursor/);
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-send"/);
