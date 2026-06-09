@@ -1,6 +1,6 @@
 {
   "deploymentVersion": "0.1.0",
-  "sourceCommit": "0a4647f",
+  "sourceCommit": "ef80449",
   "expectedComposeHash": "572d03dde2a2f35d30c95a51d94543bcee322d804daf48911827c97fafc03f61",
   "attestationReportUrl": null,
   "phalaVerifierEndpoint": "https://cloud-api.phala.com/api/v1/attestations/verify",
