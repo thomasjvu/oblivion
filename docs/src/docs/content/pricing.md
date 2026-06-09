@@ -55,6 +55,8 @@ Core cleanup (discovery, approvals, practice-run execution) works **without** cr
 
 ## FAQ
 
+Billing-specific questions are summarized here. For product, privacy, approvals, and troubleshooting, see the full [FAQ](/docs/faq).
+
 **Switch later?** Settings → Payment rails — Starter top-up or Monitor subscription.
 
 **Bypass approvals?** No — credits fund AI and relay capacity only.

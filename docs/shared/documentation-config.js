@@ -121,6 +121,7 @@ export const homepageConfig = {
       { text: 'Consumer API', href: '/docs/developers/consumer-api' },
       { text: 'Partner API', href: '/docs/developers/partner-api' },
       { text: 'Pricing', href: '/docs/pricing' },
+      { text: 'FAQ', href: '/docs/faq' },
       { text: 'App', href: 'https://oblivion.phantasy.bot' },
       { text: 'GitHub', href: 'https://github.com/thomasjvu/oblivion' },
     ],
@@ -153,6 +154,12 @@ export const documentationTree = [
     name: 'Pricing.md',
     path: 'pricing',
     tags: ['pricing', 'x402', 'plans'],
+  },
+  {
+    type: 'file',
+    name: 'FAQ.md',
+    path: 'faq',
+    tags: ['faq', 'help', 'getting-started'],
   },
   {
     type: 'directory',

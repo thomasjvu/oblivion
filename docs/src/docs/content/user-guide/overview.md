@@ -70,3 +70,5 @@ Buy credits in **Settings → Payment rails**: **Starter pack** — 500 credits 
 | Blocked | Check **Approvals** |
 | Wrong case | **Cases** → new or switch |
 | Venice blocked | Connect wallet + buy credits in **Payment rails** |
+
+More answers: [FAQ](/docs/faq)

@@ -1,9 +1,10 @@
 {
-  "generated": "2026-06-09T13:00:02.680Z",
+  "generated": "2026-06-09T15:28:59.097Z",
   "paths": [
     "user-guide/overview",
     "user-guide/templates",
     "pricing",
+    "faq",
     "developers/consumer-api",
     "developers/partner-api",
     "developers/partner-onboarding",
@@ -14,11 +15,12 @@
     "legal/privacy",
     "legal/terms"
   ],
-  "count": 12,
+  "count": 13,
   "titles": {
     "user-guide/overview": "Oblivion — User Guide",
     "user-guide/templates": "Cleanup Templates",
     "pricing": "Pricing",
+    "faq": "FAQ",
     "developers/consumer-api": "Consumer API",
     "developers/partner-api": "Partner API",
     "developers/partner-onboarding": "Partner Onboarding",
