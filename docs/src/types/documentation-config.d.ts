@@ -73,7 +73,7 @@ declare module '*/shared/documentation-config.js' {
   }
 
   export interface SiteConfig {
-    betaNotice: string;
+    betaNotice?: string;
     sidebarBrand: {
       subtitle: string | null;
     };

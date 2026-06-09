@@ -33,7 +33,8 @@ import {
   parseDocsRoutePath,
 } from '../shared/docsRouting.js';
 import { findPathToFile, mergeExpandedPaths } from '../src/components/FileTree/treeState.ts';
-import { findDirectoryDefaultPath, findFirstDocumentPath } from '../src/lib/navigation.ts';
+import { findAdjacentPages, findDirectoryDefaultPath, findFirstDocumentPath } from '../src/lib/navigation.ts';
+
 import { buildMarkdownRenderState } from '../src/utils/markdownCore.ts';
 import { loadThemeManifest, readRegistry, resolveThemeId } from '../scripts/lib/themeRegistry.mjs';
 import { collectLazyFeatureBoundaryIssues } from '../src/framework/lazyFeatureBoundaries.ts';
@@ -831,7 +832,7 @@ export const architectureTests: ArchitectureTestCase[] = [
     },
   },
   {
-    name: 'site config exposes beta notice and optional sidebar subtitle',
+    name: 'site config exposes optional sidebar subtitle',
     run: async () => {
       const configSource = await readFile(
         join(process.cwd(), 'shared/documentation-config.js'),
@@ -839,7 +840,6 @@ export const architectureTests: ArchitectureTestCase[] = [
       );
 
       assert.match(configSource, /export const siteConfig/);
-      assert.match(configSource, /betaNotice/);
       assert.match(configSource, /sidebarBrand/);
       assert.doesNotMatch(configSource, /developers\/openapi',\s*\n\s*tags: \['openapi', 'reference', 'interactive'\]/);
     },
@@ -862,6 +862,53 @@ export const architectureTests: ArchitectureTestCase[] = [
       assert.match(layoutSource, /export function scheduleMermaidNormalization/);
       assert.match(diagramSource, /scheduleMermaidNormalization/);
       assert.doesNotMatch(diagramSource, /normalizeMermaidDiagram\(inlineCanvasRef/);
+    },
+  },
+  {
+    name: 'docs pages do not render a global beta banner',
+    run: async () => {
+      const documentationPageSource = await readFile(
+        join(process.cwd(), 'src/components/docs/DocumentationPage.tsx'),
+        'utf8'
+      );
+
+      assert.doesNotMatch(documentationPageSource, /doc-beta-banner/);
+      assert.doesNotMatch(documentationPageSource, /siteConfig\.betaNotice/);
+    },
+  },
+  {
+    name: 'adjacent page navigation supports shift plus arrow keys',
+    run: async () => {
+      const hookSource = await readFile(
+        join(process.cwd(), 'src/hooks/useAdjacentPageNavigation.ts'),
+        'utf8'
+      );
+      const contentRendererSource = await readFile(
+        join(process.cwd(), 'src/components/ContentRenderer.tsx'),
+        'utf8'
+      );
+
+      assert.match(hookSource, /event\.shiftKey/);
+      assert.match(hookSource, /KEYBOARD_KEYS\.ARROW_LEFT/);
+      assert.match(hookSource, /KEYBOARD_KEYS\.ARROW_RIGHT/);
+      assert.match(hookSource, /isEditableTarget/);
+      assert.match(contentRendererSource, /useAdjacentPageNavigation/);
+
+      const { prev, next } = findAdjacentPages('user-guide/templates', [
+        {
+          type: 'directory',
+          name: 'User Guide',
+          path: 'user-guide',
+          children: [
+            { type: 'file', name: 'Overview.md', path: 'user-guide/overview' },
+            { type: 'file', name: 'Templates.md', path: 'user-guide/templates' },
+          ],
+        },
+        { type: 'file', name: 'Pricing.md', path: 'pricing' },
+      ]);
+
+      assert.equal(prev?.path, 'user-guide/overview');
+      assert.equal(next?.path, 'pricing');
     },
   },
   {

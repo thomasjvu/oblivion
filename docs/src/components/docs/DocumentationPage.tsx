@@ -558,21 +558,6 @@ const DocumentationPage = React.memo(
                 </div>
               )}
 
-              {siteConfig.betaNotice ? (
-                <p
-                  className="doc-beta-banner mx-auto mb-4 max-w-6xl rounded-lg border px-4 py-3 text-sm"
-                  style={{
-                    borderColor: 'var(--border-unified)',
-                    backgroundColor: 'var(--card-color)',
-                    color: 'var(--muted-color)',
-                    fontFamily: 'var(--mono-font)',
-                  }}
-                  role="note"
-                >
-                  {siteConfig.betaNotice}
-                </p>
-              ) : null}
-
               {contentSlot ?? (
                 <ContentRenderer
                   content={content}
