@@ -6,7 +6,7 @@ Personal information removal without giving away your personal information. Encr
 
 ## User Guide
 
-- [Overview](/docs/user-guide/overview): Private cleanup agent for people-search listings, breach checks, and search suppression. **Nothing sends until you approve** the exact disclosure.
+- [Overview](/docs/user-guide/overview): > **Beta — experimental software.** Use at your own risk. Approvals are your responsibility; this is not legal or security advice.
 - [Templates](/docs/user-guide/templates): Pick the goal that matches your cleanup. Each template asks for different identifiers and follows the same supervised workflow: discover, review, approve, then record or send.
 
 ## Developers
@@ -14,13 +14,12 @@ Personal information removal without giving away your personal information. Encr
 - [Consumer API](/docs/developers/consumer-api): The Oblivion browser app and self-hosted integrations use `/api/*` with **case access tokens** — no user accounts.
 - [Partner API](/docs/developers/partner-api): Embed broker cleanup **without becoming a data custodian**. Raw identifiers stay in the **user's browser vault** (AES-256-GCM). Your servers get `caseId`, redacted labels, exposure URLs, and webhooks.
 - [Partner Onboarding](/docs/developers/partner-onboarding): 30-minute path to a working people-search integration.
-- [API Reference](/docs/developers/api-reference): The Oblivion partner API is documented in the integration guide and formalized in OpenAPI v1.
-- [OpenAPI Explorer](/docs/developers/openapi): This page is served by the interactive OpenAPI viewer at `/docs/developers/openapi`.
+- [API Reference](/docs/developers/api-reference): Machine-readable OpenAPI specs live outside the docs reader so guides stay uncluttered. Use the links below to download YAML or open an external explorer in a new tab.
 - [Hackathon Demo](/docs/developers/hackathon-demo): **3-minute judge walkthrough** for private identity cleanup: encrypted intake, explicit approvals, and crypto-native payment rails. Every integration demo runs behind the same safety gates — no checklist bypass.
 - [Trust & Security](/docs/developers/security): Oblivion minimizes trust surface area. Third-party services (brokers, search engines, breach checkers) may receive identifiers **only after you approve** a specific action.
 
 ## Legal
 
-- [Privacy](/docs/legal/privacy): <p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
-- [Terms](/docs/legal/terms): <p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+- [Privacy](/docs/legal/privacy): <p class="legal-last-updated"><strong>Last updated:</strong> June 9, 2026</p>
+- [Terms](/docs/legal/terms): <p class="legal-last-updated"><strong>Last updated:</strong> June 9, 2026</p>
 

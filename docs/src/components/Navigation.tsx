@@ -424,7 +424,7 @@ export default function Navigation({
                       fontFamily: 'var(--mono-font)',
                     }}
                   >
-                    <Icon icon="mingcute:brain-fill" className="w-5 h-5" />
+                    <Icon icon="mingcute:brain-fill" className="ui-utility-icon w-5 h-5" />
                     <span>show mind map</span>
                   </button>
                   <button

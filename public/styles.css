@@ -4915,6 +4915,30 @@ pre {
 
 /* Redesign v2: sparse command surface */
 .landing-lead { max-width: 42ch; color: var(--muted); }
+
+.beta-banner {
+  max-width: 48ch;
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--gb-1);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--gb-2) 72%, transparent);
+  color: var(--muted);
+  font-family: "Geist Pixel Square", monospace;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+}
+
+.beta-banner--footer {
+  max-width: none;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.68rem;
+  text-align: center;
+}
 .guide-rail {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

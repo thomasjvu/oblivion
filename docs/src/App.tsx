@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './providers/ThemeProvider';
 import { CommandPaletteProvider } from './providers/CommandPaletteProvider';
@@ -7,7 +6,6 @@ import DocsPage from './pages/DocsPage';
 import LLMSPage from './pages/LLMSPage';
 import NotFoundPage from './pages/NotFoundPage';
 
-const OpenApiPage = lazy(() => import('./pages/OpenApiPage'));
 import { homepageConfig, openapiConfig } from '../shared/documentation-config.js';
 import { DEFAULT_DOCUMENT_PATH } from './lib/navigation';
 import { buildDocsLandingPath } from '../shared/docsRouting.js';
@@ -29,16 +27,10 @@ export default function App() {
             path="/docs"
             element={<Navigate to={buildDocsLandingPath(DEFAULT_DOCUMENT_PATH)} replace />}
           />
-          {openapiConfig.enabled ? (
-            <Route
-              path={`/docs/${openapiConfig.pagePath}/:specId?`}
-              element={
-                <Suspense fallback={null}>
-                  <OpenApiPage />
-                </Suspense>
-              }
-            />
-          ) : null}
+          <Route
+            path={`/docs/${openapiConfig.pagePath}/:specId?`}
+            element={<Navigate to="/docs/developers/api-reference" replace />}
+          />
           <Route path="/docs/*" element={<DocsPage />} />
           <Route path="/llms" element={<LLMSPage />} />
           <Route path="*" element={<NotFoundPage />} />

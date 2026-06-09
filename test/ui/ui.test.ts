@@ -30,8 +30,10 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /skill\.sh/);
   assert.match(html, /setupLandingSkillInstall/);
   assert.match(html, /PERSONAL INFORMATION REMOVAL WITHOUT GIVING AWAY YOUR PERSONAL INFORMATION/);
-  assert.match(html, /id="partner-api"/);
-  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/developers\/partner-api"/);
+  assert.doesNotMatch(html, /id="partner-api"/);
+  assert.doesNotMatch(html, /Embed removal in your app/);
+  assert.match(html, /beta-banner/);
+  assert.match(html, /Beta — experimental software/);
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-send"/);
@@ -116,7 +118,6 @@ test("landing page links legal docs and skill install", async () => {
   assert.doesNotMatch(html, /\.landing-skill-inner\s*\{[^}]*border:/s);
   assert.doesNotMatch(html, /\.skill-install-panel\s*\{[^}]*border:/s);
   assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/user-guide\/overview"/);
-  assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/developers\/partner-api"/);
   assert.match(html, /href="https:\/\/oblivion-docs\.phantasy\.bot\/docs\/pricing"/);
   assert.match(html, /site-footer-external-link/);
   assert.match(html, /SKILL\.md/);

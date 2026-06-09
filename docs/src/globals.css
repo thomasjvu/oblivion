@@ -1170,6 +1170,23 @@ code {
   color: var(--text-color);
 }
 
+.ui-utility-icon {
+  color: var(--text-color);
+  transition:
+    color var(--transition-normal),
+    opacity var(--transition-normal);
+}
+
+.group:hover .ui-utility-icon,
+.ui-utility-icon:hover {
+  color: var(--primary-color);
+  opacity: 0.9;
+}
+
+.doc-beta-banner {
+  line-height: 1.45;
+}
+
 .openapi-reference-shell {
   min-height: 70vh;
 }

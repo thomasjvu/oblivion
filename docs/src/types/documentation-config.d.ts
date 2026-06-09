@@ -14,6 +14,7 @@ declare module '*/shared/documentation-config.js' {
       title: string;
       subtitle: string;
       description: string;
+      betaNotice?: string;
       artwork?: {
         src: string;
         alt: string;
@@ -71,6 +72,14 @@ declare module '*/shared/documentation-config.js' {
     specs: OpenApiSpecConfig[];
   }
 
+  export interface SiteConfig {
+    betaNotice: string;
+    sidebarBrand: {
+      subtitle: string | null;
+    };
+  }
+
+  export const siteConfig: SiteConfig;
   export const homepageConfig: HomepageConfig;
   export const documentationTree: FileItem[];
   export const versionConfig: VersionConfig;

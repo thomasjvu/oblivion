@@ -1107,12 +1107,12 @@ function saveLocalCases() {
     riskLevel: item.riskLevel,
     authorityBasis: item.authorityBasis,
     redactedScope: item.redactedScope,
-    updatedAt: item.updatedAt,
-    accessToken: getCaseToken(item.id) || item.accessToken
+    updatedAt: item.updatedAt
   }));
   localStorage.setItem("oblivion.caseSummaries", JSON.stringify(summaries));
-  for (const item of summaries) {
-    if (item.accessToken) setCaseToken(item.id, item.accessToken);
+  for (const item of state.cases) {
+    const token = getCaseToken(item.id) || item.accessToken;
+    if (token) setCaseToken(item.id, token);
   }
   if (state.currentCaseId) localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
 }
@@ -1123,7 +1123,7 @@ function loadLocalCases() {
     for (const item of summaries) {
       if (item.accessToken) setCaseToken(item.id, item.accessToken);
     }
-    return summaries;
+    return summaries.map(({ accessToken: _token, ...summary }) => summary);
   } catch {
     return [];
   }

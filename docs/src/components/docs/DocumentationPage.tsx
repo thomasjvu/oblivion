@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
+import { siteConfig } from '../../../shared/documentation-config.js';
 import { documentationTree } from '../../data/documentation';
 import { useCommandPalette } from '../../providers/CommandPaletteProvider';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -376,12 +377,14 @@ const DocumentationPage = React.memo(
                       P
                     </span>
                     <span className="min-w-0">
-                      <span
-                        className="block truncate text-sm uppercase tracking-[0.28em]"
-                        style={{ color: 'var(--muted-color)', fontFamily: 'var(--mono-font)' }}
-                      >
-                        Docs
-                      </span>
+                      {siteConfig.sidebarBrand.subtitle ? (
+                        <span
+                          className="block truncate text-sm uppercase tracking-[0.28em]"
+                          style={{ color: 'var(--muted-color)', fontFamily: 'var(--mono-font)' }}
+                        >
+                          {siteConfig.sidebarBrand.subtitle}
+                        </span>
+                      ) : null}
                       <span
                         className="block truncate text-lg font-black uppercase tracking-[0.18em]"
                         style={{ color: 'var(--text-color)', fontFamily: 'var(--mono-font)' }}
@@ -465,10 +468,7 @@ const DocumentationPage = React.memo(
                   type="button"
                 >
                   <span className="flex items-center gap-2">
-                    <Icon
-                      icon="mingcute:brain-fill"
-                      className="h-4 w-4 transition duration-150 group-hover:invert"
-                    />
+                    <Icon icon="mingcute:brain-fill" className="ui-utility-icon h-4 w-4" />
                     <span>
                       {isMobile ? 'Open map' : rightSidebarVisible ? 'Hide map' : 'Show map'}
                     </span>
@@ -557,6 +557,21 @@ const DocumentationPage = React.memo(
                   Loading {nextPathLabel || 'page'}...
                 </div>
               )}
+
+              {siteConfig.betaNotice ? (
+                <p
+                  className="doc-beta-banner mx-auto mb-4 max-w-6xl rounded-lg border px-4 py-3 text-sm"
+                  style={{
+                    borderColor: 'var(--border-unified)',
+                    backgroundColor: 'var(--card-color)',
+                    color: 'var(--muted-color)',
+                    fontFamily: 'var(--mono-font)',
+                  }}
+                  role="note"
+                >
+                  {siteConfig.betaNotice}
+                </p>
+              ) : null}
 
               {contentSlot ?? (
                 <ContentRenderer

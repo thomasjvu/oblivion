@@ -1,5 +1,7 @@
 # Oblivion — User Guide
 
+> **Beta — experimental software.** Use at your own risk. Approvals are your responsibility; this is not legal or security advice.
+
 Private cleanup agent for people-search listings, breach checks, and search suppression. **Nothing sends until you approve** the exact disclosure.
 
 **Building an app?** [Partner API](/docs/developers/partner-api) · **Choosing a template?** [Templates](/docs/user-guide/templates)

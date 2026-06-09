@@ -831,6 +831,20 @@ export const architectureTests: ArchitectureTestCase[] = [
     },
   },
   {
+    name: 'site config exposes beta notice and optional sidebar subtitle',
+    run: async () => {
+      const configSource = await readFile(
+        join(process.cwd(), 'shared/documentation-config.js'),
+        'utf8'
+      );
+
+      assert.match(configSource, /export const siteConfig/);
+      assert.match(configSource, /betaNotice/);
+      assert.match(configSource, /sidebarBrand/);
+      assert.doesNotMatch(configSource, /developers\/openapi',\s*\n\s*tags: \['openapi', 'reference', 'interactive'\]/);
+    },
+  },
+  {
     name: 'mermaid layout recenters html labels and strips stale Mermaid transforms',
     run: async () => {
       const layoutSource = await readFile(join(process.cwd(), 'src/utils/mermaidLayout.ts'), 'utf8');

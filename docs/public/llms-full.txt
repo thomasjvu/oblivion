@@ -12,6 +12,8 @@ URL: /docs/user-guide/overview
 
 # Oblivion — User Guide
 
+> **Beta — experimental software.** Use at your own risk. Approvals are your responsibility; this is not legal or security advice.
+
 Private cleanup agent for people-search listings, breach checks, and search suppression. **Nothing sends until you approve** the exact disclosure.
 
 **Building an app?** [Partner API](/docs/developers/partner-api) · **Choosing a template?** [Templates](/docs/user-guide/templates)
@@ -383,7 +385,7 @@ flowchart TB
   Agent --> WH
 ```
 
-[Onboarding runbook](/docs/developers/partner-onboarding) · [Interactive OpenAPI](/docs/developers/openapi) · [`openapi-v1.yaml`](openapi-v1.yaml)
+[Onboarding runbook](/docs/developers/partner-onboarding) · [API reference](/docs/developers/api-reference) · [`openapi-v1.yaml`](openapi-v1.yaml) · [Open in Swagger Editor](https://editor.swagger.io/?url=https://oblivion-docs.pages.dev/openapi-v1.yaml)
 
 **Consumer vs partner billing:** End users buy **wallet credits** via x402 ([Pricing](/docs/pricing)). Partners use a **separate API-key credit pool** metered per case, discovery, execute, and AI — no user wallet required.
 
@@ -589,50 +591,48 @@ Reference: [/examples/partner-demo/index.html](/examples/partner-demo/index.html
 URL: /docs/developers/api-reference
 
 ---
-title: Partner API Reference
-description: OpenAPI specification for Oblivion partner integrations.
+title: API Reference
+description: OpenAPI specifications for Oblivion consumer and partner integrations.
 ---
 
-# Partner API Reference
+# API Reference
 
-The Oblivion partner API is documented in the integration guide and formalized in OpenAPI v1.
+Machine-readable OpenAPI specs live outside the docs reader so guides stay uncluttered. Use the links below to download YAML or open an external explorer in a new tab.
+
+> **Beta software** — Oblivion is experimental. API shapes may change; integrate at your own risk.
 
 ## Resources
 
 - [Consumer API](/docs/developers/consumer-api) — case access tokens, `/api/*` auth
 - [Partner API guide](/docs/developers/partner-api) — auth, cases, webhooks, billing
 - [Partner onboarding](/docs/developers/partner-onboarding) — 30-minute design-partner checklist
-- [Interactive OpenAPI explorer](/docs/developers/openapi) — try endpoints and schemas in the browser
-- [OpenAPI v1 YAML](/openapi-v1.yaml) — machine-readable contract
 
-## Base URL
+## Download specs
 
-Production partner routes use `/v1/*` on your Oblivion deployment. Local development defaults to `http://localhost:8080`.
+| Spec | YAML |
+|------|------|
+| Partner API (`/v1/*`) | [`openapi-v1.yaml`](/openapi-v1.yaml) |
+| Consumer API (`/api/*`) | [`openapi-consumer.yaml`](/openapi-consumer.yaml) |
+
+The hosted app also mirrors partner YAML at `/docs/openapi-v1.yaml` for local demos.
+
+## Open in external explorer
+
+These open **Swagger Editor** in a new tab with the hosted spec URL:
+
+- [Partner API — open in Swagger Editor](https://editor.swagger.io/?url=https://oblivion-docs.pages.dev/openapi-v1.yaml)
+- [Consumer API — open in Swagger Editor](https://editor.swagger.io/?url=https://oblivion-docs.pages.dev/openapi-consumer.yaml)
+
+## Base URLs
+
+**Consumer** routes use `/api/*` on your deployment (browser app default).
+
+**Partner** routes use `/v1/*` with a partner API key:
 
 ```sh
 curl -sS -H "Authorization: Bearer obl_live_..." \
   http://localhost:8080/v1/partners/me
 ```
-
-## Local OpenAPI mirror
-
-The app also serves the same YAML at `/docs/openapi-v1.yaml` for partner demos that run against a local API server.
-
----
-
-
-### OpenAPI Explorer
-
-URL: /docs/developers/openapi
-
----
-title: Partner API Reference
-description: Interactive OpenAPI explorer for the Oblivion Partner API.
----
-
-# Partner API Reference
-
-This page is served by the interactive OpenAPI viewer at `/docs/developers/openapi`.
 
 ---
 
@@ -907,21 +907,27 @@ URL: /docs/legal/privacy
 
 # Privacy Policy
 
-<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+<p class="legal-last-updated"><strong>Last updated:</strong> June 9, 2026</p>
 
 </div>
 
 Oblivion is built so you can clean up your online footprint without handing your identity to us. This policy explains what we do — and deliberately do not do — with information when you use the Oblivion web app and related open-source materials.
 
+## Beta software
+
+Oblivion is **beta / experimental** software. We make no warranty that data handling, removal outcomes, or security controls will meet your expectations. Use at your own risk.
+
 ## Our core rule
 
-**We do not collect, sell, or profile your personal data.** Sensitive identifiers stay in your browser vault. The server stores only encrypted intake blobs and redacted case metadata needed to run supervised cleanup workflows.
+**We do not collect, sell, or profile your personal data for advertising.** Sensitive identifiers stay in your browser vault. The server stores only encrypted intake blobs and redacted case metadata needed to run supervised cleanup workflows.
 
 ## What stays on your device
 
 - Raw identifiers you enter (names, emails, URLs, notes) are encrypted in the browser before intake is sent.
 - Vault keys live in browser memory during a session; they are not written to our servers in plaintext.
-- Optional browser storage keeps redacted case summaries and the active case id so you can resume work locally.
+- **Case access tokens** returned when you create a case are stored in browser `localStorage` (`oblivion.caseTokens`) so the app can authenticate API requests. Treat your browser like a password manager — anyone with access to this device may access active cases.
+- **Device-local state** may also include: active case id, redacted case summaries, pasted discovery URL lists, UI preferences (sidebar, privacy filter, payment mode), and agent skill install metadata. Discovery URL lists may contain sensitive links you pasted for review.
+- When you delete a case in the app, server-side case data is purged. Local browser storage for that case (tokens, summaries, discovery lists) should be cleared by the client; you can also clear site data in your browser settings.
 
 ## What the server may store
 
@@ -929,9 +935,14 @@ When you create a case, the server keeps:
 
 - **Encrypted intake** (AES-256-GCM ciphertext your browser produced — we cannot read it without your key)
 - **Redacted metadata** (jurisdiction, risk level, authority basis, redacted scope labels — no raw PII)
+- **Access token hash** (one-way hash of your case access token — not the token itself)
 - **Workflow records** (approvals, timeline events, connector results, and execution logs — redacted)
+- **Wallet address** (if you connect a wallet for credits or Venice AI metering — used for a server-side credit ledger, not for marketing profiles)
+- **Retention** — cases default to a 90-day retention window unless you delete sooner
 
-When you delete a case, server-side case data is purged.
+Partner API integrations (B2B) use separate API-key auth; partner cases do not use consumer case access tokens on `/api/*`.
+
+When you delete a case, associated server-side records (intake, approvals, timeline, and related workflow data) are removed.
 
 ## What we do not do
 
@@ -943,7 +954,9 @@ When you delete a case, server-side case data is purged.
 
 ## Third-party services
 
-If you choose to connect a wallet, use MetaMask, or enable optional integrations (for example Venice, x402, or relayer demos), those providers operate under their own policies. Oblivion only sends **redacted** inputs across approval boundaries unless you explicitly approve a sensitive disclosure action.
+If you choose to connect a wallet, use MetaMask, or enable optional integrations (for example Venice AI, x402 payments, 1Shot relayer demos, or Phala attestation in production), those providers operate under their own policies. Oblivion only sends **redacted** inputs across approval boundaries unless you explicitly approve a sensitive disclosure action.
+
+Hosted deployments may use Cloudflare (UI/static assets) and Phala (TEE API runtime in production). Self-hosted copies follow your infrastructure policies.
 
 ## Logs
 
@@ -972,15 +985,19 @@ URL: /docs/legal/terms
 
 # Terms of Service
 
-<p class="legal-last-updated"><strong>Last updated:</strong> June 5, 2026</p>
+<p class="legal-last-updated"><strong>Last updated:</strong> June 9, 2026</p>
 
 </div>
 
 These terms govern your use of the Oblivion web application and related open-source materials. By using Oblivion, you agree to these terms.
 
+## Beta / experimental software
+
+Oblivion is **beta and experimental**. Features, APIs, connectors, and security controls may change or fail without notice. **You use Oblivion at your own risk.** We do not guarantee removal outcomes, uptime, data deletion by third parties, or freedom from security vulnerabilities.
+
 ## What Oblivion is
 
-Oblivion is a **supervised cleanup agent** that helps you discover exposure listings, draft opt-out requests, and pause for your approval before anything is sent externally. It is a tool, not a law firm, investigator, or guaranteed removal service.
+Oblivion is a **supervised cleanup agent** that helps you discover exposure listings, draft opt-out requests, and pause for your approval before anything is sent externally. It is a tool, not a law firm, investigator, or guaranteed removal service. **Nothing here is legal or security advice.**
 
 ## No data harvesting
 
@@ -994,24 +1011,29 @@ You agree that you will:
 - Review and approve disclosures before they leave the approval boundary
 - Use accurate jurisdiction and authority basis selections when starting a case
 - Comply with applicable law when requesting data removal or suppression
+- Protect case access tokens stored on your device (see [Privacy Policy](/docs/legal/privacy))
 
 You are responsible for decisions you approve in the app.
 
+## Case access tokens
+
+Consumer cases use browser-stored access tokens to call `/api/*`. **You are responsible for device security.** Anyone with access to your browser profile or `localStorage` may be able to act on your cases until you delete them or clear site data.
+
 ## No warranty
 
-Oblivion is provided **"as is"** without warranties of any kind. We do not guarantee that brokers, search engines, or other parties will honor removal requests, respond within a timeframe, or delete all copies of data.
+Oblivion is provided **"as is"** without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, or non-infringement. We do not guarantee that brokers, search engines, or other parties will honor removal requests, respond within a timeframe, or delete all copies of data.
 
 ## Limitation of liability
 
-To the fullest extent permitted by law, Oblivion contributors and operators are not liable for indirect, incidental, special, or consequential damages arising from your use of the service, including missed deadlines, rejected requests, or continued publication of information by third parties.
+To the fullest extent permitted by law, Oblivion contributors and operators are not liable for indirect, incidental, special, or consequential damages arising from your use of the service, including missed deadlines, rejected requests, continued publication of information by third parties, loss of tokens, or unauthorized use of an unlocked browser session.
 
 ## Approvals and automation
 
 Automated steps run only within policy gates. Sensitive connectors and external submissions require explicit approval. You may revoke wallet access or delete cases at any time.
 
-## Open source
+## Open source and self-hosting
 
-Source code is available under the repository license. You may inspect, self-host, or modify the software subject to that license. Self-hosted deployments are your responsibility.
+Source code is available under the repository license. You may inspect, self-host, or modify the software subject to that license. **Self-hosted deployments are your responsibility** — including secrets, backups, TLS, and compliance.
 
 ## Changes
 

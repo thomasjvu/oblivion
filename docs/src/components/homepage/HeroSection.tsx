@@ -9,6 +9,7 @@ interface HeroSectionProps {
     title: string;
     subtitle: string;
     description: string;
+    betaNotice?: string;
     artwork?: {
       src: string;
       alt: string;
@@ -88,6 +89,25 @@ export function HeroSection({ hero }: HeroSectionProps) {
           >
             {hero.description}
           </motion.p>
+
+          {hero.betaNotice ? (
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mx-auto mb-8 max-w-2xl rounded-lg border px-4 py-3 text-left text-sm"
+              style={{
+                borderColor: 'var(--border-unified)',
+                backgroundColor: 'var(--card-color)',
+                color: 'var(--muted-color)',
+                fontFamily: 'var(--mono-font)',
+                lineHeight: 'var(--leading-relaxed)',
+              }}
+              role="note"
+            >
+              {hero.betaNotice}
+            </motion.p>
+          ) : null}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

@@ -20,9 +20,18 @@ export const i18nConfig = {
   locales: ['en'],
 };
 
+/** @type {{ betaNotice: string, sidebarBrand: { subtitle: string | null } }} */
+export const siteConfig = {
+  betaNotice:
+    'Beta — experimental software. Use at your own risk. Approvals are your responsibility; this is not legal or security advice.',
+  sidebarBrand: {
+    subtitle: null,
+  },
+};
+
 /** @type {import('./documentation-config.js').OpenApiConfig} */
 export const openapiConfig = {
-  enabled: true,
+  enabled: false,
   pagePath: 'developers/openapi',
   defaultSpecId: 'partner',
   specs: [
@@ -49,6 +58,7 @@ export const homepageConfig = {
     subtitle: 'Private cleanup agent',
     description:
       'Personal information removal without giving away your personal information. Encrypted in the browser. Every disclosure stops at an explicit approval gate.',
+    betaNotice: siteConfig.betaNotice,
     artwork: {
       src: '/images/docs/placeholders/template-hero-banner.svg',
       alt: 'Oblivion documentation hero placeholder',
@@ -175,12 +185,6 @@ export const documentationTree = [
         name: 'API Reference.md',
         path: 'developers/api-reference',
         tags: ['openapi', 'reference'],
-      },
-      {
-        type: 'file',
-        name: 'OpenAPI Explorer.md',
-        path: 'developers/openapi',
-        tags: ['openapi', 'reference', 'interactive'],
       },
       {
         type: 'file',
