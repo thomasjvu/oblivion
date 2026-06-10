@@ -694,11 +694,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 
 .site-footer {
   flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 20px;
+  display: grid;
+  gap: 8px;
   padding: 14px var(--shell-pad);
   border-top: 2px solid var(--gb-1);
   background: var(--gb-0);
@@ -706,11 +703,30 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   font-size: 0.92rem;
 }
 
+.site-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  width: 100%;
+}
+
+.site-footer-meta .beta-banner--footer {
+  margin: 0;
+  text-align: left;
+}
+
+.site-footer-copy {
+  margin: 0;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 .workspace-footer {
   padding: 8px var(--shell-pad);
   margin-top: 14px;
   margin-bottom: 6px;
-  gap: 8px 14px;
+  gap: 6px;
   font-size: 0.8rem;
   border-top: 0;
 }
@@ -752,10 +768,6 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 .workspace-footer .site-footer-link iconify-icon {
   width: 1.5rem;
   height: 1.5rem;
-}
-
-.site-footer-copy {
-  margin: 0;
 }
 
 .site-footer-legal {
@@ -1192,6 +1204,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 
 .landing > .workspace-footer {
   margin-top: auto;
+  width: 100%;
+  padding-inline: var(--landing-pad);
 }
 
 .landing-hero.landing-hero-minimal {
@@ -1214,15 +1228,16 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 .landing-skill {
   max-width: none;
   margin: 0;
-  padding: 0 var(--landing-pad) 24px;
+  padding: 0 0 24px;
+  width: 100%;
 }
 
 .landing-skill-inner {
   background: rgba(15, 56, 15, 0.42);
-  padding: 16px 0;
-  width: var(--landing-content-max);
-  max-width: 100%;
-  margin-inline: auto;
+  padding: 16px var(--landing-pad);
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
 }
 
 .landing-skill-copy h3 {
@@ -1241,7 +1256,7 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 
 .skill-install-tabs-wrap {
   display: grid;
-  gap: 0;
+  gap: 2px;
 }
 
 .skill-install-tabs {
@@ -1313,6 +1328,18 @@ button.skill-install-tab {
   font-size: clamp(0.78rem, 1.6vw, 0.88rem);
   line-height: 1.5;
   color: var(--gb-3);
+}
+
+.skill-install-command--prompt {
+  align-items: flex-start;
+  min-height: 9rem;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.skill-install-command--prompt .skill-copy-btn {
+  top: 12px;
+  transform: none;
 }
 
 .skill-install-command .skill-copy-btn {
@@ -2397,6 +2424,16 @@ summary {
   margin: 10px 0 4px;
   font-size: 0.82rem;
   line-height: 1.35;
+}
+
+.onboarding-preview-action {
+  justify-self: start;
+  margin: 0 0 10px;
+}
+
+.onboarding-intake-full {
+  display: grid;
+  gap: 0;
 }
 
 .pre-search-panel {
@@ -4965,12 +5002,19 @@ pre {
 
 .beta-banner--footer {
   max-width: none;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: none;
   font-size: 0.68rem;
-  text-align: center;
+  text-align: left;
+}
+
+@media (max-width: 1199px) {
+  .beta-banner--footer .beta-banner-risk,
+  .site-footer-rights {
+    display: none;
+  }
 }
 .guide-rail {
   display: grid;

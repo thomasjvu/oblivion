@@ -35,7 +35,10 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.doesNotMatch(html, /id="partner-api"/);
   assert.doesNotMatch(html, /Embed removal in your app/);
   assert.match(html, /beta-banner--footer/);
-  assert.match(html, /Beta — experimental software\. Use at your own risk\./);
+  assert.match(html, /Beta — experimental software\./);
+  assert.match(html, /beta-banner-risk/);
+  assert.match(html, /site-footer-rights/);
+  assert.doesNotMatch(html, /site-footer-legal[^]*Developers/s);
   assert.doesNotMatch(html, /Approvals are your responsibility/);
   assert.doesNotMatch(html, /Portable cleanup workflow for Cursor/);
   assert.match(html, /View SKILL\.md/);
@@ -44,7 +47,8 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /data-testid="landing-trust-line"/);
   assert.match(html, /E2EE.*TEE-SECURE.*100% Private/);
   assert.doesNotMatch(html, /id="landing-preset-starters"/);
-  assert.match(html, /submitLandingIntake/);
+  assert.match(html, /startFromLanding/);
+  assert.doesNotMatch(html, /id="landing-preview-panel"/);
   assert.match(html, /pixelarticons/);
   assert.match(html, /bindIcons/);
   assert.match(html, /cinematic-hero/);  // new cinematic landing
@@ -82,6 +86,8 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /toggleWalletModal/);
   assert.match(html, /connect-wallet-primary/);
   assert.match(html, /site-footer/);
+  assert.match(html, /site-footer-row site-footer-meta/);
+  assert.match(html, /site-footer-row site-footer-nav/);
   assert.match(html, /\/fonts\/GeistPixel-Square\.woff2/);
   assert.match(html, /font-family: "Geist Pixel Square"/);
   assert.match(html, /data-testid="delete-case-modal"/);
@@ -126,6 +132,8 @@ test("landing page links legal docs and skill install", async () => {
   assert.match(html, /id="install-skill"/);
   assert.match(html, /data-testid="skill-install-tab-npx"/);
   assert.match(html, /data-testid="skill-install-tab-curl"/);
+  assert.match(html, /data-testid="skill-install-tab-prompt"/);
+  assert.match(html, /skillInstallAgentPrompt/);
   assert.match(html, /setSkillInstallTab/);
   assert.doesNotMatch(html, /\.landing-skill-inner\s*\{[^}]*border:/s);
   assert.doesNotMatch(html, /\.skill-install-panel\s*\{[^}]*border:/s);
@@ -200,8 +208,9 @@ test("dashboard uses visual preset-led cleanup command center", async () => {
   assert.match(html, /revealRouteTab/);
   assert.match(html, /id="preset-grid"/);
   assert.match(html, /onboarding-agent-panel/);
-  assert.match(html, /data-testid="run-preview-search"/);
-  assert.match(html, /runPreliminarySearch/);
+  assert.match(html, /data-testid="onboarding-check-listings"/);
+  assert.match(html, /runOnboardingPreview/);
+  assert.match(html, /onboarding-intake-full/);
   assert.doesNotMatch(html, /Your cleanup/);
   assert.match(html, /preset-chip/);
   assert.match(html, /startSimpleCleanup/);

@@ -129,6 +129,7 @@ const state = {
   walletModalOpen: false,
   deleteConfirmCaseId: "",
   preSearchReady: false,
+  onboardingPreviewReady: false,
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
   agentVoiceEnabled: isAgentVoiceEnabled(),
   sessionHandoffWarning: "",
@@ -260,12 +261,21 @@ function setSkillInstallTab(tabId) {
   });
 }
 
+function skillInstallAgentPrompt() {
+  return "Install the Oblivion clean-online-identity skill: npx skills add thomasjvu/oblivion --skill clean-online-identity";
+}
+
 function setupLandingSkillInstall() {
   const origin = window.location.origin;
   const curl = $("#skill-install-curl");
   if (curl) {
     const code = curl.querySelector("code");
     if (code) code.textContent = `curl -fsSL ${origin}/skill.sh | bash`;
+  }
+  const prompt = $("#skill-install-prompt");
+  if (prompt) {
+    const code = prompt.querySelector("code");
+    if (code) code.textContent = skillInstallAgentPrompt();
   }
   document.querySelectorAll("[data-skill-install-tab]").forEach((tab) => {
     tab.addEventListener("click", () => setSkillInstallTab(tab.dataset.skillInstallTab));
@@ -374,26 +384,28 @@ function selectPresetId(presetId) {
   if (risk) risk.value = defaults.riskLevel;
 }
 
-function applyLandingIntakeText(text) {
-  const trimmed = String(text || "").trim();
-  if (!trimmed) return;
+function startFromLanding() {
+  const text = $("#landing-input")?.value?.trim();
   openNewCaseFlow();
-  const parsed = parseIntakeForCase(trimmed);
-  const presetId = "people-search-cleanup";
-  selectPresetId(presetId);
-  const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
-  const name = parsed.personLabel !== "Private case" ? parsed.personLabel : "";
-  if ($("#simple-name")) $("#simple-name").value = name;
-  if ($("#simple-urls")) $("#simple-urls").value = urlsFromText(trimmed).join("\n");
-  syncSimpleFormToLegacyFields({
-    intakeText: parsed.intakeText,
-    personLabel: parsed.personLabel,
-    pastedUrls: urlsFromText(trimmed),
-    jurisdiction: parsed.jurisdiction,
-    authorityBasis: parsed.authorityBasis,
-    riskLevel: defaults.riskLevel
-  });
-  renderIntakeInferencePreview();
+  if (text) {
+    if ($("#simple-name")) $("#simple-name").value = text;
+    const parsed = parseIntakeForCase(text);
+    const presetId = "people-search-cleanup";
+    selectPresetId(presetId);
+    const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
+    const name = parsed.personLabel !== "Private case" ? parsed.personLabel : text;
+    syncSimpleFormToLegacyFields({
+      intakeText: parsed.intakeText,
+      personLabel: name,
+      pastedUrls: urlsFromText(text),
+      jurisdiction: parsed.jurisdiction,
+      authorityBasis: parsed.authorityBasis,
+      riskLevel: defaults.riskLevel
+    });
+    renderIntakeInferencePreview();
+  }
+  if ($("#landing-input")) $("#landing-input").value = "";
+  updateLandingSendState();
   render();
   focusIntake();
 }
@@ -1197,6 +1209,7 @@ async function loadCase(caseId, options = {}) {
     if (!options.silent) write(loaded);
     await refreshAgentPlan({ silent: true }).catch(() => {});
     await refreshHackathon({ silent: true }).catch(() => {});
+    state.onboardingPreviewReady = false;
     if (state.currentStatus && !caseIsActivated()) {
       state.preSearchReady = false;
       resetPreSearchUi();
@@ -1290,6 +1303,7 @@ function openNewCaseFlow() {
   state.showRouteTab = false;
   state.casesPanelOpen = false;
   resetPreSearchUi();
+  state.onboardingPreviewReady = false;
   localStorage.removeItem("oblivion.currentCaseId");
   ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
     const field = $(`#${id}`);
@@ -2384,12 +2398,23 @@ function syncPaymentPlanFromForm() {
   if (selected?.value) selectPaymentMode(selected.value);
 }
 
+function renderOnboardingSteps() {
+  const hasCase = Boolean(state.currentCaseId && currentCase());
+  const previewStep = state.appOpen && !hasCase && !state.onboardingPreviewReady;
+  const fullStep = state.appOpen && !hasCase && state.onboardingPreviewReady;
+  $("#onboarding-intake-full")?.toggleAttribute("hidden", !fullStep);
+  $("#onboarding-check-listings")?.toggleAttribute("hidden", !previewStep);
+  $("#start-cleanup")?.toggleAttribute("hidden", !fullStep);
+}
+
 function renderOnboardingPayment() {
   const panel = $("#onboarding-payment");
   if (!panel) return;
   const hasCase = Boolean(state.currentCaseId && currentCase() && state.currentStatus);
-  const showOnboarding = state.appOpen && (!hasCase || !caseIsActivated() || state.preSearchReady);
-  panel.hidden = !showOnboarding;
+  const showPayment = hasCase
+    ? state.appOpen && (!caseIsActivated() || state.preSearchReady)
+    : state.appOpen && state.onboardingPreviewReady;
+  panel.hidden = !showPayment;
   selectPaymentMode(state.selectedPaymentMode);
   const oneOff = state.products.find((item) => item.id === "credit-starter");
   const subscription = state.products.find((item) => item.id === "credit-monitor");
@@ -2749,6 +2774,7 @@ function render() {
   renderWalletCommandStrip();
   renderIntakeInferencePreview();
   renderDashboard();
+  renderOnboardingSteps();
   renderOnboardingPayment();
   renderSubscriptionUpsell();
   renderFindings();
@@ -2785,21 +2811,21 @@ function updateLandingSendState() {
   const send = $("#landing-send");
   if (!input || !send) return;
   const hasText = Boolean(input.value.trim());
-  send.disabled = !hasText;
+  send.disabled = false;
   send.classList.toggle("send-ready", hasText);
-  send.setAttribute("aria-disabled", hasText ? "false" : "true");
+  send.setAttribute("aria-disabled", "false");
 }
 
-function renderLandingPreview(candidates, message) {
-  const panel = $("#landing-preview-panel");
-  const list = $("#landing-preview-results");
-  const status = $("#landing-preview-status");
-  if (!panel || !list || !status) return;
+function renderBrokerPreviewResults(candidates, message) {
+  const panel = $("#pre-search-panel");
+  const list = $("#pre-search-results");
+  const preStatus = $("#pre-search-status");
+  if (!panel || !list || !preStatus) return;
   panel.hidden = false;
-  status.textContent = message;
+  preStatus.textContent = message;
   const rows = (candidates || []).slice(0, 12);
   if (!rows.length) {
-    list.innerHTML = `<li class="muted">No broker listings matched yet. Start full cleanup for Venice-scored discovery.</li>`;
+    list.innerHTML = `<li class="muted">No broker listings matched yet. Continue to start full cleanup with Venice-scored discovery.</li>`;
     return;
   }
   list.innerHTML = rows
@@ -2811,55 +2837,48 @@ function renderLandingPreview(candidates, message) {
     .join("");
 }
 
-async function runLandingPreview(personLabel) {
-  const status = $("#landing-preview-status");
-  const panel = $("#landing-preview-panel");
-  if (panel) panel.hidden = false;
-  if (status) status.textContent = "Checking people-search brokers…";
-  const result = await request("/api/discovery/preview", {
-    method: "POST",
-    body: {
-      personLabel,
-      walletAddress: state.walletAddress || undefined
-    }
-  });
-  const remaining = result.remainingPreviews ?? 0;
-  const message =
-    result.candidates?.length
-      ? `Preview found ${result.candidates.length} possible listing(s). ${remaining} free preview(s) left today.`
-      : `No broker hits in preview. ${remaining} free preview(s) left today — full cleanup uses Venice scoring.`;
-  renderLandingPreview(result.candidates, message);
-  return result;
-}
-
-async function submitLandingIntake() {
-  const text = $("#landing-input")?.value?.trim();
-  if (!text) {
-    updateLandingSendState();
+async function runOnboardingPreview() {
+  const name = $("#simple-name")?.value?.trim();
+  if (!name) {
+    pulseFocusField($("#simple-name"));
     return;
   }
-  state.landingPreviewName = text;
-  updateLandingSendState();
+  const preStatus = $("#pre-search-status");
+  const statusEl = $("#simple-start-status");
+  const btn = $("#onboarding-check-listings");
+  if (preStatus) preStatus.textContent = "Checking people-search brokers…";
+  $("#pre-search-panel")?.removeAttribute("hidden");
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = "";
   try {
-    await runLandingPreview(text);
+    const result = await request("/api/discovery/preview", {
+      method: "POST",
+      body: {
+        personLabel: name,
+        walletAddress: state.walletAddress || undefined
+      }
+    });
+    const quotaNote =
+      result.dailyLimit > 0
+        ? ` ${result.remainingPreviews ?? 0} free preview(s) left today.`
+        : "";
+    const message =
+      result.candidates?.length
+        ? `Preview found ${result.candidates.length} possible listing(s).${quotaNote}`
+        : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}`;
+    renderBrokerPreviewResults(result.candidates, message);
+    state.onboardingPreviewReady = true;
+    addChat("agent", "Listings preview complete. Finish the form below and buy credits to start cleanup.");
+    render();
+    $("#onboarding-intake-full")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   } catch (error) {
-    const status = $("#landing-preview-status");
-    if (status) {
-      status.textContent = error?.message || "Preview unavailable. Try again or start full cleanup.";
+    if (preStatus) {
+      preStatus.textContent = error?.message || "Preview unavailable. Try again.";
     }
     write(error);
+  } finally {
+    if (btn) btn.disabled = false;
   }
-}
-
-async function startLandingFullCleanup() {
-  const text = state.landingPreviewName || $("#landing-input")?.value?.trim();
-  if (!text) {
-    pulseFocusField($("#landing-input"));
-    return;
-  }
-  $("#landing-input").value = "";
-  updateLandingSendState();
-  applyLandingIntakeText(text);
 }
 
 const request = apiRequest;
@@ -3106,12 +3125,15 @@ async function startSimpleCleanup() {
     const parsed = readSimpleIntakeForm();
     syncSimpleFormToLegacyFields(parsed);
     selectPresetId(parsed.presetId);
-    const previewFirst = Boolean($("#run-preview-search")?.checked);
+    if (!state.onboardingPreviewReady && !state.currentCaseId) {
+      await runOnboardingPreview();
+      return;
+    }
     if (!state.walletAddress) {
       if (statusEl) statusEl.textContent = "Connect MetaMask to start…";
       await connectWallet({ openHub: false });
     }
-    if (statusEl) statusEl.textContent = previewFirst ? "Creating case…" : "Starting…";
+    if (statusEl) statusEl.textContent = "Creating case…";
     await createCase({
       parsed: {
         intakeText: parsed.intakeText,
@@ -3124,12 +3146,8 @@ async function startSimpleCleanup() {
       },
       presetId: parsed.presetId,
       pastedUrls: parsed.pastedUrls,
-      autoStartRoute: !previewFirst
+      autoStartRoute: true
     });
-    if (previewFirst) {
-      await runPreliminarySearch(parsed);
-      return;
-    }
     if (statusEl) statusEl.textContent = "";
     $("#dashboard-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
@@ -4077,10 +4095,15 @@ async function agentAutopilot(options = {}) {
 }
 
 $("#start-cleanup")?.addEventListener("click", () => startSimpleCleanup().catch(write));
+$("#onboarding-check-listings")?.addEventListener("click", () => runOnboardingPreview().catch(write));
 $("#simple-name")?.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    startSimpleCleanup().catch(write);
+    if (!state.onboardingPreviewReady && !state.currentCaseId) {
+      runOnboardingPreview().catch(write);
+    } else {
+      startSimpleCleanup().catch(write);
+    }
   }
 });
 document.querySelectorAll(".preset-chip").forEach((chip) => {
@@ -4131,14 +4154,12 @@ function backToLanding() {
 
 $("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
 
-$("#landing-send")?.addEventListener("click", () => submitLandingIntake().catch(write));
-$("#landing-start-cleanup")?.addEventListener("click", () => startLandingFullCleanup().catch(write));
-$("#landing-preview-again")?.addEventListener("click", () => submitLandingIntake().catch(write));
+$("#landing-send")?.addEventListener("click", () => startFromLanding());
 $("#landing-input")?.addEventListener("input", updateLandingSendState);
 $("#landing-input")?.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    submitLandingIntake().catch(write);
+    startFromLanding();
   }
 });
 $("#toolbar-home")?.addEventListener("click", backToLanding);

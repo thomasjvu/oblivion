@@ -11,8 +11,13 @@ import type { RedactedScope } from "./types.js";
 import { walletKeyFromAddress } from "./credits.js";
 
 export function previewDailyLimit(): number {
-  const raw = Number(process.env.OBLIVION_PREVIEW_DAILY_LIMIT || "3");
-  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 20) : 3;
+  const raw = Number(process.env.OBLIVION_PREVIEW_DAILY_LIMIT ?? "0");
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(Math.floor(raw), 20);
+}
+
+export function previewQuotaEnabled(): boolean {
+  return previewDailyLimit() > 0;
 }
 
 function usageDay(): string {
@@ -26,16 +31,24 @@ function usageKey(ip: string, walletAddress?: string): string {
   return `ip:${ip || "unknown"}`;
 }
 
-export function previewUsageRemaining(store: MemoryStore, ip: string, walletAddress?: string): number {
+export function previewUsageRemaining(
+  store: MemoryStore,
+  ip: string,
+  walletAddress?: string
+): number | null {
+  const limit = previewDailyLimit();
+  if (!limit) return null;
   const key = usageKey(ip, walletAddress);
   const entry = store.discoveryPreviewUsage.get(key);
   const today = usageDay();
-  if (!entry || entry.day !== today) return previewDailyLimit();
-  return Math.max(0, previewDailyLimit() - entry.count);
+  if (!entry || entry.day !== today) return limit;
+  return Math.max(0, limit - entry.count);
 }
 
 export function assertPreviewQuota(store: MemoryStore, ip: string, walletAddress?: string): void {
-  if (previewUsageRemaining(store, ip, walletAddress) <= 0) {
+  if (!previewQuotaEnabled()) return;
+  const remaining = previewUsageRemaining(store, ip, walletAddress);
+  if (remaining !== null && remaining <= 0) {
     throw Object.assign(new Error("preview-quota-exceeded"), {
       statusCode: 429,
       code: "preview-quota-exceeded",
@@ -44,13 +57,19 @@ export function assertPreviewQuota(store: MemoryStore, ip: string, walletAddress
   }
 }
 
-export function recordPreviewUsage(store: MemoryStore, ip: string, walletAddress?: string): number {
+export function recordPreviewUsage(
+  store: MemoryStore,
+  ip: string,
+  walletAddress?: string
+): number | null {
+  if (!previewQuotaEnabled()) return null;
+  const limit = previewDailyLimit();
   const key = usageKey(ip, walletAddress);
   const today = usageDay();
   const entry = store.discoveryPreviewUsage.get(key);
   const count = entry?.day === today ? entry.count + 1 : 1;
   store.discoveryPreviewUsage.set(key, { day: today, count });
-  return Math.max(0, previewDailyLimit() - count);
+  return Math.max(0, limit - count);
 }
 
 function heuristicPreviewScore(candidate: DiscoveryCandidate, scope: RedactedScope): "likely" | "uncertain" | "unlikely" {

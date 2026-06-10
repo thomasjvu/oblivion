@@ -21,6 +21,7 @@ services:
       - OBLIVION_STORE_PATH=/data/oblivion.json
       - OBLIVION_PUBLIC_API_URL=https://3a522af6627d93bb480ba7bd39d375a1535aefa8-8080.dstack-pha-prod5.phala.network
       - OBLIVION_CORS_ORIGIN=https://oblivion.phantasy.bot
+      - OBLIVION_PREVIEW_DAILY_LIMIT=0
       - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
       - BRAVE_SEARCH_BASE_URL=${BRAVE_SEARCH_BASE_URL:-}
       - BRAVE_SEARCH_COUNT=${BRAVE_SEARCH_COUNT:-}

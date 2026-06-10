@@ -7,15 +7,6 @@ function apiOrigin(env: Env): string {
   return env.OBLIVION_API_ORIGIN?.trim().replace(/\/$/, "") || "";
 }
 
-function injectApiOrigin(html: string, origin: string): string {
-  if (!origin) return html;
-  const escaped = origin.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-  return html.replace(
-    'window.OBLIVION_API_ORIGIN = "";',
-    `window.OBLIVION_API_ORIGIN = '${escaped}';`
-  );
-}
-
 async function proxyApiRequest(request: Request, env: Env): Promise<Response> {
   const origin = apiOrigin(env);
   if (!origin) {
@@ -52,9 +43,7 @@ export default {
 
     if (url.pathname === "/" || url.pathname === "/index.html") {
       const asset = await env.ASSETS.fetch(new URL("/index.html", request.url));
-      const html = await asset.text();
-      const body = injectApiOrigin(html, apiOrigin(env));
-      return new Response(body, {
+      return new Response(asset.body, {
         status: asset.status,
         headers: {
           "content-type": "text/html; charset=utf-8",

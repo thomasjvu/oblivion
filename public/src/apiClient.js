@@ -98,11 +98,22 @@ export async function apiRequest(path, options = {}) {
   return json;
 }
 
+function sameBrowserOrigin(origin) {
+  if (typeof window === "undefined" || !origin) return false;
+  try {
+    return new URL(origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 export async function loadApiConfig() {
   try {
     const config = await apiRequest("/api/config");
     if (config.apiOrigin && !window.OBLIVION_API_ORIGIN) {
-      cachedApiOrigin = String(config.apiOrigin).replace(/\/$/, "");
+      const origin = String(config.apiOrigin).replace(/\/$/, "");
+      // Cross-origin apiOrigin is for webhooks/partners; hosted UI uses same-origin /api/* proxy.
+      if (sameBrowserOrigin(origin)) cachedApiOrigin = origin;
     }
     return config;
   } catch {

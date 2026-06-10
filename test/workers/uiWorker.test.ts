@@ -11,5 +11,6 @@ test("cloudflare worker proxies /api to configured backend", async () => {
 
   assert.match(source, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(source, /proxyApiRequest/);
+  assert.doesNotMatch(source, /injectApiOrigin/);
   assert.match(wrangler, /run_worker_first = true/);
 });

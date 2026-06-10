@@ -35,17 +35,9 @@
               <div class="landing-chat" id="landing-chat">
                 <div class="composer landing-composer">
                   <input id="landing-input" data-testid="landing-input" placeholder="Enter your name" aria-label="Enter your name" />
-                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
+                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Get started"><span class="btn-label">Start</span></button>
                 </div>
                 <p class="landing-trust-line" id="landing-trust-line" data-testid="landing-trust-line" aria-label="Privacy guarantees">E2EE <span aria-hidden="true">·</span> TEE-SECURE <span aria-hidden="true">·</span> 100% Private</p>
-                <div class="landing-preview-panel" id="landing-preview-panel" hidden data-testid="landing-preview-panel">
-                  <p class="muted small" id="landing-preview-status" aria-live="polite"></p>
-                  <ul class="landing-preview-results" id="landing-preview-results"></ul>
-                  <div class="landing-preview-actions">
-                    <button type="button" class="secondary compact" id="landing-preview-again" data-testid="landing-preview-again">Check again</button>
-                    <button type="button" id="landing-start-cleanup" data-testid="landing-start-cleanup" data-icon="arrow-right"><span class="btn-label">Start full cleanup</span></button>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -59,6 +51,7 @@
               <div class="skill-install-tabs" role="tablist" aria-label="Skill install methods">
                 <button type="button" class="skill-install-tab active" role="tab" id="skill-install-tab-npx" aria-selected="true" aria-controls="skill-install-panel-npx" data-skill-install-tab="npx" data-testid="skill-install-tab-npx">skills.sh</button>
                 <button type="button" class="skill-install-tab" role="tab" id="skill-install-tab-curl" aria-selected="false" aria-controls="skill-install-panel-curl" data-skill-install-tab="curl" data-testid="skill-install-tab-curl">curl installer</button>
+                <button type="button" class="skill-install-tab" role="tab" id="skill-install-tab-prompt" aria-selected="false" aria-controls="skill-install-panel-prompt" data-skill-install-tab="prompt" data-testid="skill-install-tab-prompt">agent prompt</button>
               </div>
               <div class="skill-install-panels">
                 <div class="skill-install-panel active" role="tabpanel" id="skill-install-panel-npx" aria-labelledby="skill-install-tab-npx" data-skill-install-panel="npx">
@@ -66,6 +59,9 @@
                 </div>
                 <div class="skill-install-panel" role="tabpanel" id="skill-install-panel-curl" aria-labelledby="skill-install-tab-curl" data-skill-install-panel="curl" hidden>
                   <pre class="skill-install-command" id="skill-install-curl"><code>curl -fsSL /skill.sh | bash</code><button type="button" class="compact icon-only skill-copy-btn" data-copy-target="skill-install-curl" data-icon="copy" aria-label="Copy curl install command"><span class="visually-hidden">Copy</span></button></pre>
+                </div>
+                <div class="skill-install-panel" role="tabpanel" id="skill-install-panel-prompt" aria-labelledby="skill-install-tab-prompt" data-skill-install-panel="prompt" hidden>
+                  <pre class="skill-install-command" id="skill-install-prompt"><code>Install the Oblivion clean-online-identity skill: npx skills add thomasjvu/oblivion --skill clean-online-identity</code><button type="button" class="compact icon-only skill-copy-btn" data-copy-target="skill-install-prompt" data-icon="copy" aria-label="Copy agent install prompt"><span class="visually-hidden">Copy</span></button></pre>
                 </div>
               </div>
             </div>
@@ -77,20 +73,23 @@
           </div>
         </section>
         <footer class="site-footer workspace-footer" id="landing-footer">
-          <p class="beta-banner beta-banner--footer" role="note">Beta — experimental software. Use at your own risk.</p>
-          <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
-          <nav class="site-footer-legal" aria-label="Help and legal">
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/user-guide/overview">Guide</a>
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/developers/partner-api">Developers</a>
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/pricing">Pricing</a>
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/privacy">Privacy</a>
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/terms">Terms</a>
-            <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
-          </nav>
-          <nav class="site-footer-social" aria-label="Social links">
-            <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
-            <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
-          </nav>
+          <div class="site-footer-row site-footer-meta">
+            <p class="beta-banner beta-banner--footer" role="note">Beta — experimental software.<span class="beta-banner-risk"> Use at your own risk.</span></p>
+            <p class="site-footer-copy">© 2026 Oblivion.<span class="site-footer-rights"> All rights reserved.</span></p>
+          </div>
+          <div class="site-footer-row site-footer-nav">
+            <nav class="site-footer-legal" aria-label="Help and legal">
+              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/user-guide/overview">Guide</a>
+              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/pricing">Pricing</a>
+              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/privacy">Privacy</a>
+              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/terms">Terms</a>
+              <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
+            </nav>
+            <nav class="site-footer-social" aria-label="Social links">
+              <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
+              <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
+            </nav>
+          </div>
         </footer>
       </section>
 
@@ -180,6 +179,12 @@
                   <span>Your name</span>
                   <input id="simple-name" data-testid="simple-name" type="text" autocomplete="name" placeholder="John Smith" />
                 </label>
+                <button type="button" class="secondary compact onboarding-preview-action" id="onboarding-check-listings" data-testid="onboarding-check-listings" data-icon="search">Check listings</button>
+                <section class="pre-search-panel" id="pre-search-panel" data-testid="pre-search-panel" hidden aria-live="polite">
+                  <p class="muted small pre-search-status" id="pre-search-status"></p>
+                  <ul class="pre-search-results" id="pre-search-results"></ul>
+                </section>
+                <div class="onboarding-intake-full" id="onboarding-intake-full" hidden>
                 <label class="simple-field">
                   <span>Also known as <em class="muted">(optional)</em></span>
                   <input id="simple-alias" data-testid="simple-alias" type="text" placeholder="J. Smith" />
@@ -188,7 +193,6 @@
                   <span>State or region <em class="muted">(optional)</em></span>
                   <input id="simple-region" data-testid="simple-region" type="text" placeholder="New York" />
                 </label>
-              </div>
               <div class="simple-preset-row" id="simple-preset-row" aria-label="Cleanup template">
                 <button type="button" class="preset-chip active" data-preset-id="people-search-cleanup" data-testid="preset-people">People-search</button>
                 <button type="button" class="preset-chip" data-preset-id="search-result-suppression" data-testid="preset-google">Google</button>
@@ -230,15 +234,8 @@
                 </div>
                 <p class="muted small onboarding-payment-status" id="onboarding-payment-status" aria-live="polite"></p>
               </section>
-              <label class="checkbox-row simple-preview-search">
-                <input type="checkbox" id="run-preview-search" data-testid="run-preview-search" checked />
-                Search for my exposure online before starting cleanup
-              </label>
-              <section class="pre-search-panel" id="pre-search-panel" data-testid="pre-search-panel" hidden aria-live="polite">
-                <p class="muted small pre-search-status" id="pre-search-status"></p>
-                <ul class="pre-search-results" id="pre-search-results"></ul>
-              </section>
-              <button type="button" id="start-cleanup" data-testid="start-cleanup" data-icon="play"><span class="btn-label">Start cleanup</span></button>
+              <button type="button" id="start-cleanup" data-testid="start-cleanup" data-icon="play" hidden><span class="btn-label">Start cleanup</span></button>
+              </div>
               <p class="muted small simple-status" id="simple-start-status" aria-live="polite"></p>
               <textarea id="agent-intake" hidden aria-hidden="true"></textarea>
               <textarea id="intake" hidden aria-hidden="true"></textarea>
@@ -582,20 +579,23 @@
         </section>
           </main>
           <footer class="site-footer workspace-footer" id="workspace-footer">
-            <p class="beta-banner beta-banner--footer" role="note">Beta — experimental software. Use at your own risk.</p>
-            <p class="site-footer-copy">© 2026 Oblivion. All rights reserved.</p>
-            <nav class="site-footer-legal" aria-label="Help and legal">
-              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/user-guide/overview">Guide</a>
-            <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/developers/partner-api">Developers</a>
-              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/pricing">Pricing</a>
-              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/privacy">Privacy</a>
-              <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/terms">Terms</a>
-              <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
-            </nav>
-            <nav class="site-footer-social" aria-label="Social links">
-              <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
-              <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
-            </nav>
+            <div class="site-footer-row site-footer-meta">
+              <p class="beta-banner beta-banner--footer" role="note">Beta — experimental software.<span class="beta-banner-risk"> Use at your own risk.</span></p>
+              <p class="site-footer-copy">© 2026 Oblivion.<span class="site-footer-rights"> All rights reserved.</span></p>
+            </div>
+            <div class="site-footer-row site-footer-nav">
+              <nav class="site-footer-legal" aria-label="Help and legal">
+                <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/user-guide/overview">Guide</a>
+                <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/pricing">Pricing</a>
+                <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/privacy">Privacy</a>
+                <a class="site-footer-text-link" href="https://oblivion-docs.phantasy.bot/docs/legal/terms">Terms</a>
+                <a class="site-footer-text-link site-footer-external-link" href="https://github.com/thomasjvu/oblivion/blob/main/skills/clean-online-identity/SKILL.md" target="_blank" rel="noopener noreferrer" data-icon="external-link" data-icon-pos="end" aria-label="SKILL.md (opens in new tab)">SKILL.md</a>
+              </nav>
+              <nav class="site-footer-social" aria-label="Social links">
+                <a class="site-footer-link icon-only" href="https://github.com" target="_blank" rel="noopener noreferrer" data-icon="github" aria-label="GitHub"><span class="visually-hidden">GitHub</span></a>
+                <a class="site-footer-link icon-only" href="https://x.com" target="_blank" rel="noopener noreferrer" data-icon="pixel:x" aria-label="X"><span class="visually-hidden">X</span></a>
+              </nav>
+            </div>
           </footer>
         </div>
 
