@@ -1641,39 +1641,43 @@ button.skill-install-tab {
   }
 
   .landing-composer {
-    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr) 36px;
-    gap: 4px;
+    --landing-composer-gap: 4px;
+    --landing-composer-send: 32px;
+    --landing-composer-height: 38px;
   }
 
-  .landing-composer-input {
+  .landing-composer-field {
     font-size: 0.82rem;
     padding: 7px 8px;
-    min-height: 38px;
   }
 
-  .location-combobox-input,
-  .landing-location-input {
+  .landing-composer-location .location-combobox-input {
     padding-right: 28px;
   }
 
-  .location-combobox-toggle,
-  .landing-location-toggle {
+  .landing-composer-location .location-combobox-toggle {
     width: 26px;
     min-width: 26px;
   }
 }
 
 .landing-composer {
-  margin-top: 0;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr) 42px;
-  gap: 5px;
+  --landing-composer-gap: 5px;
+  --landing-composer-send: 34px;
+  --landing-composer-height: 40px;
+  display: flex;
+  flex-wrap: nowrap;
   align-items: stretch;
-}
-
-.landing-composer-input {
+  gap: var(--landing-composer-gap);
+  margin-top: 0;
   width: 100%;
   min-width: 0;
-  min-height: 42px;
+}
+
+.landing-composer-field {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--landing-composer-height);
   margin: 0;
   border: 2px solid var(--gb-2);
   border-radius: 0;
@@ -1685,25 +1689,33 @@ button.skill-install-tab {
   box-shadow: 2px 2px 0 var(--gb-1);
 }
 
-.landing-composer-input::placeholder {
+.landing-composer-field::placeholder {
   color: var(--gb-2);
   opacity: 1;
 }
 
-.location-combobox-field,
-.landing-location-field {
+.landing-composer-name {
+  flex: 0 1 clamp(5.5rem, 26%, 9rem);
+}
+
+.landing-composer-location {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.location-combobox-field {
   position: relative;
   display: flex;
   min-width: 0;
 }
 
-.location-combobox-input,
-.landing-location-input {
+.location-combobox-input {
   padding-right: 34px;
 }
 
-.location-combobox-toggle,
-.landing-location-toggle {
+.location-combobox-toggle {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -1720,29 +1732,24 @@ button.skill-install-tab {
   box-shadow: none;
 }
 
-.location-combobox-toggle iconify-icon,
-.landing-location-toggle iconify-icon {
+.location-combobox-toggle iconify-icon {
   width: 1.1rem;
   height: 1.1rem;
 }
 
 .location-combobox-toggle:hover,
-.location-combobox-toggle:focus-visible,
-.landing-location-toggle:hover,
-.landing-location-toggle:focus-visible {
+.location-combobox-toggle:focus-visible {
   background: var(--gb-2);
   color: var(--gb-0);
   outline: none;
 }
 
-.location-combobox-field.open .location-combobox-toggle,
-.landing-location-field.open .landing-location-toggle {
+.location-combobox-field.open .location-combobox-toggle {
   background: var(--gb-2);
   color: var(--gb-0);
 }
 
-.location-combobox-menu,
-.landing-location-menu {
+.location-combobox-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -1758,8 +1765,7 @@ button.skill-install-tab {
   box-shadow: 3px 3px 0 var(--gb-1);
 }
 
-.location-combobox-menu li,
-.landing-location-menu li {
+.location-combobox-menu li {
   margin: 0;
   padding: 8px 10px;
   font-family: var(--font-display);
@@ -1772,39 +1778,46 @@ button.skill-install-tab {
 }
 
 .location-combobox-menu li:hover,
-.location-combobox-menu li:focus-visible,
-.landing-location-menu li:hover,
-.landing-location-menu li:focus-visible {
+.location-combobox-menu li:focus-visible {
   background: var(--gb-1);
   color: var(--gb-3);
   outline: none;
 }
 
-.location-combobox-menu .location-combobox-empty,
-.landing-location-menu .landing-location-empty {
+.location-combobox-menu .location-combobox-empty {
   cursor: default;
   color: var(--gb-2);
   font-weight: 400;
 }
 
-.location-combobox-menu .location-combobox-empty:hover,
-.landing-location-menu .landing-location-empty:hover {
+.location-combobox-menu .location-combobox-empty:hover {
   background: transparent;
 }
 
-.landing-composer #landing-send {
+.landing-composer-send.icon-only {
+  padding: 0;
+  min-width: var(--landing-composer-send);
+}
+
+.landing-composer-send {
+  flex: 0 0 var(--landing-composer-send);
+  width: var(--landing-composer-send);
+  min-width: var(--landing-composer-send);
+  min-height: var(--landing-composer-height);
+  padding: 0;
   background: var(--gb-0);
   color: var(--gb-3);
   border: 2px solid var(--gb-2);
   box-shadow: 2px 2px 0 var(--gb-1);
-  min-width: 42px;
-  width: 42px;
-  padding: 0;
-  align-self: stretch;
 }
 
-.landing-composer #landing-send.send-ready:hover,
-.landing-composer #landing-send.send-ready:focus-visible {
+.landing-composer-send iconify-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.landing-composer-send.send-ready:hover,
+.landing-composer-send.send-ready:focus-visible {
   background: var(--gb-1);
   color: var(--gb-3);
   border-color: var(--gb-2);
@@ -1812,7 +1825,7 @@ button.skill-install-tab {
   outline-offset: 1px;
 }
 
-.landing-composer #landing-send:disabled {
+.landing-composer-send:disabled {
   opacity: 0.38;
   cursor: not-allowed;
   background: var(--gb-1);
@@ -1821,7 +1834,7 @@ button.skill-install-tab {
   box-shadow: none;
 }
 
-.landing-composer-input:focus-visible {
+.landing-composer-field:focus-visible {
   outline: none;
   border-color: var(--gb-3);
   box-shadow: 0 0 0 2px var(--gb-2);

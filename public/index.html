@@ -33,14 +33,14 @@
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
               <div class="landing-chat" id="landing-chat">
-                <div class="composer landing-composer">
-                  <input id="landing-input" class="landing-composer-input" data-testid="landing-input" placeholder="Your name" aria-label="Your name" autocomplete="name" />
-                  <div class="location-combobox-field landing-location-field" id="landing-location-field">
-                    <input id="landing-location" class="landing-composer-input location-combobox-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
+                <div class="landing-composer" role="group" aria-label="Check listings">
+                  <input id="landing-input" class="landing-composer-field landing-composer-name" data-testid="landing-input" placeholder="Your name" aria-label="Your name" autocomplete="name" />
+                  <div class="landing-composer-location location-combobox-field" id="landing-location-field">
+                    <input id="landing-location" class="landing-composer-field location-combobox-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
                     <button type="button" class="location-combobox-toggle icon-only" id="landing-location-toggle" data-testid="landing-location-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="landing-location-menu"><span class="visually-hidden">Locations</span></button>
                     <ul class="location-combobox-menu" id="landing-location-menu" data-testid="landing-location-menu" role="listbox" hidden></ul>
                   </div>
-                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
+                  <button type="button" id="landing-send" class="landing-composer-send icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
                 </div>
                 <p class="landing-trust-line" id="landing-trust-line" data-testid="landing-trust-line" aria-label="Privacy guarantees">E2EE <span aria-hidden="true">·</span> TEE-SECURE <span aria-hidden="true">·</span> 100% Private</p>
               </div>
