@@ -130,6 +130,7 @@ const state = {
   deleteConfirmCaseId: "",
   preSearchReady: false,
   onboardingPreviewReady: false,
+  onboardingPreviewBusy: false,
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
   agentVoiceEnabled: isAgentVoiceEnabled(),
   sessionHandoffWarning: "",
@@ -292,18 +293,14 @@ const LANDING_LOCATION_OPTIONS = [
   "Melbourne, Australia"
 ];
 
-function setupLandingLocationCombobox() {
-  const input = $("#landing-location");
-  const menu = $("#landing-location-menu");
-  const toggle = $("#landing-location-toggle");
-  const field = $("#landing-location-field");
+const previewDelay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+function setupLocationCombobox({ input, menu, toggle, field, options = LANDING_LOCATION_OPTIONS, onEnter }) {
   if (!input || !menu) return;
 
   const renderOptions = (filter = "") => {
     const needle = filter.trim().toLowerCase();
-    const items = LANDING_LOCATION_OPTIONS.filter(
-      (item) => !needle || item.toLowerCase().includes(needle)
-    );
+    const items = options.filter((item) => !needle || item.toLowerCase().includes(needle));
     menu.innerHTML = items.length
       ? items
           .map(
@@ -311,7 +308,7 @@ function setupLandingLocationCombobox() {
               `<li role="option" tabindex="-1" data-value="${escapeHtml(item)}">${escapeHtml(item)}</li>`
           )
           .join("")
-      : `<li class="landing-location-empty" role="presentation">No matches</li>`;
+      : `<li class="location-combobox-empty" role="presentation">No matches</li>`;
   };
 
   const setExpanded = (open) => {
@@ -372,14 +369,54 @@ function setupLandingLocationCombobox() {
         return;
       }
       closeMenu();
-      event.preventDefault();
-      startFromLanding().catch(write);
+      if (onEnter) {
+        event.preventDefault();
+        onEnter();
+      }
     }
   });
 
   document.addEventListener("click", (event) => {
     if (!field?.contains(event.target)) closeMenu();
   });
+}
+
+function setupLandingLocationCombobox() {
+  setupLocationCombobox({
+    input: $("#landing-location"),
+    menu: $("#landing-location-menu"),
+    toggle: $("#landing-location-toggle"),
+    field: $("#landing-location-field"),
+    onEnter: () => startFromLanding().catch(write)
+  });
+}
+
+function setupOnboardingRegionCombobox() {
+  setupLocationCombobox({
+    input: $("#simple-region"),
+    menu: $("#onboarding-region-menu"),
+    toggle: $("#onboarding-region-toggle"),
+    field: $("#onboarding-region-field"),
+    onEnter: () => runOnboardingPreview().catch(write)
+  });
+}
+
+function isOnboardingWithoutCase() {
+  return state.appOpen && !currentCase();
+}
+
+function filterDefaultWelcomeChat() {
+  state.chatMessages = state.chatMessages.filter(
+    (msg) => !(msg.role === "agent" && (msg.id === 1 || msg.id === 2))
+  );
+}
+
+function onboardingChatTranscript() {
+  const transcript = [...state.chatMessages];
+  if (isOnboardingWithoutCase()) {
+    return transcript.filter((msg) => !(msg.role === "agent" && (msg.id === 1 || msg.id === 2)));
+  }
+  return transcript;
 }
 
 function skillInstallAgentPrompt() {
@@ -534,8 +571,10 @@ async function startFromLanding() {
   if ($("#landing-input")) $("#landing-input").value = "";
   if ($("#landing-location")) $("#landing-location").value = "";
   updateLandingSendState();
+  filterDefaultWelcomeChat();
+  addChat("user", region ? `${name} · ${region}` : name);
   render();
-  $("#onboarding-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#onboarding-preview-fields")?.scrollIntoView({ behavior: "smooth", block: "start" });
   await runOnboardingPreview();
 }
 
@@ -1433,6 +1472,7 @@ function openNewCaseFlow() {
   state.casesPanelOpen = false;
   resetPreSearchUi();
   state.onboardingPreviewReady = false;
+  state.onboardingPreviewBusy = false;
   localStorage.removeItem("oblivion.currentCaseId");
   ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
     const field = $(`#${id}`);
@@ -1957,6 +1997,15 @@ function agentPromptForState() {
   const next = state.agentNext;
   const plan = state.agentPlan;
   if (!currentCase()) {
+    if (state.onboardingPreviewBusy) {
+      return { state: "Preview", message: "Scanning people-search brokers…", actions: [] };
+    }
+    if (isOnboardingWithoutCase() && !state.onboardingPreviewReady) {
+      return { state: "Preview", message: "Checking listings before cleanup.", actions: [] };
+    }
+    if (state.onboardingPreviewReady) {
+      return { state: "Start", message: "Finish the form and buy credits to start cleanup.", actions: [] };
+    }
     return { state: "Start", message: "Enter your name → Start cleanup.", actions: [] };
   }
   if (!state.walletAddress && state.showAdvancedUI) {
@@ -2078,7 +2127,7 @@ function renderAgentPresetStarters() {
   const panel = $("#agent-template-panel");
   const container = $("#agent-preset-starters");
   if (!panel || !container) return;
-  const show = state.appOpen;
+  const show = state.appOpen && !(isOnboardingWithoutCase() && !state.onboardingPreviewReady);
   panel.hidden = !show;
   if (!show) {
     container.innerHTML = "";
@@ -2100,9 +2149,13 @@ function renderAgentChat() {
   $("#app-agent-column")?.classList.toggle("open", state.dockOpen);
   const brief = $("#agent-dock-brief");
   if (brief) {
-    brief.textContent = state.appOpen && !currentCase()
-      ? "Pick a template below — it fills the chat and the main form."
-      : prompt.message;
+    brief.textContent = isOnboardingWithoutCase() && !state.onboardingPreviewReady
+      ? state.onboardingPreviewBusy
+        ? "Searching people-search brokers for your name…"
+        : "Enter your name and city, then check listings."
+      : state.appOpen && !currentCase()
+        ? "Pick a template below — it fills the chat and the main form."
+        : prompt.message;
   }
   const live = $("#agent-live");
   if (live) live.textContent = `${prompt.state}. ${prompt.message}`;
@@ -2112,8 +2165,8 @@ function renderAgentChat() {
   const log = $("#agent-chat-messages");
   const logShell = $("#agent-chat-log");
   if (log) {
-    const transcript = [...state.chatMessages];
-    if (state.appOpen && !currentCase() && transcript.length <= 2) {
+    const transcript = onboardingChatTranscript();
+    if (state.appOpen && !currentCase() && state.onboardingPreviewReady && transcript.length <= 2) {
       transcript.push({
         role: "agent",
         text: "Tap a template chip above to load a starter request, or type your own message below."
@@ -2529,10 +2582,12 @@ function syncPaymentPlanFromForm() {
 
 function renderOnboardingSteps() {
   const hasCase = Boolean(state.currentCaseId && currentCase());
-  const previewStep = state.appOpen && !hasCase && !state.onboardingPreviewReady;
-  const fullStep = state.appOpen && !hasCase && state.onboardingPreviewReady;
+  const onboarding = state.appOpen && !hasCase;
+  const previewStep = onboarding && !state.onboardingPreviewReady;
+  const fullStep = onboarding && state.onboardingPreviewReady;
+  $("#onboarding-preview-fields")?.toggleAttribute("hidden", !onboarding);
   $("#onboarding-intake-full")?.toggleAttribute("hidden", !fullStep);
-  $("#onboarding-check-listings")?.toggleAttribute("hidden", !previewStep);
+  $("#onboarding-check-listings")?.toggleAttribute("hidden", !previewStep || state.onboardingPreviewBusy);
   $("#start-cleanup")?.toggleAttribute("hidden", !fullStep);
 }
 
@@ -2945,6 +3000,12 @@ function updateLandingSendState() {
   send.setAttribute("aria-disabled", hasText ? "false" : "true");
 }
 
+function brokerPreviewResultMarkup(item) {
+  const score = item.matchScore ? ` · ${item.matchScore}` : "";
+  const broker = item.brokerLabel ? `${escapeHtml(item.brokerLabel)}` : shortenUrl(item.sourceUrl);
+  return `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}`;
+}
+
 function renderBrokerPreviewResults(candidates, message) {
   const panel = $("#pre-search-panel");
   const list = $("#pre-search-results");
@@ -2958,12 +3019,32 @@ function renderBrokerPreviewResults(candidates, message) {
     return;
   }
   list.innerHTML = rows
-    .map((item) => {
-      const score = item.matchScore ? ` · ${item.matchScore}` : "";
-      const broker = item.brokerLabel ? `${escapeHtml(item.brokerLabel)}` : shortenUrl(item.sourceUrl);
-      return `<li><a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}</li>`;
-    })
+    .map((item) => `<li class="pre-search-result-visible">${brokerPreviewResultMarkup(item)}</li>`)
     .join("");
+}
+
+async function streamBrokerPreviewResults(candidates, message) {
+  const panel = $("#pre-search-panel");
+  const list = $("#pre-search-results");
+  const preStatus = $("#pre-search-status");
+  if (!panel || !list || !preStatus) return;
+  panel.hidden = false;
+  preStatus.textContent = message;
+  list.innerHTML = "";
+  const rows = candidates || [];
+  if (!rows.length) {
+    list.innerHTML = `<li class="muted">No broker listings matched yet. Continue to start full cleanup with Venice-scored discovery.</li>`;
+    return;
+  }
+  for (const item of rows) {
+    const row = document.createElement("li");
+    row.className = "pre-search-result-enter";
+    row.innerHTML = brokerPreviewResultMarkup(item);
+    list.appendChild(row);
+    void row.offsetWidth;
+    row.classList.add("pre-search-result-visible");
+    await previewDelay(70);
+  }
 }
 
 async function runOnboardingPreview() {
@@ -2977,11 +3058,18 @@ async function runOnboardingPreview() {
   const statusEl = $("#simple-start-status");
   const btn = $("#onboarding-check-listings");
   const landingSend = $("#landing-send");
+  const list = $("#pre-search-results");
+  state.onboardingPreviewBusy = true;
   if (preStatus) preStatus.textContent = "Checking people-search brokers…";
+  if (list) list.innerHTML = "";
   $("#pre-search-panel")?.removeAttribute("hidden");
   if (btn) btn.disabled = true;
   if (landingSend) landingSend.disabled = true;
   if (statusEl) statusEl.textContent = "";
+  renderOnboardingSteps();
+  const regionNote = region ? ` in ${region}` : "";
+  addChat("agent", `Checking people-search brokers for ${name}${regionNote}…`);
+  renderAgentChat();
   try {
     const result = await request("/api/discovery/preview", {
       method: "POST",
@@ -2991,15 +3079,26 @@ async function runOnboardingPreview() {
         walletAddress: state.walletAddress || undefined
       }
     });
+    addChat("agent", "Scanning broker indexes and ranking likely matches…");
+    renderAgentChat();
+    await previewDelay(280);
     const quotaNote =
       result.dailyLimit > 0
         ? ` ${result.remainingPreviews ?? 0} free preview(s) left today.`
         : "";
-    const message =
-      result.candidates?.length
-        ? `Preview found ${result.candidates.length} possible listing(s).${quotaNote}`
-        : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}`;
-    renderBrokerPreviewResults(result.candidates, message);
+    const candidates = result.candidates || [];
+    const message = candidates.length
+      ? `Preview found ${candidates.length} possible listing(s).${quotaNote}`
+      : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}`;
+    if (candidates.length) {
+      addChat("agent", `Found ${candidates.length} possible listing(s). Streaming matches below…`);
+      renderAgentChat();
+      await streamBrokerPreviewResults(candidates, message);
+    } else {
+      renderBrokerPreviewResults(candidates, message);
+      addChat("agent", "No broker hits in this preview. You can still start full cleanup below.");
+      renderAgentChat();
+    }
     state.onboardingPreviewReady = true;
     addChat("agent", "Listings preview complete. Finish the form below and buy credits to start cleanup.");
     render();
@@ -3008,10 +3107,14 @@ async function runOnboardingPreview() {
     if (preStatus) {
       preStatus.textContent = error?.message || "Preview unavailable. Try again.";
     }
+    addChat("agent", error?.message || "Preview unavailable. Try again.");
+    renderAgentChat();
     write(error);
   } finally {
+    state.onboardingPreviewBusy = false;
     if (btn) btn.disabled = false;
     updateLandingSendState();
+    renderOnboardingSteps();
   }
 }
 
@@ -4602,6 +4705,7 @@ function setupDelegates() {
 setupDelegates();
 setupLandingSkillInstall();
 setupLandingLocationCombobox();
+setupOnboardingRegionCombobox();
 
 syncAppRoute();
 await loadApiConfig().catch(() => null);

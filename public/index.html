@@ -35,10 +35,10 @@
               <div class="landing-chat" id="landing-chat">
                 <div class="composer landing-composer">
                   <input id="landing-input" class="landing-composer-input" data-testid="landing-input" placeholder="Your name" aria-label="Your name" autocomplete="name" />
-                  <div class="landing-location-field" id="landing-location-field">
-                    <input id="landing-location" class="landing-composer-input landing-location-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
-                    <button type="button" class="landing-location-toggle icon-only" id="landing-location-toggle" data-testid="landing-location-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="landing-location-menu"><span class="visually-hidden">Locations</span></button>
-                    <ul class="landing-location-menu" id="landing-location-menu" data-testid="landing-location-menu" role="listbox" hidden></ul>
+                  <div class="location-combobox-field landing-location-field" id="landing-location-field">
+                    <input id="landing-location" class="landing-composer-input location-combobox-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
+                    <button type="button" class="location-combobox-toggle icon-only" id="landing-location-toggle" data-testid="landing-location-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="landing-location-menu"><span class="visually-hidden">Locations</span></button>
+                    <ul class="location-combobox-menu" id="landing-location-menu" data-testid="landing-location-menu" role="listbox" hidden></ul>
                   </div>
                   <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
                 </div>
@@ -179,24 +179,31 @@
           <div class="flow-card onboarding-grid onboarding-compact">
             <div class="onboarding-forms">
             <div class="panel console-panel simple-intake-panel onboarding-intake-panel" data-testid="onboarding-agent-panel">
-              <div class="simple-intake-grid">
-                <label class="simple-field">
-                  <span>Your name</span>
-                  <input id="simple-name" data-testid="simple-name" type="text" autocomplete="name" placeholder="John Smith" />
-                </label>
+              <div class="onboarding-preview-fields" id="onboarding-preview-fields" hidden>
+                <div class="onboarding-preview-grid simple-intake-grid">
+                  <label class="simple-field">
+                    <span>Your name</span>
+                    <input id="simple-name" data-testid="simple-name" type="text" autocomplete="name" placeholder="John Smith" />
+                  </label>
+                  <label class="simple-field">
+                    <span>City / country <em class="muted">(optional)</em></span>
+                    <div class="location-combobox-field" id="onboarding-region-field">
+                      <input id="simple-region" class="location-combobox-input" data-testid="simple-region" type="text" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="onboarding-region-menu" />
+                      <button type="button" class="location-combobox-toggle icon-only" id="onboarding-region-toggle" data-testid="onboarding-region-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="onboarding-region-menu"><span class="visually-hidden">Locations</span></button>
+                      <ul class="location-combobox-menu" id="onboarding-region-menu" data-testid="onboarding-region-menu" role="listbox" hidden></ul>
+                    </div>
+                  </label>
+                </div>
                 <button type="button" class="secondary compact onboarding-preview-action" id="onboarding-check-listings" data-testid="onboarding-check-listings" data-icon="search">Check listings</button>
                 <section class="pre-search-panel" id="pre-search-panel" data-testid="pre-search-panel" hidden aria-live="polite">
                   <p class="muted small pre-search-status" id="pre-search-status"></p>
                   <ul class="pre-search-results" id="pre-search-results"></ul>
                 </section>
+              </div>
                 <div class="onboarding-intake-full" id="onboarding-intake-full" hidden>
                 <label class="simple-field">
                   <span>Also known as <em class="muted">(optional)</em></span>
                   <input id="simple-alias" data-testid="simple-alias" type="text" placeholder="J. Smith" />
-                </label>
-                <label class="simple-field">
-                  <span>State or region <em class="muted">(optional)</em></span>
-                  <input id="simple-region" data-testid="simple-region" type="text" placeholder="New York" />
                 </label>
               <div class="simple-preset-row" id="simple-preset-row" aria-label="Cleanup template">
                 <button type="button" class="preset-chip active" data-preset-id="people-search-cleanup" data-testid="preset-people">People-search</button>

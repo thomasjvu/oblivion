@@ -45,8 +45,16 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-location"/);
   assert.match(html, /landing-location-menu/);
+  assert.match(html, /setupLocationCombobox/);
   assert.match(html, /setupLandingLocationCombobox/);
+  assert.match(html, /setupOnboardingRegionCombobox/);
   assert.match(html, /runOnboardingPreview/);
+  assert.match(html, /id="onboarding-preview-fields"/);
+  assert.match(html, /id="simple-region"/);
+  assert.match(html, /onboarding-region-menu/);
+  assert.match(html, /regionLabel/);
+  assert.match(html, /filterDefaultWelcomeChat/);
+  assert.match(html, /streamBrokerPreviewResults/);
   assert.match(html, /id="landing-send"/);
   assert.match(html, /data-testid="landing-trust-line"/);
   assert.match(html, /E2EE.*TEE-SECURE.*100% Private/);
@@ -213,8 +221,10 @@ test("dashboard uses visual preset-led cleanup command center", async () => {
   assert.match(html, /id="preset-grid"/);
   assert.match(html, /onboarding-agent-panel/);
   assert.match(html, /data-testid="onboarding-check-listings"/);
+  assert.match(html, /onboarding-preview-grid/);
   assert.match(html, /runOnboardingPreview/);
   assert.match(html, /onboarding-intake-full/);
+  assert.match(html, /onboardingPreviewBusy/);
   assert.doesNotMatch(html, /Your cleanup/);
   assert.match(html, /preset-chip/);
   assert.match(html, /startSimpleCleanup/);

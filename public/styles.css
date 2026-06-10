@@ -1651,10 +1651,12 @@ button.skill-install-tab {
     min-height: 38px;
   }
 
+  .location-combobox-input,
   .landing-location-input {
     padding-right: 28px;
   }
 
+  .location-combobox-toggle,
   .landing-location-toggle {
     width: 26px;
     min-width: 26px;
@@ -1688,16 +1690,19 @@ button.skill-install-tab {
   opacity: 1;
 }
 
+.location-combobox-field,
 .landing-location-field {
   position: relative;
   display: flex;
   min-width: 0;
 }
 
+.location-combobox-input,
 .landing-location-input {
   padding-right: 34px;
 }
 
+.location-combobox-toggle,
 .landing-location-toggle {
   position: absolute;
   top: 2px;
@@ -1715,11 +1720,14 @@ button.skill-install-tab {
   box-shadow: none;
 }
 
+.location-combobox-toggle iconify-icon,
 .landing-location-toggle iconify-icon {
   width: 1.1rem;
   height: 1.1rem;
 }
 
+.location-combobox-toggle:hover,
+.location-combobox-toggle:focus-visible,
 .landing-location-toggle:hover,
 .landing-location-toggle:focus-visible {
   background: var(--gb-2);
@@ -1727,11 +1735,13 @@ button.skill-install-tab {
   outline: none;
 }
 
+.location-combobox-field.open .location-combobox-toggle,
 .landing-location-field.open .landing-location-toggle {
   background: var(--gb-2);
   color: var(--gb-0);
 }
 
+.location-combobox-menu,
 .landing-location-menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -1748,6 +1758,7 @@ button.skill-install-tab {
   box-shadow: 3px 3px 0 var(--gb-1);
 }
 
+.location-combobox-menu li,
 .landing-location-menu li {
   margin: 0;
   padding: 8px 10px;
@@ -1760,6 +1771,8 @@ button.skill-install-tab {
   cursor: pointer;
 }
 
+.location-combobox-menu li:hover,
+.location-combobox-menu li:focus-visible,
 .landing-location-menu li:hover,
 .landing-location-menu li:focus-visible {
   background: var(--gb-1);
@@ -1767,12 +1780,14 @@ button.skill-install-tab {
   outline: none;
 }
 
+.location-combobox-menu .location-combobox-empty,
 .landing-location-menu .landing-location-empty {
   cursor: default;
   color: var(--gb-2);
   font-weight: 400;
 }
 
+.location-combobox-menu .location-combobox-empty:hover,
 .landing-location-menu .landing-location-empty:hover {
   background: transparent;
 }
@@ -2556,9 +2571,19 @@ summary {
   line-height: 1.35;
 }
 
+.onboarding-preview-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
 .onboarding-preview-action {
   justify-self: start;
   margin: 0 0 10px;
+}
+
+@media (max-width: 560px) {
+  .onboarding-preview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .onboarding-intake-full {
@@ -2592,6 +2617,18 @@ summary {
   font-size: 0.72rem;
   line-height: 1.35;
   color: var(--gb-2);
+}
+
+.pre-search-result-enter {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.pre-search-result-enter.pre-search-result-visible,
+.pre-search-results li.pre-search-result-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.22s ease, transform 0.22s ease;
   word-break: break-word;
 }
 
