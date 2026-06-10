@@ -32325,6 +32325,109 @@ function setSkillInstallTab(tabId) {
     panel.hidden = !active;
   });
 }
+var LANDING_LOCATION_OPTIONS = [
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Australia",
+  "New York, NY",
+  "Los Angeles, CA",
+  "Chicago, IL",
+  "Houston, TX",
+  "Phoenix, AZ",
+  "Philadelphia, PA",
+  "San Antonio, TX",
+  "San Diego, CA",
+  "Dallas, TX",
+  "San Jose, CA",
+  "Austin, TX",
+  "Jacksonville, FL",
+  "San Francisco, CA",
+  "Seattle, WA",
+  "Denver, CO",
+  "Boston, MA",
+  "Miami, FL",
+  "Atlanta, GA",
+  "London, UK",
+  "Toronto, ON",
+  "Vancouver, BC",
+  "Sydney, Australia",
+  "Melbourne, Australia"
+];
+function setupLandingLocationCombobox() {
+  const input = $("#landing-location");
+  const menu = $("#landing-location-menu");
+  const toggle = $("#landing-location-toggle");
+  const field = $("#landing-location-field");
+  if (!input || !menu) return;
+  const renderOptions = (filter = "") => {
+    const needle = filter.trim().toLowerCase();
+    const items = LANDING_LOCATION_OPTIONS.filter(
+      (item) => !needle || item.toLowerCase().includes(needle)
+    );
+    menu.innerHTML = items.length ? items.map(
+      (item) => `<li role="option" tabindex="-1" data-value="${escapeHtml(item)}">${escapeHtml(item)}</li>`
+    ).join("") : `<li class="landing-location-empty" role="presentation">No matches</li>`;
+  };
+  const setExpanded = (open) => {
+    input.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle?.setAttribute("aria-expanded", open ? "true" : "false");
+    field?.classList.toggle("open", open);
+  };
+  const openMenu = () => {
+    renderOptions(input.value);
+    menu.hidden = false;
+    setExpanded(true);
+  };
+  const closeMenu = () => {
+    menu.hidden = true;
+    setExpanded(false);
+  };
+  renderOptions();
+  toggle?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (menu.hidden) {
+      openMenu();
+      input.focus();
+    } else {
+      closeMenu();
+    }
+  });
+  input.addEventListener("focus", () => openMenu());
+  input.addEventListener("input", () => {
+    renderOptions(input.value);
+    openMenu();
+  });
+  menu.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-value]");
+    if (!option) return;
+    input.value = option.dataset.value || "";
+    closeMenu();
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeMenu();
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey) {
+      const matches = [...menu.querySelectorAll("[data-value]")];
+      if (!menu.hidden && matches.length === 1) {
+        event.preventDefault();
+        input.value = matches[0].dataset.value || input.value;
+        closeMenu();
+        return;
+      }
+      closeMenu();
+      event.preventDefault();
+      startFromLanding().catch(write);
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!field?.contains(event.target)) closeMenu();
+  });
+}
 function skillInstallAgentPrompt() {
   return "Install the Oblivion clean-online-identity skill: npx skills add thomasjvu/oblivion --skill clean-online-identity";
 }
@@ -35700,12 +35803,6 @@ function backToLanding() {
 $("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
 $("#landing-send")?.addEventListener("click", () => startFromLanding().catch(write));
 $("#landing-input")?.addEventListener("input", updateLandingSendState);
-$("#landing-location")?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    startFromLanding().catch(write);
-  }
-});
 $("#landing-input")?.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -35985,6 +36082,7 @@ function setupDelegates() {
 }
 setupDelegates();
 setupLandingSkillInstall();
+setupLandingLocationCombobox();
 syncAppRoute();
 await loadApiConfig().catch(() => null);
 await refreshPresets().catch(write);

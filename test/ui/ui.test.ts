@@ -31,7 +31,7 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /setupLandingSkillInstall/);
   assert.match(html, /REMOVE YOUR PERSONAL INFO ONLINE/);
   assert.doesNotMatch(html, /WITHOUT GIVING MORE DATA AWAY/);
-  assert.match(html, /placeholder="Enter your name"/);
+  assert.match(html, /placeholder="Your name"/);
   assert.doesNotMatch(html, /id="partner-api"/);
   assert.doesNotMatch(html, /Embed removal in your app/);
   assert.match(html, /beta-banner--footer/);
@@ -44,7 +44,8 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-location"/);
-  assert.match(html, /landing-location-options/);
+  assert.match(html, /landing-location-menu/);
+  assert.match(html, /setupLandingLocationCombobox/);
   assert.match(html, /runOnboardingPreview/);
   assert.match(html, /id="landing-send"/);
   assert.match(html, /data-testid="landing-trust-line"/);
