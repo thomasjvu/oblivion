@@ -1674,35 +1674,62 @@ button.skill-install-tab {
   min-width: 0;
 }
 
-.landing-composer-field {
-  width: 100%;
+.landing-composer-name,
+.landing-composer-location {
+  flex: 1 1 0;
   min-width: 0;
-  min-height: var(--landing-composer-height);
-  margin: 0;
-  border: 2px solid var(--gb-2);
-  border-radius: 0;
-  background: var(--gb-0);
-  color: var(--gb-3);
-  padding: 8px 10px;
-  font-size: 0.92rem;
-  line-height: 1.3;
-  box-shadow: 2px 2px 0 var(--gb-1);
-}
-
-.landing-composer-field::placeholder {
-  color: var(--gb-2);
-  opacity: 1;
-}
-
-.landing-composer-name {
-  flex: 0 1 clamp(5.5rem, 26%, 9rem);
 }
 
 .landing-composer-location {
   position: relative;
   display: flex;
-  flex: 1 1 0;
+}
+
+.landing-composer-field {
+  width: 100%;
   min-width: 0;
+  min-height: var(--landing-composer-height);
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--gb-2) 32%, transparent);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--gb-0) 55%, transparent);
+  color: color-mix(in srgb, var(--gb-3) 48%, transparent);
+  padding: 8px 10px;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  box-shadow: 1px 1px 0 color-mix(in srgb, var(--gb-1) 35%, transparent);
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.landing-composer-field::placeholder {
+  color: color-mix(in srgb, var(--gb-2) 42%, transparent);
+  opacity: 1;
+}
+
+.landing-composer-field:focus,
+.landing-composer-field:not(:placeholder-shown) {
+  border-color: var(--gb-2);
+  background: var(--gb-0);
+  color: var(--gb-3);
+  box-shadow: 2px 2px 0 var(--gb-1);
+}
+
+.landing-composer-field:focus::placeholder {
+  color: var(--gb-2);
+}
+
+.landing-composer-location .location-combobox-toggle {
+  opacity: 0.42;
+  transition: opacity 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+
+.landing-composer-location:focus-within .location-combobox-toggle,
+.landing-composer-location:has(.landing-composer-field:not(:placeholder-shown)) .location-combobox-toggle {
+  opacity: 1;
 }
 
 .location-combobox-field {
@@ -1837,7 +1864,7 @@ button.skill-install-tab {
 .landing-composer-field:focus-visible {
   outline: none;
   border-color: var(--gb-3);
-  box-shadow: 0 0 0 2px var(--gb-2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gb-2) 72%, transparent);
 }
 
 .landing-preview-panel {
