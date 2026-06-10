@@ -24,6 +24,7 @@
             </video>
             <img class="cinematic-fallback" src="/assets/oblivion-agent-pfp.jpg" alt="" aria-hidden="true" />
             <div class="landing-copy">
+              <h2 class="landing-headline">REMOVE YOUR PERSONAL INFO ONLINE</h2>
               <pre class="landing-ascii-title" aria-label="OBLIVION"> ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓██████▓▒░░▒▓███████▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
@@ -31,15 +32,12 @@
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
 ░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░      ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░ ░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░▒▓█▓▒░░▒▓█▓▒░
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
-              <h2>REMOVE YOUR PERSONAL INFO ONLINE<br>WITHOUT GIVING MORE DATA AWAY</h2>
               <div class="landing-chat" id="landing-chat">
-                <div class="landing-template-panel" id="landing-template-panel">
-                  <div class="landing-preset-starters" id="landing-preset-starters" role="group" aria-label="Cleanup templates"></div>
-                </div>
                 <div class="composer landing-composer">
                   <input id="landing-input" data-testid="landing-input" placeholder="Enter your name" aria-label="Enter your name" />
                   <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
                 </div>
+                <p class="landing-trust-line" id="landing-trust-line" data-testid="landing-trust-line" aria-label="Privacy guarantees">E2EE <span aria-hidden="true">·</span> TEE-SECURE <span aria-hidden="true">·</span> 100% Private</p>
                 <div class="landing-preview-panel" id="landing-preview-panel" hidden data-testid="landing-preview-panel">
                   <p class="muted small" id="landing-preview-status" aria-live="polite"></p>
                   <ul class="landing-preview-results" id="landing-preview-results"></ul>
@@ -476,6 +474,14 @@
                   <span>Mask names in the UI (demos &amp; screenshots)</span>
                 </label>
                 <p class="muted small">Replaces your name and aliases with ******* everywhere they appear on screen.</p>
+              </div>
+              <div class="settings-block agent-voice-block" id="agent-voice-settings" data-testid="agent-voice-settings">
+                <h4>Agent voice</h4>
+                <label class="checkbox-row agent-voice-toggle">
+                  <input type="checkbox" id="agent-voice-toggle" data-testid="agent-voice-toggle" />
+                  <span>Visual novel voice while the agent types</span>
+                </label>
+                <p class="muted small">Plays a short synthesized tone per letter, synced with the chat typewriter. Off when reduced motion is enabled.</p>
               </div>
               <div class="settings-block payment-rails-block" id="payment-rails" data-testid="payment-rails">
                 <h4>Payment rails</h4>

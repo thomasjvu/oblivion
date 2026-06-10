@@ -33,6 +33,8 @@
   -moz-osx-font-smoothing: auto;
   text-rendering: geometricPrecision;
   --shell-max-landing: 1100px;
+  --landing-pad: clamp(8px, 1.5vw, 16px);
+  --landing-content-max: min(720px, 100%);
   --shell-main-column: calc(100vw - var(--sidebar-width) - var(--dock-width));
   --shell-pad: clamp(12px, 2.5vw, 28px);
   --sidebar-width: 264px;
@@ -1181,8 +1183,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: min(var(--shell-main-column), calc(100vw - 2 * var(--shell-pad)));
-  max-width: var(--shell-main-column);
+  width: min(var(--shell-max-landing), calc(100vw - 2 * var(--landing-pad)));
+  max-width: var(--shell-max-landing);
   margin-inline: auto;
   padding: 0;
   min-height: 100%;
@@ -1206,18 +1208,21 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 }
 
 .landing-hero-minimal .landing-copy {
-  padding: clamp(12px, 2.5vw, 24px) var(--shell-pad) clamp(20px, 3vw, 36px);
+  padding: clamp(12px, 2.5vw, 24px) var(--landing-pad) clamp(20px, 3vw, 36px);
 }
 
 .landing-skill {
   max-width: none;
   margin: 0;
-  padding: 0 var(--shell-pad) 28px;
+  padding: 0 var(--landing-pad) 24px;
 }
 
 .landing-skill-inner {
   background: rgba(15, 56, 15, 0.42);
-  padding: 20px 18px;
+  padding: 16px 0;
+  width: var(--landing-content-max);
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 .landing-skill-copy h3 {
@@ -1519,11 +1524,14 @@ button.skill-install-tab {
   max-width: none;
   padding: clamp(28px, 6vw, 70px);
   pointer-events: none;
+  container-type: inline-size;
+  container-name: landingCopy;
 }
 
-.landing-copy h2 {
-  width: min(980px, 92vw);
-  max-width: none;
+.landing-copy h2,
+.landing-headline {
+  width: var(--landing-content-max);
+  max-width: 100%;
   font-family: var(--font-display);
   font-size: clamp(1.1rem, 4vw, 1.6rem);
   line-height: 1.5;
@@ -1532,22 +1540,26 @@ button.skill-install-tab {
   color: var(--gb-3);
 }
 
+.landing-headline {
+  margin: 0 0 16px;
+}
+
 .landing-ascii-title {
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   padding: 0;
   border: 0;
   background: transparent;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(0.34rem, 1.35vw, 0.58rem);
+  font-size: clamp(0.42rem, calc(100cqw / 55.2), 0.58rem);
   line-height: 1.1;
   letter-spacing: 0;
   color: var(--gb-3);
   white-space: pre;
-  overflow-x: auto;
+  overflow-x: hidden;
+  width: var(--landing-content-max);
   max-width: 100%;
   -webkit-font-smoothing: none;
   text-shadow: 0 0 10px rgba(155, 188, 15, 0.28);
-  scrollbar-width: thin;
   pointer-events: auto;
 }
 
@@ -1572,53 +1584,34 @@ button.skill-install-tab {
 
 .landing-chat {
   display: grid;
-  gap: 12px;
-  margin-top: 20px;
-  max-width: min(640px, 100%);
-}
-
-.landing-template-panel {
-  display: grid;
-  gap: 6px;
-}
-
-.landing-template-label {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.landing-preset-starters {
-  display: flex;
-  flex-wrap: wrap;
   gap: 8px;
+  margin-top: 0;
+  width: var(--landing-content-max);
+  max-width: 100%;
 }
 
-button.landing-preset-starter {
-  border: 2px solid var(--gb-2);
-  background: var(--gb-1);
-  color: var(--gb-3);
+.landing-trust-line {
+  margin: 2px 0 0;
   font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  padding: 6px 10px;
-  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gb-2);
+  white-space: nowrap;
 }
 
-button.landing-preset-starter:hover,
-button.landing-preset-starter:focus-visible {
-  background: var(--gb-2);
-  color: var(--gb-0);
-  outline: 2px solid var(--gb-3);
-  outline-offset: 1px;
+.landing-trust-line span {
+  margin: 0 0.35em;
+  color: var(--gb-1);
+  font-weight: 400;
 }
 
-button.landing-preset-starter.active {
-  background: var(--gb-3);
-  color: var(--gb-0);
-  border-color: var(--gb-3);
+@media (max-width: 400px) {
+  .landing-trust-line {
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 .landing-composer {
@@ -4739,12 +4732,6 @@ pre {
 }
 
 @media (max-width: 1199px) {
-  .landing {
-    width: min(100%, calc(100vw - 2 * var(--shell-pad)));
-    max-width: none;
-    margin-inline: auto;
-  }
-
   .app-chrome.active {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) minmax(280px, 42vh);

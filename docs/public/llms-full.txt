@@ -37,7 +37,18 @@ flowchart TB
 2. Or type one line in the agent panel
 3. Dashboard opens with your route running
 
-Your browser stores a private **case access token** when a case is created. It is required for all server requests on that case and stays in local storage on this device — there is no account login.
+Your browser stores a private **case access token** when a case is created. It is required for all server requests on that case and stays in local storage on this device — there is no email/password account.
+
+### Two keys (wallet + case token)
+
+| Credential | What it does |
+|------------|--------------|
+| **Wallet** | Credits, subscription, and per-case activation billing |
+| **Case access token** | Authorizes `/api/*` for one case only |
+
+Connect wallet to pay; keep the case token (or a **recovery kit** export) to reopen the case on another browser. After wallet connect, linked cases appear in the sidebar — you still need the token from your kit to access them.
+
+**Free preview:** On the landing page, enter your name for a limited broker check (no wallet). **Start full cleanup** creates a case, requires wallet + activation, and runs Venice-scored discovery.
 
 ## Review
 
@@ -68,9 +79,12 @@ Starting a cleanup requires a **connected wallet** and a **paid credit purchase 
 
 Metered features then debit the same wallet balance:
 
+- **Full broker discovery** — 15 credits per sweep (Venice-scored)
 - **Venice AI** (agent chat, classify, draft)
 - **Live operator email relay** — 25 credits per send when enabled
 - **x402 / Smart Account demos** — USDC on Base Sepolia
+
+Monitor subscribers: monthly credit refill and new cases auto-activate for that wallet.
 
 Buy or manage credits in **Settings → Payment rails**. See [Pricing](/docs/pricing).
 
@@ -237,13 +251,14 @@ Buy in the app: **Settings → Payment rails**. A scoped payment permission is r
 
 | Use | Cost (default) |
 |-----|----------------|
+| Full broker discovery sweep | 15 credits per run |
 | Venice agent chat | 1 credit per 100 tokens (minimum 1) |
 | Venice classify / draft / review | Same token metering |
 | Live operator email relay | 25 credits per send |
 
 **Token budget** scales with balance (roughly 120–4,000 max tokens per request). Usage is metered until credits run out — there are no fixed per-plan chat caps.
 
-Core cleanup (discovery, approvals, practice-run execution) works **without** credits. Venice AI and live email relay require a connected wallet with sufficient balance.
+**Per-case activation** is required before workflow APIs run (preset, discover, agent). Pay once per case with Starter, or subscribe to Monitor — an active subscription auto-activates new cases for that wallet. The landing **preview** (limited broker check, no Venice scoring) is free and does not create a case.
 
 ---
 
@@ -273,7 +288,7 @@ Billing-specific questions are summarized here. For product, privacy, approvals,
 
 ## How Oblivion compares
 
-Oblivion is a **supervised cleanup agent** — not a traditional “set and forget” data-broker subscription. You stay in the loop: identifiers live in a **browser vault**, and **every disclosure requires explicit approval**. Optional wallet credits pay for AI and live email relay; core discovery, approvals, and practice-run execution work without credits.
+Oblivion is a **supervised cleanup agent** — not a traditional “set and forget” data-broker subscription. You stay in the loop: identifiers live in a **browser vault**, and **every disclosure requires explicit approval**. Wallet credits fund per-case activation, full Venice-scored discovery, AI, and live email relay. A free landing preview shows sample broker hits before you pay.
 
 Competitor pricing and features below are from **public listings** (June 2026). Promotional coupons and regional offers change often — verify on each vendor’s site before buying.
 
@@ -281,7 +296,7 @@ Competitor pricing and features below are from **public listings** (June 2026). 
 
 | Service | Listed starting price | Billing model |
 |---------|----------------------|---------------|
-| **Oblivion** | **$0** (core workflow) · **$5** Starter pack · **$10/mo** Monitor | Pay-as-you-go credits; no subscription required for cleanup |
+| **Oblivion** | **$0** (limited preview) · **$5** Starter pack · **$10/mo** Monitor | Per-case activation + metered credits; free preview before signup |
 | [Optery](https://www.optery.com/) | ~$3.99/mo | Subscription |
 | [Incogni](https://incogni.com/) | ~$7.99/mo | Subscription |
 | [DeleteMe](https://joindeleteme.com/) | ~$8.71/mo | Subscription |
@@ -386,7 +401,12 @@ Templates are preset cleanup routes (people-search, breach check, search suppres
 
 ### What is a case access token?
 
-When you create a case, the app stores a **case access token** in your browser. Consumer `/api/*` routes require this token — there is no account login. Keep the same browser/device or you will need a new case.
+When you create a case, the app stores a **case access token** in your browser (like a one-time API key for that case only). Consumer `/api/*` routes require this token on every case-scoped request. There is no email/password account — but you still need **both** credentials for full cleanup:
+
+- **Wallet** — billing identity (credits, subscription, per-case activation)
+- **Case access token** — capability to read/write that case on `/api/*`
+
+Download a **recovery kit** (Vault tab) to move `caseId` + token to another device. Wallet-linked cases can be listed after connect, but tokens are never re-issued server-side.
 
 ### Can anything send without my approval?
 
@@ -402,14 +422,21 @@ By default, connectors run in **record-only** mode: the agent logs what *would* 
 
 ### Do I need a wallet to use Oblivion?
 
-**No** for core cleanup — discovery, approvals, and practice-run execution work without credits.
+**Free preview:** The landing page can run a limited broker preview (no wallet, no case token) — a few site-scoped checks per day.
 
-Connect a wallet when you want **Venice AI** (chat, classify, draft), **live operator email relay**, or **x402 payment demos**.
+**Full cleanup** requires a connected wallet, **per-case activation** (Starter pack or Monitor subscription), and wallet credits for metered steps:
+
+- Full broker discovery (Venice-scored sweep) debits discovery credits per run
+- Venice AI chat/classify/draft debits per token use
+- Live operator email relay debits per send
+
+Monitor subscribers get monthly credit refills; an active subscription also auto-activates new cases for that wallet without a separate per-case payment.
 
 ### What do credits buy?
 
 | Use | Default cost |
 |-----|----------------|
+| Full broker discovery sweep | 15 credits per run |
 | Venice agent chat | 1 credit per 100 tokens (minimum 1) |
 | Live operator email relay | 25 credits per send |
 
@@ -556,11 +583,42 @@ The Oblivion browser app attaches the header automatically when a token exists f
 ## Public routes (no case token)
 
 - `POST /api/cases` — create
+- `POST /api/discovery/preview` — limited broker preview (rate-limited by IP/wallet; no case created)
 - `GET /api/presets`, `GET /api/health`, `GET /api/config`
 - `GET /api/trust/*`, `GET /api/integrations/*`
 - Wallet / x402 catalog endpoints that do not target a specific case
 
 `GET /api/cases` returns `401 case-list-not-available`. The UI keeps case summaries in `localStorage` and refreshes individual cases with tokens.
+
+---
+
+## Wallet case index (no token re-issue)
+
+After a case is activated, link it to the paying wallet for cross-device lookup of **case IDs** (redacted labels only):
+
+```sh
+# List cases paid/linked to a wallet (no access tokens returned)
+curl -sS "http://localhost:8080/api/wallet/cases?walletAddress=0x..."
+
+# Link case to wallet (requires case Bearer token + wallet address)
+curl -sS -X POST http://localhost:8080/api/wallet/cases/link \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"caseId":"case_...","walletAddress":"0x..."}'
+```
+
+Users still import `caseId` + `accessToken` from a client-side **recovery kit** — the server never re-issues tokens.
+
+---
+
+## Discovery preview vs full discover
+
+| Route | Auth | Behavior |
+|-------|------|----------|
+| `POST /api/discovery/preview` | None | Heuristic broker sweep only; daily cap (default 3 previews per IP/wallet per day) |
+| `POST /api/cases/:id/findings/discover` | Bearer + activation | Venice-scored discovery; debits discovery credits (default 15) from wallet |
+
+Full discover accepts optional `walletAddress` in the body for subscription auto-activation and credit debit.
 
 ---
 

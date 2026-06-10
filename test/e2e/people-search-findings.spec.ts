@@ -6,8 +6,7 @@ test.describe("people-search cleanup flow", () => {
   test.setTimeout(120_000);
 
   test("discovers broker links, confirms matches, and reaches approval gate", async ({ page }) => {
-    await page.goto("/");
-    await page.getByTestId("landing-preset-people-search-cleanup").click();
+    await page.goto("/#app");
     await page.getByTestId("simple-name").fill("John Smith");
     await page.getByTestId("simple-alias").fill("J. Smith");
     await page.getByTestId("simple-region").fill("New York");

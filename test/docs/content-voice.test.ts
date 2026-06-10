@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { documentationTree } from "../../docs/shared/documentation-config.js";
+import { documentationTree, homepageConfig } from "../../docs/shared/documentation-config.js";
 
 type DocTreeItem = {
   type: "file" | "directory";
@@ -57,4 +57,8 @@ test("published docs avoid internal implementation leakage", () => {
       );
     }
   }
+});
+
+test("docs site skips marketing homepage and opens on first doc", () => {
+  assert.equal(homepageConfig.enabled, false);
 });

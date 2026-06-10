@@ -4,9 +4,8 @@ import { caseAuthHeaders } from "./caseAuth.js";
 const SAMPLE_PROFILE_URL = "https://rocketreach.co/example-person-profile";
 
 test("guided cleanup route reaches approval gate", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/#app");
 
-  await page.getByTestId("landing-preset-people-search-cleanup").click();
   await page.getByTestId("simple-name").fill("John Smith");
   await page.getByTestId("simple-urls").fill(
     [SAMPLE_PROFILE_URL, "https://www.anywho.com/people/example+person/new+york"].join("\n")

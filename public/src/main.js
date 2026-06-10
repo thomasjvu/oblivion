@@ -8,6 +8,7 @@ import { redactedScopeFromIntake } from './intakeScope.js';
 import { pollRelayTask, submitRelayBundle } from './oneShotRelayer.js';
 import { createWalletLogger, DEFAULT_WALLET_CONFIG } from './walletLog.js';
 import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
+import { isAgentVoiceEnabled, playCharBeep, setAgentVoiceEnabled, stopAgentVoice } from './agentVnTts.js';
 
 function isUserRejectedError(value) {
   if (!value) return false;
@@ -129,6 +130,7 @@ const state = {
   deleteConfirmCaseId: "",
   preSearchReady: false,
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
+  agentVoiceEnabled: isAgentVoiceEnabled(),
   sessionHandoffWarning: "",
   paymentRailsNotice: ""
 };
@@ -365,9 +367,6 @@ function selectPresetId(presetId) {
   document.querySelectorAll("[data-agent-preset]").forEach((starter) => {
     starter.classList.toggle("active", starter.dataset.agentPreset === state.selectedPresetId);
   });
-  document.querySelectorAll("[data-landing-preset]").forEach((starter) => {
-    starter.classList.toggle("active", starter.dataset.landingPreset === state.selectedPresetId);
-  });
   const defaults = SIMPLE_PRESET_DEFAULTS[state.selectedPresetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const jurisdiction = $("#jurisdiction");
   const risk = $("#risk-level");
@@ -375,17 +374,12 @@ function selectPresetId(presetId) {
   if (risk) risk.value = defaults.riskLevel;
 }
 
-function applyLandingTemplate(presetId) {
-  openNewCaseFlow();
-  applyAgentIntakeTemplate(presetId);
-}
-
 function applyLandingIntakeText(text) {
   const trimmed = String(text || "").trim();
   if (!trimmed) return;
   openNewCaseFlow();
   const parsed = parseIntakeForCase(trimmed);
-  const presetId = recommendPreset(parsed);
+  const presetId = "people-search-cleanup";
   selectPresetId(presetId);
   const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const name = parsed.personLabel !== "Private case" ? parsed.personLabel : "";
@@ -1056,6 +1050,11 @@ function renderPrivacyFilterSettings() {
   if (toggle) toggle.checked = Boolean(state.privacyFilterMode);
 }
 
+function renderAgentVoiceSettings() {
+  const toggle = $("#agent-voice-toggle");
+  if (toggle) toggle.checked = Boolean(state.agentVoiceEnabled);
+}
+
 function renderChatBubble(message) {
   const role = message.role === "user" ? "user" : "agent";
   const animate = role === "agent" && message.animate && message.text;
@@ -1073,6 +1072,7 @@ function renderChatBubble(message) {
 function cancelChatTypewriters() {
   chatTypewriterTimers.forEach((timer) => window.clearTimeout(timer));
   chatTypewriterTimers = [];
+  stopAgentVoice();
 }
 
 function runChatTypewriters(log, logShell) {
@@ -1084,6 +1084,7 @@ function runChatTypewriters(log, logShell) {
     let index = 0;
     const step = () => {
       bubble.textContent = fullText.slice(0, index);
+      if (index > 0) playCharBeep(fullText[index - 1]);
       if (logShell) logShell.scrollTop = logShell.scrollHeight;
       if (index < fullText.length) {
         index += 1;
@@ -1930,18 +1931,6 @@ function renderHackathonChecklist() {
       .join("") + oneShotNote;
 }
 
-function renderLandingTemplates() {
-  const container = $("#landing-preset-starters");
-  if (!container) return;
-  container.innerHTML = Object.entries(AGENT_INTAKE_TEMPLATES)
-    .map(([presetId]) => {
-      const title = presentPreset({ id: presetId }).title;
-      const active = presetId === state.selectedPresetId;
-      return `<button type="button" class="landing-preset-starter${active ? " active" : ""}" data-landing-preset="${presetId}" data-testid="landing-preset-${presetId}">${escapeHtml(title)}</button>`;
-    })
-    .join("");
-}
-
 function renderAgentPresetStarters() {
   const panel = $("#agent-template-panel");
   const container = $("#agent-preset-starters");
@@ -2764,10 +2753,10 @@ function render() {
   renderSubscriptionUpsell();
   renderFindings();
   renderPresets();
-  renderLandingTemplates();
   renderAgentChat();
   renderHackathonChecklist();
   renderPrivacyFilterSettings();
+  renderAgentVoiceSettings();
   applyPrivacyFilterToInputs();
   renderPayments();
   renderAgentNetwork();
@@ -4101,12 +4090,7 @@ document.querySelectorAll(".preset-chip").forEach((chip) => {
   });
 });
 document.addEventListener("click", (event) => {
-  const landingStarter = event.target.closest("[data-landing-preset]");
-  if (landingStarter) {
-    event.preventDefault();
-    applyLandingTemplate(landingStarter.dataset.landingPreset);
-    return;
-  }
+
   const starter = event.target.closest("[data-agent-preset]");
   if (!starter) return;
   event.preventDefault();
@@ -4232,6 +4216,10 @@ $("#privacy-filter-toggle")?.addEventListener("change", (event) => {
   state.privacyFilterMode = Boolean(event.target.checked);
   localStorage.setItem("oblivion.privacyFilter", state.privacyFilterMode ? "1" : "0");
   render();
+});
+$("#agent-voice-toggle")?.addEventListener("change", (event) => {
+  state.agentVoiceEnabled = Boolean(event.target.checked);
+  setAgentVoiceEnabled(state.agentVoiceEnabled);
 });
 $("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
 $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));

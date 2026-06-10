@@ -29,7 +29,8 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /clean-online-identity/);
   assert.match(html, /skill\.sh/);
   assert.match(html, /setupLandingSkillInstall/);
-  assert.match(html, /REMOVE YOUR PERSONAL INFO ONLINE<br>WITHOUT GIVING MORE DATA AWAY/);
+  assert.match(html, /REMOVE YOUR PERSONAL INFO ONLINE/);
+  assert.doesNotMatch(html, /WITHOUT GIVING MORE DATA AWAY/);
   assert.match(html, /placeholder="Enter your name"/);
   assert.doesNotMatch(html, /id="partner-api"/);
   assert.doesNotMatch(html, /Embed removal in your app/);
@@ -40,12 +41,20 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
   assert.match(html, /id="landing-send"/);
-  assert.match(html, /id="landing-preset-starters"/);
-  assert.match(html, /applyLandingTemplate/);
+  assert.match(html, /data-testid="landing-trust-line"/);
+  assert.match(html, /E2EE.*TEE-SECURE.*100% Private/);
+  assert.doesNotMatch(html, /id="landing-preset-starters"/);
   assert.match(html, /submitLandingIntake/);
   assert.match(html, /pixelarticons/);
   assert.match(html, /bindIcons/);
   assert.match(html, /cinematic-hero/);  // new cinematic landing
+  assert.match(html, /container-name:\s*landingCopy/);
+  assert.match(html, /calc\(100cqw \/ 55\.2\)/);
+  assert.match(html, /--landing-content-max/);
+  assert.match(html, /--landing-pad/);
+  assert.match(html, /--shell-max-landing/);
+  assert.doesNotMatch(html, /@container landingCopy \(max-width: 520px\)/);
+  assert.doesNotMatch(html, /\.landing\s*\{[^}]*--shell-main-column/s);
   assert.match(html, /id="app-workspace"/);
   assert.match(html, /id="app-chrome"/);
   assert.match(html, /data-testid="app-sidebar"/);
@@ -175,6 +184,9 @@ test("app keeps hackathon sponsor-track details in settings", async () => {
   assert.match(html, /data-testid="privacy-filter-toggle"/);
   assert.match(html, /privacyFilterMode/);
   assert.match(html, /maskPrivacyText/);
+  assert.match(html, /data-testid="agent-voice-toggle"/);
+  assert.match(html, /agentVoiceEnabled/);
+  assert.match(html, /playCharBeep/);
   assert.match(html, /data-testid="breach-password-vault"/);
   assert.match(html, /sha1PrefixFromPassword/);
 });

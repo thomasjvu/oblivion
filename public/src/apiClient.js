@@ -77,7 +77,23 @@ export async function apiRequest(path, options = {}) {
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined
   });
-  const json = await response.json();
+  const raw = await response.text();
+  let json = {};
+  if (raw.trim()) {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw {
+        error: "invalid-json",
+        message: `Server returned an invalid response (${response.status}).`
+      };
+    }
+  } else if (!response.ok) {
+    throw {
+      error: "empty-response",
+      message: `Request failed (${response.status}). Check that the API is reachable.`
+    };
+  }
   if (!response.ok) throw json;
   return json;
 }

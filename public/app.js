@@ -24603,7 +24603,23 @@ async function apiRequest(path, options = {}) {
     headers,
     body: options.body ? JSON.stringify(options.body) : void 0
   });
-  const json = await response.json();
+  const raw = await response.text();
+  let json = {};
+  if (raw.trim()) {
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      throw {
+        error: "invalid-json",
+        message: `Server returned an invalid response (${response.status}).`
+      };
+    }
+  } else if (!response.ok) {
+    throw {
+      error: "empty-response",
+      message: `Request failed (${response.status}). Check that the API is reachable.`
+    };
+  }
   if (!response.ok) throw json;
   return json;
 }
@@ -31901,6 +31917,174 @@ function setIcon(host, name) {
 }
 bindIcons(document);
 
+// node_modules/@phantasy/vn-tts/dist/index.js
+function floatToUint8(samples) {
+  const result = new Uint8Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    result[i] = Math.floor((samples[i] + 1) * 127.5);
+  }
+  return result;
+}
+function addWavHeader(samples, sampleRate) {
+  const buffer2 = new ArrayBuffer(44 + samples.length);
+  const view = new DataView(buffer2);
+  const writeString = (offset, str) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + samples.length, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  writeString(36, "data");
+  view.setUint32(40, samples.length, true);
+  const result = new Uint8Array(buffer2);
+  result.set(samples, 44);
+  return result;
+}
+var DEFAULT_BASE_FREQUENCY = 250;
+var DEFAULT_SAMPLE_RATE = 8e3;
+var DEFAULT_VOWEL_VOLUME = 0.4;
+var DEFAULT_CONSONANT_VOLUME = 0.3;
+function generateBeep(frequency, durationMs, sampleRate, volume = 0.5) {
+  const numSamples = Math.floor(durationMs / 1e3 * sampleRate);
+  const samples = new Float32Array(numSamples);
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    let envelope = 1;
+    const attackSamples = Math.floor(sampleRate * 0.01);
+    const releaseSamples = Math.floor(sampleRate * 0.02);
+    if (i < attackSamples) {
+      envelope = i / attackSamples;
+    } else if (i > numSamples - releaseSamples) {
+      envelope = (numSamples - i) / releaseSamples;
+    }
+    samples[i] = Math.sin(2 * Math.PI * frequency * t) * volume * envelope;
+  }
+  return samples;
+}
+function isVowel(char) {
+  return /[aeiouAEIOU]/.test(char);
+}
+function getFrequencyForChar(char, baseFreq) {
+  const charCode = char.toLowerCase().charCodeAt(0);
+  if (isVowel(char)) {
+    return baseFreq + charCode % 50;
+  }
+  if (/[bcdfghjklmnpqrstvwxyz]/i.test(char)) {
+    return baseFreq - 30 + charCode % 40;
+  }
+  return baseFreq;
+}
+function synthesizePcm(options) {
+  const { text, baseFrequency, sampleRate, vowelVolume, consonantVolume } = options;
+  const allSamples = [];
+  const cleanedText = text.replace(/[^a-zA-Z ]/g, " ").trim();
+  if (cleanedText.length === 0) {
+    const silenceLength = Math.floor(sampleRate * 0.1);
+    return {
+      pcm: addWavHeader(new Uint8Array(silenceLength).fill(127), sampleRate),
+      sampleRate,
+      durationMs: 100
+    };
+  }
+  for (const char of cleanedText) {
+    if (char === " ") {
+      allSamples.push(new Float32Array(Math.floor(sampleRate * 0.05)));
+      continue;
+    }
+    const freq = getFrequencyForChar(char, baseFrequency);
+    const isV = isVowel(char);
+    const duration = isV ? 80 + char.charCodeAt(0) % 40 : 30 + char.charCodeAt(0) % 20;
+    const volume = isV ? vowelVolume : consonantVolume;
+    allSamples.push(generateBeep(freq, duration, sampleRate, volume));
+    allSamples.push(new Float32Array(Math.floor(sampleRate * 0.02)));
+  }
+  const totalLength = allSamples.reduce((sum, arr) => sum + arr.length, 0);
+  const combined = new Float32Array(totalLength);
+  let offset = 0;
+  for (const samples of allSamples) {
+    combined.set(samples, offset);
+    offset += samples.length;
+  }
+  const uint8Samples = floatToUint8(combined);
+  const audio = addWavHeader(uint8Samples, sampleRate);
+  const durationMs = Math.round(totalLength / sampleRate * 1e3);
+  return { pcm: audio, sampleRate, durationMs };
+}
+function synthesize(options) {
+  const sampleRate = options.sampleRate ?? DEFAULT_SAMPLE_RATE;
+  const { pcm, durationMs } = synthesizePcm({
+    text: options.text,
+    baseFrequency: options.baseFrequency ?? DEFAULT_BASE_FREQUENCY,
+    sampleRate,
+    vowelVolume: options.vowelVolume ?? DEFAULT_VOWEL_VOLUME,
+    consonantVolume: options.consonantVolume ?? DEFAULT_CONSONANT_VOLUME
+  });
+  return {
+    audio: pcm,
+    mimeType: "audio/wav",
+    sampleRate,
+    durationMs
+  };
+}
+function synthesizeToArrayBuffer(options) {
+  const { audio } = synthesize(options);
+  return audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength);
+}
+function synthesizeToBlob(options) {
+  const buffer2 = synthesizeToArrayBuffer(options);
+  return new Blob([buffer2], { type: "audio/wav" });
+}
+function createObjectUrl(options) {
+  return URL.createObjectURL(synthesizeToBlob(options));
+}
+
+// public/src/agentVnTts.js
+var STORAGE_KEY = "oblivion.agentVoice";
+var activeAudios = [];
+function isAgentVoiceEnabled() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return false;
+  return localStorage.getItem(STORAGE_KEY) !== "0";
+}
+function setAgentVoiceEnabled(enabled) {
+  localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
+  if (!enabled) stopAgentVoice();
+}
+function playCharBeep(char) {
+  if (!isAgentVoiceEnabled()) return;
+  if (!char || !/[a-zA-Z]/.test(char)) return;
+  const url = createObjectUrl({ text: char });
+  const audio = new Audio(url);
+  audio.volume = 0.35;
+  activeAudios.push(audio);
+  audio.play().catch(() => {
+  });
+  audio.addEventListener(
+    "ended",
+    () => {
+      URL.revokeObjectURL(url);
+      activeAudios = activeAudios.filter((item) => item !== audio);
+    },
+    { once: true }
+  );
+}
+function stopAgentVoice() {
+  for (const audio of activeAudios) {
+    audio.pause();
+    if (audio.src.startsWith("blob:")) URL.revokeObjectURL(audio.src);
+  }
+  activeAudios = [];
+}
+
 // public/src/main.js
 function isUserRejectedError(value) {
   if (!value) return false;
@@ -32014,6 +32198,7 @@ var state = {
   deleteConfirmCaseId: "",
   preSearchReady: false,
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
+  agentVoiceEnabled: isAgentVoiceEnabled(),
   sessionHandoffWarning: "",
   paymentRailsNotice: ""
 };
@@ -32227,25 +32412,18 @@ function selectPresetId(presetId) {
   document.querySelectorAll("[data-agent-preset]").forEach((starter) => {
     starter.classList.toggle("active", starter.dataset.agentPreset === state.selectedPresetId);
   });
-  document.querySelectorAll("[data-landing-preset]").forEach((starter) => {
-    starter.classList.toggle("active", starter.dataset.landingPreset === state.selectedPresetId);
-  });
   const defaults = SIMPLE_PRESET_DEFAULTS[state.selectedPresetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const jurisdiction = $("#jurisdiction");
   const risk = $("#risk-level");
   if (jurisdiction) jurisdiction.value = defaults.jurisdiction;
   if (risk) risk.value = defaults.riskLevel;
 }
-function applyLandingTemplate(presetId) {
-  openNewCaseFlow();
-  applyAgentIntakeTemplate(presetId);
-}
 function applyLandingIntakeText(text) {
   const trimmed = String(text || "").trim();
   if (!trimmed) return;
   openNewCaseFlow();
   const parsed = parseIntakeForCase(trimmed);
-  const presetId = recommendPreset(parsed);
+  const presetId = "people-search-cleanup";
   selectPresetId(presetId);
   const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const name = parsed.personLabel !== "Private case" ? parsed.personLabel : "";
@@ -32804,6 +32982,10 @@ function renderPrivacyFilterSettings() {
   const toggle = $("#privacy-filter-toggle");
   if (toggle) toggle.checked = Boolean(state.privacyFilterMode);
 }
+function renderAgentVoiceSettings() {
+  const toggle = $("#agent-voice-toggle");
+  if (toggle) toggle.checked = Boolean(state.agentVoiceEnabled);
+}
 function renderChatBubble(message) {
   const role = message.role === "user" ? "user" : "agent";
   const animate = role === "agent" && message.animate && message.text;
@@ -32820,6 +33002,7 @@ function renderChatBubble(message) {
 function cancelChatTypewriters() {
   chatTypewriterTimers.forEach((timer) => window.clearTimeout(timer));
   chatTypewriterTimers = [];
+  stopAgentVoice();
 }
 function runChatTypewriters(log, logShell) {
   cancelChatTypewriters();
@@ -32830,6 +33013,7 @@ function runChatTypewriters(log, logShell) {
     let index2 = 0;
     const step = () => {
       bubble.textContent = fullText.slice(0, index2);
+      if (index2 > 0) playCharBeep(fullText[index2 - 1]);
       if (logShell) logShell.scrollTop = logShell.scrollHeight;
       if (index2 < fullText.length) {
         index2 += 1;
@@ -33567,15 +33751,6 @@ function renderHackathonChecklist() {
   `;
   }).join("") + oneShotNote;
 }
-function renderLandingTemplates() {
-  const container = $("#landing-preset-starters");
-  if (!container) return;
-  container.innerHTML = Object.entries(AGENT_INTAKE_TEMPLATES).map(([presetId]) => {
-    const title = presentPreset({ id: presetId }).title;
-    const active = presetId === state.selectedPresetId;
-    return `<button type="button" class="landing-preset-starter${active ? " active" : ""}" data-landing-preset="${presetId}" data-testid="landing-preset-${presetId}">${escapeHtml(title)}</button>`;
-  }).join("");
-}
 function renderAgentPresetStarters() {
   const panel = $("#agent-template-panel");
   const container = $("#agent-preset-starters");
@@ -34297,10 +34472,10 @@ function render() {
   renderSubscriptionUpsell();
   renderFindings();
   renderPresets();
-  renderLandingTemplates();
   renderAgentChat();
   renderHackathonChecklist();
   renderPrivacyFilterSettings();
+  renderAgentVoiceSettings();
   applyPrivacyFilterToInputs();
   renderPayments();
   renderAgentNetwork();
@@ -35500,12 +35675,6 @@ document.querySelectorAll(".preset-chip").forEach((chip) => {
   });
 });
 document.addEventListener("click", (event) => {
-  const landingStarter = event.target.closest("[data-landing-preset]");
-  if (landingStarter) {
-    event.preventDefault();
-    applyLandingTemplate(landingStarter.dataset.landingPreset);
-    return;
-  }
   const starter = event.target.closest("[data-agent-preset]");
   if (!starter) return;
   event.preventDefault();
@@ -35623,6 +35792,10 @@ $("#privacy-filter-toggle")?.addEventListener("change", (event) => {
   state.privacyFilterMode = Boolean(event.target.checked);
   localStorage.setItem("oblivion.privacyFilter", state.privacyFilterMode ? "1" : "0");
   render();
+});
+$("#agent-voice-toggle")?.addEventListener("change", (event) => {
+  state.agentVoiceEnabled = Boolean(event.target.checked);
+  setAgentVoiceEnabled(state.agentVoiceEnabled);
 });
 $("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
 $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));

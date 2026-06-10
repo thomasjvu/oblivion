@@ -51,7 +51,7 @@ export const openapiConfig = {
 
 /** @type {import('./documentation-config.js').HomepageConfig} */
 export const homepageConfig = {
-  enabled: true,
+  enabled: false,
   hero: {
     title: 'Oblivion',
     subtitle: 'Private cleanup agent',
