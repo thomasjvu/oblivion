@@ -119,7 +119,10 @@ test("initial homepage is guided and not a dense dashboard", async () => {
 test("advanced and noisy sections are collapsed by default", async () => {
   const html = await readUiBundle();
 
-  assert.match(html, /Advanced settings/);
+  assert.match(html, /Case defaults/);
+  assert.match(html, /case-defaults-settings/);
+  assert.match(html, /onboarding-route-note/);
+  assert.doesNotMatch(html, /unlock-advanced/);
   assert.match(html, /<details data-advanced="trust">/);
   assert.match(html, /<details data-advanced="log">/);
   assert.doesNotMatch(html, /Proof matrix/);

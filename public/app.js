@@ -32516,12 +32516,23 @@ function applyAdvancedUiVisibility() {
   const advancedToggle = $("#show-advanced-ui");
   if (advancedToggle) advancedToggle.checked = state.showAdvancedUI;
 }
+function onboardingPresetId() {
+  return "people-search-cleanup";
+}
+function syncJurisdictionFromRegionLabel(region) {
+  if (!region?.trim()) return;
+  const parsed = parseIntakeForCase(`remove listings in ${region.trim()}`);
+  const jurisdiction = $("#jurisdiction");
+  const risk = $("#risk-level");
+  if (jurisdiction) jurisdiction.value = parsed.jurisdiction;
+  if (risk && parsed.riskLevel) risk.value = parsed.riskLevel;
+}
 function readSimpleIntakeForm() {
   const name = $("#simple-name")?.value?.trim();
   if (!name) throw { error: "name-required", message: "Enter your name to continue." };
   const alias = $("#simple-alias")?.value?.trim();
   const region = $("#simple-region")?.value?.trim();
-  const presetId = state.selectedPresetId || "people-search-cleanup";
+  const presetId = isOnboardingWithoutCase() ? onboardingPresetId() : state.selectedPresetId || onboardingPresetId();
   const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const pastedUrls = ($("#simple-urls")?.value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const intakeText = intakeTextForPreset(presetId, { name, region, alias });
@@ -32582,8 +32593,9 @@ async function startFromLanding() {
   openNewCaseFlow();
   if ($("#simple-name")) $("#simple-name").value = text;
   if (region && $("#simple-region")) $("#simple-region").value = region;
+  syncJurisdictionFromRegionLabel(region);
   const parsed = parseIntakeForCase(text);
-  const presetId = "people-search-cleanup";
+  const presetId = onboardingPresetId();
   selectPresetId(presetId);
   const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
   const name = parsed.personLabel !== "Private case" ? parsed.personLabel : text;
@@ -33370,9 +33382,17 @@ function openNewCaseFlow() {
   state.currentStatus = null;
   state.agentPlan = null;
   state.connectorResults = [];
-  state.recommendedPresetId = "people-search-cleanup";
-  state.selectedPresetId = "people-search-cleanup";
+  state.recommendedPresetId = onboardingPresetId();
+  state.selectedPresetId = onboardingPresetId();
   state.showRouteTab = false;
+  const jurisdiction = $("#jurisdiction");
+  const authority = $("#authority");
+  const risk = $("#risk-level");
+  const autonomy = $("#high-autonomy-toggle");
+  if (jurisdiction) jurisdiction.value = "US";
+  if (authority) authority.value = "self";
+  if (risk) risk.value = "standard";
+  if (autonomy) autonomy.checked = false;
   state.casesPanelOpen = false;
   resetPreSearchUi();
   state.onboardingPreviewReady = false;
@@ -34232,10 +34252,6 @@ function renderWalletFeedback() {
       setInlineStatus(node, "");
     }
   });
-  const onboardingFb = $("#wallet-feedback-onboarding");
-  if (onboardingFb) {
-    onboardingFb.textContent = "";
-  }
 }
 function openPaymentRails() {
   state.tab = "settings";
@@ -34344,6 +34360,9 @@ function renderOnboardingSteps() {
   $("#onboarding-intake-full")?.toggleAttribute("hidden", !fullStep);
   $("#onboarding-check-listings")?.toggleAttribute("hidden", !previewStep || state.onboardingPreviewBusy);
   $("#start-cleanup")?.toggleAttribute("hidden", !fullStep);
+  $("#simple-preset-row")?.toggleAttribute("hidden", true);
+  $("#onboarding-route-note")?.toggleAttribute("hidden", !fullStep);
+  if (onboarding) selectPresetId(onboardingPresetId());
 }
 function renderOnboardingPayment() {
   const panel = $("#onboarding-payment");

@@ -205,7 +205,8 @@
                   <span>Also known as <em class="muted">(optional)</em></span>
                   <input id="simple-alias" data-testid="simple-alias" type="text" placeholder="J. Smith" />
                 </label>
-              <div class="simple-preset-row" id="simple-preset-row" aria-label="Cleanup template">
+              <p class="muted small onboarding-route-note" id="onboarding-route-note" data-testid="onboarding-route-note">People-search cleanup — confirm each match before anything is sent.</p>
+              <div class="simple-preset-row" id="simple-preset-row" aria-label="Cleanup template" hidden>
                 <button type="button" class="preset-chip active" data-preset-id="people-search-cleanup" data-testid="preset-people">People-search</button>
                 <button type="button" class="preset-chip" data-preset-id="search-result-suppression" data-testid="preset-google">Google</button>
                 <button type="button" class="preset-chip" data-preset-id="gdpr-erasure" data-testid="preset-gdpr">GDPR</button>
@@ -252,40 +253,6 @@
               <textarea id="agent-intake" hidden aria-hidden="true"></textarea>
               <textarea id="intake" hidden aria-hidden="true"></textarea>
               <input id="person-label" type="hidden" aria-hidden="true" />
-              <details class="unlock-advanced" id="unlock-advanced">
-                <summary data-icon="sliders">Advanced settings</summary>
-                <label for="jurisdiction">Jurisdiction</label>
-                <select id="jurisdiction">
-                  <option>US</option>
-                  <option>EU</option>
-                  <option>UK</option>
-                </select>
-                <div class="form-grid">
-                  <div>
-                    <label for="authority">Authority</label>
-                    <select id="authority">
-                      <option value="self">Self</option>
-                      <option value="authorized-representative">Authorized representative</option>
-                      <option value="minor-guardian">Minor guardian</option>
-                      <option value="estate">Estate</option>
-                      <option value="survivor">Survivor</option>
-                      <option value="employee">Employee</option>
-                      <option value="tenant">Tenant</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="risk-level">Risk level</label>
-                    <select id="risk-level">
-                      <option value="standard">Standard</option>
-                      <option value="high-risk-safety">High-risk safety</option>
-                    </select>
-                  </div>
-                </div>
-                <label class="checkbox-row"><input type="checkbox" id="show-advanced-ui" /> Show technical panels</label>
-                <label class="checkbox-row"><input type="checkbox" id="high-autonomy-toggle" /> High autonomy (batch approvals)</label>
-                <p class="muted small">Wallet connection lives at the bottom of the sidebar. Use <strong>Cases</strong> there to switch or delete saved cases.</p>
-                <p class="wallet-connect-feedback muted visually-hidden" id="wallet-feedback-onboarding" aria-live="polite"></p>
-              </details>
             </div>
             <div class="status-list visually-hidden" id="onboarding-wallet-status" aria-hidden="true"></div>
             </div>
@@ -404,7 +371,7 @@
                 <summary>Route details</summary>
                 <div class="status-list" id="route-details"></div>
               </details>
-              <p class="muted small autonomy-row">High autonomy is in Advanced settings on the start form.</p>
+              <p class="muted small autonomy-row">High autonomy is in Settings → Case defaults.</p>
               <details>
                 <summary>Manual approval builder</summary>
                 <div class="choice-grid">
@@ -475,6 +442,40 @@
               <div class="panel-header">
                 <h3>Settings</h3>
                 <span class="pill">Advanced</span>
+              </div>
+              <div class="settings-block case-defaults-block" id="case-defaults-settings" data-testid="case-defaults-settings">
+                <h4>Case defaults</h4>
+                <p class="muted small">Applies to the next cleanup you start. The people-search flow uses US · self · standard with per-step approvals unless you change these.</p>
+                <label for="jurisdiction">Jurisdiction</label>
+                <select id="jurisdiction" data-testid="case-jurisdiction">
+                  <option>US</option>
+                  <option>EU</option>
+                  <option>UK</option>
+                </select>
+                <div class="form-grid case-defaults-grid">
+                  <div>
+                    <label for="authority">Authority</label>
+                    <select id="authority" data-testid="case-authority">
+                      <option value="self">Self</option>
+                      <option value="authorized-representative">Authorized representative</option>
+                      <option value="minor-guardian">Minor guardian</option>
+                      <option value="estate">Estate</option>
+                      <option value="survivor">Survivor</option>
+                      <option value="employee">Employee</option>
+                      <option value="tenant">Tenant</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="risk-level">Risk level</label>
+                    <select id="risk-level" data-testid="case-risk-level">
+                      <option value="standard">Standard</option>
+                      <option value="high-risk-safety">High-risk safety</option>
+                    </select>
+                  </div>
+                </div>
+                <label class="checkbox-row"><input type="checkbox" id="show-advanced-ui" data-testid="show-advanced-ui" /> Show technical panels</label>
+                <label class="checkbox-row"><input type="checkbox" id="high-autonomy-toggle" data-testid="high-autonomy-toggle" /> High autonomy (batch approvals)</label>
+                <p class="muted small">Wallet connection lives at the bottom of the sidebar. Use <strong>Cases</strong> there to switch or delete saved cases.</p>
               </div>
               <div class="settings-block privacy-filter-block" id="privacy-filter-settings" data-testid="privacy-filter-settings">
                 <h4>Privacy filter</h4>

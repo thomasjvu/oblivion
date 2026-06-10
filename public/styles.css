@@ -2681,16 +2681,17 @@ summary {
   resize: vertical;
 }
 
-.unlock-advanced {
-  margin-top: 14px;
-  border-top: 1px solid var(--line);
-  padding-top: 10px;
+.onboarding-route-note {
+  margin: 0 0 10px;
+  line-height: 1.35;
 }
 
-.unlock-advanced summary {
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-bottom: 8px;
+.case-defaults-block .form-grid {
+  margin-top: 8px;
+}
+
+.case-defaults-grid {
+  gap: 10px;
 }
 
 .guide-rail-minimal .guide-rail-hint {
