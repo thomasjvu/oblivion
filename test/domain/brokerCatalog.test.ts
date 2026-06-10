@@ -38,3 +38,11 @@ test("preview broker sweep uses priority hosts and preview limit", () => {
   assert.equal(queries.length, previewBrokerSweepLimit());
   assert.equal(queries[0].brokerId, "spokeo");
 });
+
+test("broker sweep queries include optional region label", () => {
+  const queries = buildBrokerSweepQueries(
+    { personLabel: "John Smith", regionLabel: "New York, NY" },
+    { preview: true, limit: 1 }
+  );
+  assert.match(queries[0].query, /"John Smith" "New York, NY" site:/);
+});

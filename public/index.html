@@ -34,8 +34,38 @@
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
               <div class="landing-chat" id="landing-chat">
                 <div class="composer landing-composer">
-                  <input id="landing-input" data-testid="landing-input" placeholder="Enter your name" aria-label="Enter your name" />
-                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Get started"><span class="btn-label">Start</span></button>
+                  <input id="landing-input" data-testid="landing-input" placeholder="Enter your name" aria-label="Enter your name" autocomplete="name" />
+                  <input id="landing-location" class="landing-location" data-testid="landing-location" list="landing-location-options" placeholder="City / country" aria-label="City or country (optional)" autocomplete="off" />
+                  <datalist id="landing-location-options">
+                    <option value="United States"></option>
+                    <option value="United Kingdom"></option>
+                    <option value="Canada"></option>
+                    <option value="Australia"></option>
+                    <option value="New York, NY"></option>
+                    <option value="Los Angeles, CA"></option>
+                    <option value="Chicago, IL"></option>
+                    <option value="Houston, TX"></option>
+                    <option value="Phoenix, AZ"></option>
+                    <option value="Philadelphia, PA"></option>
+                    <option value="San Antonio, TX"></option>
+                    <option value="San Diego, CA"></option>
+                    <option value="Dallas, TX"></option>
+                    <option value="San Jose, CA"></option>
+                    <option value="Austin, TX"></option>
+                    <option value="Jacksonville, FL"></option>
+                    <option value="San Francisco, CA"></option>
+                    <option value="Seattle, WA"></option>
+                    <option value="Denver, CO"></option>
+                    <option value="Boston, MA"></option>
+                    <option value="Miami, FL"></option>
+                    <option value="Atlanta, GA"></option>
+                    <option value="London, UK"></option>
+                    <option value="Toronto, ON"></option>
+                    <option value="Vancouver, BC"></option>
+                    <option value="Sydney, Australia"></option>
+                    <option value="Melbourne, Australia"></option>
+                  </datalist>
+                  <button type="button" id="landing-send" class="icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
                 </div>
                 <p class="landing-trust-line" id="landing-trust-line" data-testid="landing-trust-line" aria-label="Privacy guarantees">E2EE <span aria-hidden="true">·</span> TEE-SECURE <span aria-hidden="true">·</span> 100% Private</p>
               </div>

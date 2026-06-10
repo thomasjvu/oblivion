@@ -72,9 +72,14 @@ export function recordPreviewUsage(
   return Math.max(0, limit - count);
 }
 
+export function previewResultLimit(): number {
+  const raw = Number(process.env.OBLIVION_PREVIEW_RESULT_LIMIT ?? "48");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 100) : 48;
+}
+
 function heuristicPreviewScore(candidate: DiscoveryCandidate, scope: RedactedScope): "likely" | "uncertain" | "unlikely" {
   const haystack = `${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`.toLowerCase();
-  const needles = [scope.personLabel, ...(scope.aliases ?? [])]
+  const needles = [scope.personLabel, ...(scope.aliases ?? []), ...(scope.approvedIdentifierLabels ?? [])]
     .map((item) => item?.trim().toLowerCase())
     .filter((item): item is string => Boolean(item && item.length > 2));
   const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl));
@@ -110,7 +115,14 @@ export async function runDiscoveryPreview(input: {
   }
 
   const limit = input.sweepLimit ?? previewBrokerSweepLimit();
-  const queries = buildBrokerSweepQueries(scope, { limit, preview: true });
+  const queries = buildBrokerSweepQueries(
+    {
+      personLabel: input.personLabel.trim(),
+      aliases: input.aliases,
+      regionLabel: input.regionLabel
+    },
+    { limit, preview: true }
+  );
   const seen = new Set<string>();
   const candidates: DiscoveryCandidate[] = [];
 
@@ -129,7 +141,7 @@ export async function runDiscoveryPreview(input: {
     }
   }
 
-  return candidates.slice(0, 12).map((candidate) => {
+  return candidates.slice(0, previewResultLimit()).map((candidate) => {
     const broker = candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : brokerForUrl(candidate.sourceUrl);
     return {
       sourceUrl: candidate.sourceUrl,

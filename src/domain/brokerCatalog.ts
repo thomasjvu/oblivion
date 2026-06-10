@@ -188,8 +188,8 @@ export function brokerSweepLimit(): number {
 }
 
 export function previewBrokerSweepLimit(): number {
-  const raw = Number(process.env.OBLIVION_PREVIEW_BROKER_SWEEP || "5");
-  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 10) : 5;
+  const raw = Number(process.env.OBLIVION_PREVIEW_BROKER_SWEEP ?? "20");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 25) : 20;
 }
 
 function orderedTier1Brokers(): BrokerCatalogEntry[] {
@@ -204,7 +204,7 @@ function orderedTier1Brokers(): BrokerCatalogEntry[] {
 }
 
 export function buildBrokerSweepQueries(
-  scope: { personLabel?: string; aliases?: string[] } | undefined,
+  scope: { personLabel?: string; aliases?: string[]; regionLabel?: string } | undefined,
   options?: { limit?: number; preview?: boolean }
 ): Array<{
   brokerId: string;
@@ -216,12 +216,15 @@ export function buildBrokerSweepQueries(
     .filter(Boolean);
   const name = parts.length ? parts.join(" ") : "";
   if (!name) return [];
+  const region = scope?.regionLabel?.trim();
   const limit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());
   const brokers = orderedTier1Brokers();
   return brokers.slice(0, limit).map((entry) => ({
     brokerId: entry.brokerId,
     host: entry.primaryHost,
-    query: `"${name}" site:${entry.primaryHost}`
+    query: region
+      ? `"${name}" "${region}" site:${entry.primaryHost}`
+      : `"${name}" site:${entry.primaryHost}`
   }));
 }
 

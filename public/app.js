@@ -32220,6 +32220,7 @@ var PRIVACY_FILTER_INPUT_IDS = [
   "agent-intake",
   "intake",
   "landing-input",
+  "landing-location",
   "findings-paste-input",
   "purpose",
   "destination"
@@ -32436,30 +32437,38 @@ function selectPresetId(presetId) {
   if (jurisdiction) jurisdiction.value = defaults.jurisdiction;
   if (risk) risk.value = defaults.riskLevel;
 }
-function startFromLanding() {
+async function startFromLanding() {
   const text = $("#landing-input")?.value?.trim();
-  openNewCaseFlow();
-  if (text) {
-    if ($("#simple-name")) $("#simple-name").value = text;
-    const parsed = parseIntakeForCase(text);
-    const presetId = "people-search-cleanup";
-    selectPresetId(presetId);
-    const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
-    const name = parsed.personLabel !== "Private case" ? parsed.personLabel : text;
-    syncSimpleFormToLegacyFields({
-      intakeText: parsed.intakeText,
-      personLabel: name,
-      pastedUrls: urlsFromText(text),
-      jurisdiction: parsed.jurisdiction,
-      authorityBasis: parsed.authorityBasis,
-      riskLevel: defaults.riskLevel
-    });
-    renderIntakeInferencePreview();
+  const region = $("#landing-location")?.value?.trim();
+  if (!text) {
+    pulseFocusField($("#landing-input"));
+    updateLandingSendState();
+    return;
   }
+  openNewCaseFlow();
+  if ($("#simple-name")) $("#simple-name").value = text;
+  if (region && $("#simple-region")) $("#simple-region").value = region;
+  const parsed = parseIntakeForCase(text);
+  const presetId = "people-search-cleanup";
+  selectPresetId(presetId);
+  const defaults = SIMPLE_PRESET_DEFAULTS[presetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
+  const name = parsed.personLabel !== "Private case" ? parsed.personLabel : text;
+  const intakeText = intakeTextForPreset(presetId, { name, region, alias: "" });
+  syncSimpleFormToLegacyFields({
+    intakeText,
+    personLabel: name,
+    pastedUrls: urlsFromText(text),
+    jurisdiction: parsed.jurisdiction,
+    authorityBasis: parsed.authorityBasis,
+    riskLevel: defaults.riskLevel
+  });
+  renderIntakeInferencePreview();
   if ($("#landing-input")) $("#landing-input").value = "";
+  if ($("#landing-location")) $("#landing-location").value = "";
   updateLandingSendState();
   render();
-  focusIntake();
+  $("#onboarding-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  await runOnboardingPreview();
 }
 function applyAgentIntakeTemplate(presetId) {
   const template = AGENT_INTAKE_TEMPLATES[presetId];
@@ -34533,9 +34542,9 @@ function updateLandingSendState() {
   const send2 = $("#landing-send");
   if (!input || !send2) return;
   const hasText = Boolean(input.value.trim());
-  send2.disabled = false;
+  send2.disabled = !hasText;
   send2.classList.toggle("send-ready", hasText);
-  send2.setAttribute("aria-disabled", "false");
+  send2.setAttribute("aria-disabled", hasText ? "false" : "true");
 }
 function renderBrokerPreviewResults(candidates, message) {
   const panel = $("#pre-search-panel");
@@ -34544,7 +34553,7 @@ function renderBrokerPreviewResults(candidates, message) {
   if (!panel || !list || !preStatus) return;
   panel.hidden = false;
   preStatus.textContent = message;
-  const rows = (candidates || []).slice(0, 12);
+  const rows = candidates || [];
   if (!rows.length) {
     list.innerHTML = `<li class="muted">No broker listings matched yet. Continue to start full cleanup with Venice-scored discovery.</li>`;
     return;
@@ -34557,6 +34566,7 @@ function renderBrokerPreviewResults(candidates, message) {
 }
 async function runOnboardingPreview() {
   const name = $("#simple-name")?.value?.trim();
+  const region = $("#simple-region")?.value?.trim();
   if (!name) {
     pulseFocusField($("#simple-name"));
     return;
@@ -34564,15 +34574,18 @@ async function runOnboardingPreview() {
   const preStatus = $("#pre-search-status");
   const statusEl = $("#simple-start-status");
   const btn = $("#onboarding-check-listings");
+  const landingSend = $("#landing-send");
   if (preStatus) preStatus.textContent = "Checking people-search brokers\u2026";
   $("#pre-search-panel")?.removeAttribute("hidden");
   if (btn) btn.disabled = true;
+  if (landingSend) landingSend.disabled = true;
   if (statusEl) statusEl.textContent = "";
   try {
     const result = await request("/api/discovery/preview", {
       method: "POST",
       body: {
         personLabel: name,
+        regionLabel: region || void 0,
         walletAddress: state.walletAddress || void 0
       }
     });
@@ -34590,6 +34603,7 @@ async function runOnboardingPreview() {
     write(error);
   } finally {
     if (btn) btn.disabled = false;
+    updateLandingSendState();
   }
 }
 var request = apiRequest;
@@ -35684,12 +35698,18 @@ function backToLanding() {
   $("#landing-region")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 $("#agent-do-next")?.addEventListener("click", () => performGuidePrimaryAction().catch(write));
-$("#landing-send")?.addEventListener("click", () => startFromLanding());
+$("#landing-send")?.addEventListener("click", () => startFromLanding().catch(write));
 $("#landing-input")?.addEventListener("input", updateLandingSendState);
+$("#landing-location")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    startFromLanding().catch(write);
+  }
+});
 $("#landing-input")?.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    startFromLanding();
+    startFromLanding().catch(write);
   }
 });
 $("#toolbar-home")?.addEventListener("click", backToLanding);

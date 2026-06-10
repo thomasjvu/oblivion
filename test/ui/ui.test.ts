@@ -43,6 +43,9 @@ test("initial homepage is guided and not a dense dashboard", async () => {
   assert.doesNotMatch(html, /Portable cleanup workflow for Cursor/);
   assert.match(html, /View SKILL\.md/);
   assert.match(html, /id="landing-input"/);
+  assert.match(html, /id="landing-location"/);
+  assert.match(html, /landing-location-options/);
+  assert.match(html, /runOnboardingPreview/);
   assert.match(html, /id="landing-send"/);
   assert.match(html, /data-testid="landing-trust-line"/);
   assert.match(html, /E2EE.*TEE-SECURE.*100% Private/);
