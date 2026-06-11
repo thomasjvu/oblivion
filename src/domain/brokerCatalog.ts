@@ -192,6 +192,15 @@ export function previewBrokerSweepLimit(): number {
   return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 25) : 20;
 }
 
+export function brokerSweepQueryCap(options?: { preview?: boolean }): number {
+  if (options?.preview) {
+    const raw = Number(process.env.OBLIVION_PREVIEW_SWEEP_QUERIES ?? "30");
+    return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 60) : 30;
+  }
+  const raw = Number(process.env.BROKER_SWEEP_QUERY_CAP ?? "50");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 80) : 50;
+}
+
 function orderedTier1Brokers(): BrokerCatalogEntry[] {
   const brokers = tier1BrokersForJurisdiction("US").filter((entry) => entry.teeAutomatable);
   const priorityIndex = new Map(BROKER_SWEEP_PRIORITY.map((brokerId, index) => [brokerId, index]));
@@ -203,9 +212,18 @@ function orderedTier1Brokers(): BrokerCatalogEntry[] {
   });
 }
 
+function brokerSweepQueryVariants(name: string, host: string, region?: string): string[] {
+  const slug = name.trim().replace(/\s+/g, "-");
+  const variants = [`${name} site:${host}`, `${slug} site:${host}`];
+  if (region?.trim()) {
+    variants.push(`${name} ${region.trim()} site:${host}`);
+  }
+  return [...new Set(variants.map((item) => item.trim()).filter(Boolean))];
+}
+
 export function buildBrokerSweepQueries(
   scope: { personLabel?: string; aliases?: string[]; regionLabel?: string } | undefined,
-  options?: { limit?: number; preview?: boolean }
+  options?: { limit?: number; preview?: boolean; maxQueries?: number }
 ): Array<{
   brokerId: string;
   host: string;
@@ -217,15 +235,18 @@ export function buildBrokerSweepQueries(
   const name = parts.length ? parts.join(" ") : "";
   if (!name) return [];
   const region = scope?.regionLabel?.trim();
-  const limit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());
+  const brokerLimit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());
+  const maxQueries = options?.maxQueries ?? brokerSweepQueryCap({ preview: options?.preview });
   const brokers = orderedTier1Brokers();
-  return brokers.slice(0, limit).map((entry) => ({
-    brokerId: entry.brokerId,
-    host: entry.primaryHost,
-    query: region
-      ? `"${name}" "${region}" site:${entry.primaryHost}`
-      : `"${name}" site:${entry.primaryHost}`
-  }));
+  const queries: Array<{ brokerId: string; host: string; query: string }> = [];
+
+  for (const entry of brokers.slice(0, brokerLimit)) {
+    for (const query of brokerSweepQueryVariants(name, entry.primaryHost, region)) {
+      queries.push({ brokerId: entry.brokerId, host: entry.primaryHost, query });
+      if (queries.length >= maxQueries) return queries;
+    }
+  }
+  return queries;
 }
 
 export function dataToDiscloseForBroker(

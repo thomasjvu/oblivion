@@ -24,6 +24,7 @@ import type { MemoryStore } from "../storage/memoryStore.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { discoveryCredits } from "./credits.js";
 import { veniceChatCompletion, isVeniceConfigured, veniceWebSearch } from "./venice.js";
+import { isJunkDiscoveryUrl, scoreDiscoveryCandidate } from "./discoveryHeuristics.js";
 
 export type { BrokerCatalogEntry };
 export { brokerForUrl, brokerCatalogEntryById, BROKER_HOST_HINT };
@@ -98,6 +99,8 @@ export async function fetchBraveSearchCandidates(query: string): Promise<Discove
   const url = new URL(braveSearchBaseUrl());
   url.searchParams.set("q", query);
   url.searchParams.set("count", String(braveSearchCount()));
+  url.searchParams.set("country", process.env.BRAVE_SEARCH_COUNTRY?.trim() || "US");
+  url.searchParams.set("search_lang", process.env.BRAVE_SEARCH_LANG?.trim() || "en");
   const response = await fetch(url, {
     headers: {
       Accept: "application/json",
@@ -161,22 +164,9 @@ export async function fetchBrokerSweepCandidates(scope: RedactedScope | undefine
 }
 
 function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope | undefined): ExposureMatchScore {
-  const haystack = `${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`.toLowerCase();
-  const needles = [scope?.personLabel, ...(scope?.aliases ?? [])]
-    .map((item) => item?.trim().toLowerCase())
-    .filter((item): item is string => Boolean(item && item.length > 2));
-  const locationHints = (scope?.approvedIdentifierLabels ?? [])
-    .concat(scope?.sensitiveConstraints ?? [])
-    .map((item) => item.toLowerCase());
-  const nameHit = needles.some((needle) => haystack.includes(needle.replace(/\s+/g, "-")) || haystack.includes(needle));
-  const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl)) || BROKER_HOST_HINT.test(haystack);
-  const locationHit = locationHints.some(
-    (hint) => hint.length > 2 && (haystack.includes(hint) || /massachusetts|\bma\b/.test(haystack))
-  );
-  if (nameHit && brokerHit) return "likely";
-  if (brokerHit && (nameHit || locationHit)) return "uncertain";
-  if (brokerHit) return "uncertain";
-  return "unlikely";
+  if (!scope) return "unlikely";
+  if (isJunkDiscoveryUrl(candidate.sourceUrl)) return "unlikely";
+  return scoreDiscoveryCandidate(candidate, scope).matchScore;
 }
 
 function scoreCandidateHeuristic(

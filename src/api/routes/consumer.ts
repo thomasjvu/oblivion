@@ -260,14 +260,15 @@ export async function handleConsumerApi(
     }>(request);
     const ip = clientIp(request);
     assertPreviewQuota(store, ip, body.walletAddress);
-    const candidates = await runDiscoveryPreview({
+    const preview = await runDiscoveryPreview({
       personLabel: body.personLabel || "",
       aliases: body.aliases,
       regionLabel: body.regionLabel
     });
     const remainingPreviews = recordPreviewUsage(store, ip, body.walletAddress);
     sendJson(response, 200, {
-      candidates,
+      candidates: preview.candidates,
+      stats: preview.stats,
       remainingPreviews,
       dailyLimit: previewDailyLimit()
     });

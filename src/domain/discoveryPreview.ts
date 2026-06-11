@@ -1,12 +1,23 @@
 import type { MemoryStore } from "../storage/memoryStore.js";
-import { redactText } from "./redaction.js";
+import { mapWithConcurrency } from "./asyncUtil.js";
 import {
   brokerCatalogEntryById,
   brokerForUrl,
   buildBrokerSweepQueries,
   previewBrokerSweepLimit
 } from "./brokerCatalog.js";
-import { fetchWebSearchCandidates, type DiscoveryCandidate } from "./exposureDiscovery.js";
+import {
+  compareMatchScores,
+  isJunkDiscoveryUrl,
+  scoreDiscoveryCandidate,
+  type DiscoveryMatchScore
+} from "./discoveryHeuristics.js";
+import {
+  buildBraveSearchQuery,
+  fetchWebSearchCandidates,
+  type DiscoveryCandidate
+} from "./exposureDiscovery.js";
+import { redactText } from "./redaction.js";
 import type { RedactedScope } from "./types.js";
 import { walletKeyFromAddress } from "./credits.js";
 
@@ -77,16 +88,43 @@ export function previewResultLimit(): number {
   return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 100) : 48;
 }
 
-function heuristicPreviewScore(candidate: DiscoveryCandidate, scope: RedactedScope): "likely" | "uncertain" | "unlikely" {
-  const haystack = `${candidate.sourceUrl} ${candidate.title ?? ""} ${candidate.snippet ?? ""}`.toLowerCase();
-  const needles = [scope.personLabel, ...(scope.aliases ?? []), ...(scope.approvedIdentifierLabels ?? [])]
-    .map((item) => item?.trim().toLowerCase())
-    .filter((item): item is string => Boolean(item && item.length > 2));
-  const brokerHit = Boolean(brokerForUrl(candidate.sourceUrl));
-  const nameHit = needles.some((needle) => haystack.includes(needle.replace(/\s+/g, "-")) || haystack.includes(needle));
-  if (nameHit && brokerHit) return "likely";
-  if (brokerHit || nameHit) return "uncertain";
-  return "unlikely";
+export function previewSearchConcurrency(): number {
+  const raw = Number(process.env.OBLIVION_PREVIEW_SEARCH_CONCURRENCY ?? "4");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 8) : 4;
+}
+
+export interface DiscoveryPreviewCandidate {
+  sourceUrl: string;
+  brokerId?: string;
+  brokerLabel?: string;
+  title?: string;
+  snippet?: string;
+  matchScore: DiscoveryMatchScore;
+  matchReason: string;
+}
+
+export interface DiscoveryPreviewStats {
+  brokersChecked: number;
+  queriesRun: number;
+  sweepHits: number;
+  broadSearchHits: number;
+  searchErrors: number;
+}
+
+function uniqueBrokerIds(queries: Array<{ brokerId: string }>): number {
+  return new Set(queries.map((item) => item.brokerId)).size;
+}
+
+function addCandidate(
+  seen: Set<string>,
+  candidates: DiscoveryCandidate[],
+  item: DiscoveryCandidate
+): boolean {
+  if (isJunkDiscoveryUrl(item.sourceUrl)) return false;
+  if (seen.has(item.sourceUrl)) return false;
+  seen.add(item.sourceUrl);
+  candidates.push(item);
+  return true;
 }
 
 export async function runDiscoveryPreview(input: {
@@ -94,16 +132,7 @@ export async function runDiscoveryPreview(input: {
   aliases?: string[];
   regionLabel?: string;
   sweepLimit?: number;
-}): Promise<
-  Array<{
-    sourceUrl: string;
-    brokerId?: string;
-    brokerLabel?: string;
-    title?: string;
-    snippet?: string;
-    matchScore: "likely" | "uncertain" | "unlikely";
-  }>
-> {
+}): Promise<{ candidates: DiscoveryPreviewCandidate[]; stats: DiscoveryPreviewStats }> {
   const scope: RedactedScope = {
     personLabel: redactText(input.personLabel.trim() || "Unknown"),
     aliases: (input.aliases ?? []).map((item) => redactText(item.trim())).filter(Boolean),
@@ -114,42 +143,85 @@ export async function runDiscoveryPreview(input: {
     throw Object.assign(new Error("person-label-required"), { statusCode: 422 });
   }
 
-  const limit = input.sweepLimit ?? previewBrokerSweepLimit();
-  const queries = buildBrokerSweepQueries(
-    {
-      personLabel: input.personLabel.trim(),
-      aliases: input.aliases,
-      regionLabel: input.regionLabel
-    },
-    { limit, preview: true }
-  );
+  const sweepScope = {
+    personLabel: input.personLabel.trim(),
+    aliases: input.aliases,
+    regionLabel: input.regionLabel
+  };
+  const queries = buildBrokerSweepQueries(sweepScope, {
+    limit: input.sweepLimit ?? previewBrokerSweepLimit(),
+    preview: true
+  });
   const seen = new Set<string>();
   const candidates: DiscoveryCandidate[] = [];
+  let sweepHits = 0;
+  let searchErrors = 0;
 
-  for (const item of queries) {
+  const sweepResults = await mapWithConcurrency(queries, previewSearchConcurrency(), async (item) => {
     try {
       const results = await fetchWebSearchCandidates(item.query);
+      let hits = 0;
       for (const result of results) {
         const broker = brokerForUrl(result.sourceUrl);
         if (broker?.brokerId !== item.brokerId) continue;
-        if (seen.has(result.sourceUrl)) continue;
-        seen.add(result.sourceUrl);
-        candidates.push({ ...result, origin: "broker-sweep", brokerId: item.brokerId });
+        if (addCandidate(seen, candidates, { ...result, origin: "broker-sweep", brokerId: item.brokerId })) {
+          hits += 1;
+        }
       }
+      return { ok: true as const, hits };
     } catch {
-      continue;
+      return { ok: false as const, hits: 0 };
     }
+  });
+
+  for (const result of sweepResults) {
+    if (result.ok) sweepHits += result.hits;
+    else searchErrors += 1;
   }
 
-  return candidates.slice(0, previewResultLimit()).map((candidate) => {
-    const broker = candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : brokerForUrl(candidate.sourceUrl);
-    return {
-      sourceUrl: candidate.sourceUrl,
-      brokerId: broker?.brokerId ?? candidate.brokerId,
-      brokerLabel: broker?.brokerLabel,
-      title: candidate.title,
-      snippet: candidate.snippet,
-      matchScore: heuristicPreviewScore(candidate, scope)
-    };
-  });
+  let broadSearchHits = 0;
+  try {
+    const broadQuery = buildBraveSearchQuery(scope);
+    const broadResults = await fetchWebSearchCandidates(broadQuery);
+    for (const result of broadResults) {
+      const broker = brokerForUrl(result.sourceUrl);
+      if (!broker) continue;
+      if (addCandidate(seen, candidates, { ...result, origin: "brave-search", brokerId: broker.brokerId })) {
+        broadSearchHits += 1;
+      }
+    }
+  } catch {
+    searchErrors += 1;
+  }
+
+  const scored = candidates
+    .map((candidate) => {
+      const broker = candidate.brokerId
+        ? brokerCatalogEntryById(candidate.brokerId)
+        : brokerForUrl(candidate.sourceUrl);
+      const scoredCandidate = scoreDiscoveryCandidate(candidate, scope);
+      return {
+        sourceUrl: candidate.sourceUrl,
+        brokerId: broker?.brokerId ?? candidate.brokerId,
+        brokerLabel: broker?.brokerLabel,
+        title: candidate.title,
+        snippet: candidate.snippet,
+        matchScore: scoredCandidate.matchScore,
+        matchReason: scoredCandidate.matchReason
+      } satisfies DiscoveryPreviewCandidate;
+    })
+    .filter((item) => item.matchScore !== "unlikely")
+    .sort((left, right) => compareMatchScores(left.matchScore, right.matchScore))
+    .slice(0, previewResultLimit());
+
+  return {
+    candidates: scored,
+    stats: {
+      brokersChecked: uniqueBrokerIds(queries),
+      queriesRun: queries.length + 1,
+      sweepHits,
+      broadSearchHits,
+      searchErrors
+    }
+  };
 }

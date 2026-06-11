@@ -20,9 +20,12 @@ test("discovery preview is public, unlimited by default, and does not create cas
     assert.equal(first.dailyLimit, 0);
     assert.equal(first.remainingPreviews, null);
     assert.equal(store.cases.size, beforeCases);
+    assert.ok(first.stats);
+    assert.equal(typeof first.stats.brokersChecked, "number");
     for (const candidate of first.candidates) {
       assert.ok(candidate.sourceUrl);
-      assert.ok(["likely", "uncertain", "unlikely"].includes(candidate.matchScore));
+      assert.ok(["likely", "uncertain"].includes(candidate.matchScore));
+      assert.equal(typeof candidate.matchReason, "string");
       assert.equal(candidate.accessToken, undefined);
     }
 

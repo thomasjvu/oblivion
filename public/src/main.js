@@ -3017,7 +3017,27 @@ function updateLandingSendState() {
 function brokerPreviewResultMarkup(item) {
   const score = item.matchScore ? ` · ${item.matchScore}` : "";
   const broker = item.brokerLabel ? `${escapeHtml(item.brokerLabel)}` : shortenUrl(item.sourceUrl);
-  return `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}`;
+  const reason = item.matchReason
+    ? `<span class="muted small pre-search-reason">${escapeHtml(item.matchReason)}</span>`
+    : "";
+  return `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}${reason ? `<br />${reason}` : ""}`;
+}
+
+function previewStatsMessage(stats, candidateCount, region) {
+  if (!stats) return "";
+  const parts = [
+    `Checked ${stats.brokersChecked ?? 0} brokers`,
+    `${stats.sweepHits ?? 0} sweep hit(s)`,
+    `${stats.broadSearchHits ?? 0} broad-search hit(s)`
+  ];
+  let message = parts.join(" · ");
+  if (stats.searchErrors) message += ` · ${stats.searchErrors} search error(s)`;
+  if (candidateCount < 5) {
+    message += region
+      ? ". Few strong matches — full cleanup searches more sources after you start a case."
+      : ". Add city/state for better preview matches, or continue to full cleanup.";
+  }
+  return message;
 }
 
 function renderBrokerPreviewResults(candidates, message) {
@@ -3100,17 +3120,19 @@ async function runOnboardingPreview() {
       result.dailyLimit > 0
         ? ` ${result.remainingPreviews ?? 0} free preview(s) left today.`
         : "";
-    const candidates = result.candidates || [];
+    const candidates = (result.candidates || []).filter((item) => item.matchScore !== "unlikely");
+    const statsNote = previewStatsMessage(result.stats, candidates.length, region);
     const message = candidates.length
-      ? `Preview found ${candidates.length} possible listing(s).${quotaNote}`
-      : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}`;
+      ? `Preview found ${candidates.length} possible listing(s).${quotaNote}${statsNote ? ` ${statsNote}` : ""}`
+      : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}${statsNote ? ` ${statsNote}` : ""}`;
     if (candidates.length) {
       addChat("agent", `Found ${candidates.length} possible listing(s). Streaming matches below…`);
+      if (statsNote) addChat("agent", statsNote);
       renderAgentChat();
       await streamBrokerPreviewResults(candidates, message);
     } else {
       renderBrokerPreviewResults(candidates, message);
-      addChat("agent", "No broker hits in this preview. You can still start full cleanup below.");
+      addChat("agent", statsNote || "No broker hits in this preview. You can still start full cleanup below.");
       renderAgentChat();
     }
     state.onboardingPreviewReady = true;

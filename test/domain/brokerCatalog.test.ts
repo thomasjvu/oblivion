@@ -4,6 +4,7 @@ import {
   BROKER_CATALOG,
   brokerForUrl,
   brokerCatalogEntryById,
+  brokerSweepQueryCap,
   buildBrokerSweepQueries,
   previewBrokerSweepLimit,
   tier1BrokersForJurisdiction,
@@ -26,23 +27,25 @@ test("brokerForUrl resolves catalog hosts", () => {
   assert.equal(mylife?.teeAutomatable, false);
 });
 
-test("buildBrokerSweepQueries returns site-scoped queries from redacted labels", () => {
+test("buildBrokerSweepQueries returns multi-variant site-scoped queries", () => {
   const queries = buildBrokerSweepQueries({ personLabel: "John Smith", aliases: ["J. Smith"] });
   assert.ok(queries.length > 0);
-  assert.match(queries[0].query, /site:spokeo\.com|"John Smith"/);
+  assert.match(queries[0].query, /site:spokeo\.com/);
+  assert.match(queries[0].query, /John Smith|John-Smith/);
   assert.equal(brokerCatalogEntryById(queries[0].brokerId)?.primaryHost, queries[0].host);
 });
 
-test("preview broker sweep uses priority hosts and preview limit", () => {
+test("preview broker sweep uses priority hosts and preview query cap", () => {
   const queries = buildBrokerSweepQueries({ personLabel: "John Smith" }, { preview: true });
-  assert.equal(queries.length, previewBrokerSweepLimit());
+  assert.ok(queries.length >= previewBrokerSweepLimit());
+  assert.ok(queries.length <= brokerSweepQueryCap({ preview: true }));
   assert.equal(queries[0].brokerId, "spokeo");
 });
 
-test("broker sweep queries include optional region label", () => {
+test("broker sweep queries include optional region label without strict quotes", () => {
   const queries = buildBrokerSweepQueries(
     { personLabel: "John Smith", regionLabel: "New York, NY" },
     { preview: true, limit: 1 }
   );
-  assert.match(queries[0].query, /"John Smith" "New York, NY" site:/);
+  assert.ok(queries.some((item) => /John Smith New York, NY site:/.test(item.query)));
 });
