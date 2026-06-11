@@ -78,14 +78,22 @@ seed_via_rsync() {
     done
   done
 
-  ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$REMOTE_DIR" "$AMD64_IMAGE" "$NODE_IMAGE" <<'REMOTE'
+  ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$REMOTE_DIR" "$NODE_IMAGE" <<'REMOTE'
 set -euo pipefail
 DIR="$1"
-AMD64="$2"
-INDEX="$3"
-cat "$DIR"/node.tar.gz.part-* | gunzip -c | docker load
+INDEX="$2"
+LOAD_OUT="$(cat "$DIR"/node.tar.gz.part-* | gunzip -c | docker load)"
 rm -rf "$DIR"
-docker tag "$AMD64" "$INDEX"
+LOADED_ID="$(printf '%s\n' "$LOAD_OUT" | sed -n 's/^Loaded image ID: //p' | tail -1)"
+if [[ -z "$LOADED_ID" ]]; then
+  LOADED_ID="$(docker images -q | head -1)"
+fi
+if [[ -z "$LOADED_ID" ]]; then
+  echo "docker load did not produce an image id" >&2
+  exit 1
+fi
+docker tag "$LOADED_ID" "$INDEX"
+docker tag "$LOADED_ID" "node:22-bookworm-slim"
 docker image inspect "$INDEX" >/dev/null
 docker images "$INDEX" | head -2
 echo "node base image seeded via rsync"
