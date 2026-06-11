@@ -63,7 +63,7 @@ Record-only executor by default. Live paths gated behind policy + attestation + 
 
 - All 6 presets, approval-gated and high-autonomy batch plans.
 - Encrypted intake, redacted scope, policy blocks (SSN, password, dark web terms, source verification).
-- **Exposure discovery**: paste profile URLs and/or automated web search (Venice `augment/search` with Brave ZDR when `VENICE_API_KEY` is set; direct `BRAVE_SEARCH_API_KEY` fallback for self-hosted) + Venice/heuristic match scoring; confirm or reject each link before opt-out drafting.
+- **Exposure discovery**: paste profile URLs and/or automated web search (direct `BRAVE_SEARCH_API_KEY` primary; Venice `augment/search` fallback when Brave quota/errors occur) + Venice/heuristic match scoring; confirm or reject each link before opt-out drafting.
 - Safe HIBP prefix range check, Google removal plan, California DROP guidance, GDPR templates.
 - Record-only execution by default (`OBLIVION_EXECUTOR_MODE=live` for connector handoff paths). Broker opt-outs are drafted, approved, then recorded—not silently deleted site-wide.
 - Hackathon adapters (MetaMask EIP-7702/ERC-7715, x402 + ERC-7710, Venice redacted AI, A2A delegation, 1Shot relay) behind the same gates — enable with `HACKATHON_MODE=true` (off by default).
@@ -129,7 +129,7 @@ Copy [`.env.example`](.env.example) to `.env` and configure:
 | Variable | Purpose |
 |----------|---------|
 | `VENICE_API_KEY` | Live agent classify / draft / review / chat + match scoring + web search (`augment/search`, Brave ZDR) |
-| `BRAVE_SEARCH_API_KEY` | Optional direct Brave Search fallback for self-hosted discovery (when Venice is unset or search fails) |
+| `BRAVE_SEARCH_API_KEY` | Primary exposure web search (broker sweep + preview) |
 | `X402_PAY_TO` + facilitator | Dev: x402.org + Base Sepolia. Prod: CDP + Base mainnet (`X402_CDP_API_KEY_*`) |
 | `ONESHOT_BASE_URL` | 1Shot public relayer JSON-RPC (default `https://relayer.1shotapi.com/relayers`) |
 | `HIBP_API_KEY` | Live breach email check (TEE attestation pass required) |

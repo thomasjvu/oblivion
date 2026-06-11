@@ -124,18 +124,18 @@ export async function fetchBraveSearchCandidates(query: string): Promise<Discove
 }
 
 export async function fetchWebSearchCandidates(query: string): Promise<DiscoveryCandidate[]> {
-  if (isVeniceSearchConfigured()) {
+  if (isBraveSearchConfigured()) {
     try {
-      return await fetchVeniceSearchCandidates(query);
+      return await fetchBraveSearchCandidates(query);
     } catch (error) {
-      if (isBraveSearchConfigured()) {
-        return fetchBraveSearchCandidates(query);
+      if (isVeniceSearchConfigured()) {
+        return fetchVeniceSearchCandidates(query);
       }
       throw error;
     }
   }
-  if (isBraveSearchConfigured()) {
-    return fetchBraveSearchCandidates(query);
+  if (isVeniceSearchConfigured()) {
+    return fetchVeniceSearchCandidates(query);
   }
   return [];
 }
@@ -179,17 +179,24 @@ function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope
   return "unlikely";
 }
 
+function scoreCandidateHeuristic(
+  candidate: DiscoveryCandidate,
+  scope: RedactedScope | undefined
+): { matchScore: ExposureMatchScore; matchReason: string; tokensUsed: number } {
+  return {
+    matchScore: heuristicMatchScore(candidate, scope),
+    matchReason: "Heuristic match from redacted labels and broker host.",
+    tokensUsed: 0
+  };
+}
+
 async function scoreWithVenice(
   candidate: DiscoveryCandidate,
   scope: RedactedScope | undefined
 ): Promise<{ matchScore: ExposureMatchScore; matchReason: string; tokensUsed: number }> {
   const fallback = heuristicMatchScore(candidate, scope);
   if (!isVeniceConfigured()) {
-    return {
-      matchScore: fallback,
-      matchReason: "Heuristic match from redacted labels and broker host.",
-      tokensUsed: 0
-    };
+    return scoreCandidateHeuristic(candidate, scope);
   }
   const scopeSummary = redactText(
     [
@@ -241,6 +248,30 @@ async function scoreWithVenice(
       tokensUsed
     };
   }
+}
+
+async function scoreCandidate(
+  candidate: DiscoveryCandidate,
+  scope: RedactedScope | undefined,
+  options: { veniceEnabled: boolean }
+): Promise<{ matchScore: ExposureMatchScore; matchReason: string; tokensUsed: number }> {
+  if (!options.veniceEnabled) {
+    return scoreCandidateHeuristic(candidate, scope);
+  }
+  try {
+    return await scoreWithVenice(candidate, scope);
+  } catch {
+    return scoreCandidateHeuristic(candidate, scope);
+  }
+}
+
+function discoverySearchProviderLabel(): string {
+  if (isBraveSearchConfigured() && isVeniceSearchConfigured()) {
+    return "Brave search (Venice fallback)";
+  }
+  if (isBraveSearchConfigured()) return "Brave search";
+  if (isVeniceSearchConfigured()) return "Venice web search (Brave ZDR)";
+  return "Web search";
 }
 
 export function confidenceFromMatchScore(score: ExposureMatchScore): Exposure["confidence"] {
@@ -330,12 +361,21 @@ export async function discoverExposureCandidates(input: {
 
   const exposures: Exposure[] = [];
   const batch = filtered.slice(0, 25);
-  if (input.store && isVeniceConfigured() && batch.length > 0) {
-    assertPartnerAiBudget(input.store, input.caseId, 100 * batch.length);
+  let veniceScoringEnabled = isVeniceConfigured();
+  if (input.store && veniceScoringEnabled && batch.length > 0) {
+    try {
+      assertPartnerAiBudget(input.store, input.caseId, 100 * batch.length);
+    } catch (error) {
+      if ((error as { message?: string })?.message === "partner-credits-insufficient") {
+        veniceScoringEnabled = false;
+      } else {
+        throw error;
+      }
+    }
   }
   let veniceTokensUsed = 0;
   for (const candidate of batch) {
-    const scored = await scoreWithVenice(candidate, input.scope);
+    const scored = await scoreCandidate(candidate, input.scope, { veniceEnabled: veniceScoringEnabled });
     veniceTokensUsed += scored.tokensUsed;
     const broker = brokerForUrl(candidate.sourceUrl) ?? (candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : undefined);
     exposures.push(exposureFromBroker(broker, candidate, scored, input.caseId, new Date().toISOString()));
@@ -416,9 +456,7 @@ export function describeDiscoveryPlan(input: {
   const pastedCount = input.pastedUrlCount ?? 0;
   const brokerSweepEnabled =
     input.brokerSweep !== false && !input.contentTakedown && searchReady;
-  const searchProviderLabel = veniceSearchReady
-    ? "Venice web search (Brave ZDR)"
-    : "Brave search";
+  const searchProviderLabel = discoverySearchProviderLabel();
   const name = input.scope?.personLabel?.trim() || "";
   const methods: DiscoveryPlanMethod[] = [];
 
@@ -479,7 +517,7 @@ export function describeDiscoveryPlan(input: {
       label: "Automated search off",
       detail: veniceSearchReady || braveDirectReady
         ? "Automated search is unavailable — paste profile URLs you already found."
-        : "Set VENICE_API_KEY (hosted) or BRAVE_SEARCH_API_KEY (self-hosted), or paste profile URLs you already found.",
+        : "Set BRAVE_SEARCH_API_KEY (preferred) or VENICE_API_KEY, or paste profile URLs you already found.",
       enabled: false
     });
   }
@@ -496,11 +534,12 @@ export function describeDiscoveryPlan(input: {
 
 export function discoveryReadinessMessage(): string {
   const parts: string[] = [];
-  if (isVeniceSearchConfigured()) parts.push("Venice web search (Brave ZDR) + broker sweep");
-  else if (isBraveSearchConfigured()) parts.push("Brave search + broker sweep");
+  if (isBraveSearchConfigured() || isVeniceSearchConfigured()) {
+    parts.push(`${discoverySearchProviderLabel()} + broker sweep`);
+  }
   if (isVeniceConfigured()) parts.push("Venice match scoring");
   if (!parts.length) {
-    return "Paste URLs to discover listings (configure VENICE_API_KEY or BRAVE_SEARCH_API_KEY for automated search).";
+    return "Paste URLs to discover listings (configure BRAVE_SEARCH_API_KEY or VENICE_API_KEY for automated search).";
   }
   return `${parts.join(" + ")} ready. Paste known links or run search.`;
 }

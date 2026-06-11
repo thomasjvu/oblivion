@@ -72,8 +72,8 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 
 | Secret | Enables |
 |--------|---------|
-| `VENICE_API_KEY` | Agent classify/draft/review/chat + exposure web search (`augment/search`, Brave ZDR) |
-| `BRAVE_SEARCH_API_KEY` | Optional direct Brave Search fallback for self-hosted discovery |
+| `BRAVE_SEARCH_API_KEY` | Primary exposure web search (broker sweep + preview) |
+| `VENICE_API_KEY` | Agent classify/draft/review/chat + match scoring; fallback web search via `augment/search` (Brave ZDR) |
 | `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real x402 settlement |
 | `ONESHOT_API_KEY` | Live 1Shot JSON-RPC relay |
 | `HIBP_API_KEY` | Live breach email check (TEE-gated) |
