@@ -3,10 +3,9 @@
 set -euo pipefail
 
 HOST="${OBLIVION_BUILD_HOST:-spectre.thomasjvu.com}"
-INDEX_DIGEST="${OBLIVION_NODE_DIGEST:-sha256:7af03b14a13c8cdd38e45058fd957bf00a72bbe17feac43b1c15a689c029c732}"
 AMD64_DIGEST="${OBLIVION_NODE_AMD64_DIGEST:-sha256:32b9e321f262db540d55ac10dc529667cf4737546e097cdd36a843c62bcbf423}"
-NODE_IMAGE="node:22-bookworm-slim@${INDEX_DIGEST}"
-AMD64_IMAGE="node:22-bookworm-slim@${AMD64_DIGEST}"
+NODE_IMAGE="node:22-bookworm-slim@${AMD64_DIGEST}"
+AMD64_IMAGE="$NODE_IMAGE"
 GHCR_BASE="${OBLIVION_GHCR_NODE_BASE:-ghcr.io/thomasjvu/oblivion-node-base:22-bookworm-slim-amd64}"
 SSH_OPTS=(-o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=30)
 REMOTE_DIR="/tmp/oblivion-node-seed"
@@ -34,9 +33,9 @@ NODE="$2"
 for attempt in 1 2 3 4 5; do
   echo "ghcr pull attempt $attempt"
   if docker pull "$GHCR"; then
-    docker tag "$GHCR" "$NODE"
-    docker image inspect "$NODE" >/dev/null
-    docker images "$NODE" | head -2
+    docker tag "$GHCR" "node:22-bookworm-slim"
+    docker image inspect "node:22-bookworm-slim" >/dev/null
+    docker images "node:22-bookworm-slim" | head -2
     echo "node base image seeded via GHCR"
     exit 0
   fi
@@ -78,10 +77,9 @@ seed_via_rsync() {
     done
   done
 
-  ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$REMOTE_DIR" "$NODE_IMAGE" <<'REMOTE'
+  ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
 set -euo pipefail
 DIR="$1"
-INDEX="$2"
 LOAD_OUT="$(cat "$DIR"/node.tar.gz.part-* | gunzip -c | docker load)"
 rm -rf "$DIR"
 LOADED_ID="$(printf '%s\n' "$LOAD_OUT" | sed -n 's/^Loaded image ID: //p' | tail -1)"
@@ -92,10 +90,9 @@ if [[ -z "$LOADED_ID" ]]; then
   echo "docker load did not produce an image id" >&2
   exit 1
 fi
-docker tag "$LOADED_ID" "$INDEX"
 docker tag "$LOADED_ID" "node:22-bookworm-slim"
-docker image inspect "$INDEX" >/dev/null
-docker images "$INDEX" | head -2
+docker image inspect "$LOADED_ID" >/dev/null
+docker images "node:22-bookworm-slim" | head -2
 echo "node base image seeded via rsync"
 REMOTE
 }
