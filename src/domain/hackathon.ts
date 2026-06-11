@@ -1,12 +1,9 @@
-import { createHash } from "node:crypto";
 import { followUpDate } from "./deadlines.js";
-import { assertCreditsForTokens, walletHasCreditsOrPayment, walletKeyFromAddress } from "./credits.js";
+import { walletHasCreditsOrPayment, walletKeyFromAddress } from "./credits.js";
 import { isX402Configured, x402Network } from "./integrations.js";
 import { redactText } from "./redaction.js";
-import { runVeniceAnalysis } from "./venice.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import type {
-  ActionType,
   AgentDelegation,
   AgentMessage,
   AgentName,
@@ -56,22 +53,17 @@ export function productForMode(mode: PaymentMode, productId?: string): PaymentPr
   return product;
 }
 
-export function demoSmartAccountAddress(walletAddress: string): string {
-  return `0x${createHash("sha256").update(walletAddress.toLowerCase()).digest("hex").slice(0, 40)}`;
-}
-
 export function resolveSmartAccountAddress(input: {
   walletAddress: string;
-  mode?: "demo" | "live";
   smartAccountAddress?: string;
 }): string {
-  if (input.mode === "live") {
-    if (input.smartAccountAddress?.startsWith("0x") && input.smartAccountAddress.length === 42) {
-      return input.smartAccountAddress;
-    }
+  if (input.smartAccountAddress?.startsWith("0x") && input.smartAccountAddress.length === 42) {
+    return input.smartAccountAddress;
+  }
+  if (process.env.WALLET_LIVE_MODE === "true" && input.walletAddress.startsWith("0x") && input.walletAddress.length === 42) {
     return input.walletAddress;
   }
-  return demoSmartAccountAddress(input.walletAddress);
+  throw Object.assign(new Error("smart-account-address-required"), { statusCode: 422 });
 }
 
 export function createEip7702Authorization(
@@ -82,7 +74,7 @@ export function createEip7702Authorization(
   return createPermissionGrant({
     caseId,
     permissionType: "eip7702-authorization",
-    delegate: smartAccountAddress ?? demoSmartAccountAddress(walletAddress),
+    delegate: smartAccountAddress ?? walletAddress,
     scope: ["upgrade-wallet-to-smart-account", "display-smart-account-session"],
     expiresAt: followUpDate(30),
     redelegatable: false,
@@ -297,10 +289,13 @@ export function createRelayerEvents(input: {
   userOpHash?: string;
   payload?: Record<string, unknown>;
 }): RelayerEvent[] {
-  const caseSeed = `${input.caseId}:${input.sessionId ?? input.permissionId ?? "demo"}`;
-  const txHash = input.txHash ?? `0x${createHash("sha256").update(`tx:${caseSeed}`).digest("hex")}`;
-  const userOpHash = input.userOpHash ?? `0x${createHash("sha256").update(`userop:${caseSeed}`).digest("hex")}`;
-  const sequence: RelayerStatus[] = input.status && input.status === "failed" ? ["submitted", "failed"] : ["submitted", "relayed", "confirmed"];
+  const txHash = input.txHash;
+  const userOpHash = input.userOpHash;
+  let sequence: RelayerStatus[] =
+    input.status && input.status === "failed" ? ["submitted", "failed"] : ["submitted", "relayed", "confirmed"];
+  if (!txHash && sequence.includes("confirmed")) {
+    sequence = input.status === "failed" ? ["submitted", "failed"] : ["submitted"];
+  }
   return sequence.map((status) => ({
     id: `relayer_${crypto.randomUUID()}`,
     caseId: input.caseId,
@@ -372,151 +367,6 @@ export function pendingHackathonTracks(
   if (!status.a2aRedelegationVisible) pending.push("a2a");
   if (!status.oneShotRelayerVisible) pending.push("1shot");
   return pending;
-}
-
-function walletContextForCase(store: MemoryStore, caseId: string, input?: { walletAddress?: string; smartAccountAddress?: string }) {
-  const eip7702 = store.permissionGrantsForCase(caseId).find((grant) => grant.permissionType === "eip7702-authorization");
-  const sessionWallet = store
-    .paymentSessionsForCase(caseId)
-    .map((session) => session.walletAddress)
-    .find((address) => address?.startsWith("0x"));
-  return {
-    walletAddress: input?.walletAddress || sessionWallet,
-    smartAccountAddress: input?.smartAccountAddress || eip7702?.delegate
-  };
-}
-
-export async function completePendingHackathonTracks(input: {
-  store: MemoryStore;
-  caseId: string;
-  walletAddress?: string;
-  smartAccountAddress?: string;
-  notes?: string;
-  destination?: string;
-  actionType?: ActionType;
-}): Promise<{
-  completed: Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot">;
-  status: HackathonStatus;
-  artifacts: {
-    payments: PaymentSession[];
-    veniceAnalyses: VeniceAnalysis[];
-    delegations: AgentDelegation[];
-    relayerEvents: RelayerEvent[];
-    timeline: AgentTimelineEvent[];
-  };
-}> {
-  const completed: Array<"x402" | "erc7710" | "venice" | "a2a" | "1shot"> = [];
-  const payments: PaymentSession[] = [];
-  const veniceAnalyses: VeniceAnalysis[] = [];
-  const delegations: AgentDelegation[] = [];
-  const relayerEvents: RelayerEvent[] = [];
-  const timeline: AgentTimelineEvent[] = [];
-  const { walletAddress, smartAccountAddress } = walletContextForCase(input.store, input.caseId, input);
-
-  let status = buildHackathonStatus({
-    caseId: input.caseId,
-    permissions: input.store.permissionGrantsForCase(input.caseId),
-    payments: input.store.paymentSessionsForCase(input.caseId),
-    veniceAnalyses: input.store.veniceAnalysesForCase(input.caseId),
-    delegations: input.store.agentDelegationsForCase(input.caseId),
-    relayerEvents: input.store.relayerEventsForCase(input.caseId),
-    walletAddress,
-    store: input.store
-  });
-
-  if (!status.x402OneOffReady && isX402Configured() && walletAddress) {
-    const session = createPaymentSession({
-      caseId: input.caseId,
-      mode: "one-off",
-      productId: "credit-starter",
-      walletAddress,
-      smartAccountAddress
-    });
-    const permission = createPaymentPermission(input.caseId, session);
-    input.store.paymentSessions.set(session.id, session);
-    input.store.permissionGrants.set(permission.id, permission);
-    payments.push(session);
-    const event = createTimelineEvent(
-      input.caseId,
-      "x402",
-      "One-off payment prepared",
-      `${session.productId} requires ERC-7710 scoped payment permission before execution.`
-    );
-    input.store.agentTimeline.set(event.id, event);
-    timeline.push(event);
-    completed.push("x402");
-    status = { ...status, x402OneOffReady: true };
-  }
-
-  if (!status.erc7710SubscriptionReady && isX402Configured() && walletAddress) {
-    const session = createPaymentSession({
-      caseId: input.caseId,
-      mode: "subscription",
-      productId: "credit-monitor",
-      walletAddress,
-      smartAccountAddress
-    });
-    const permission = createPaymentPermission(input.caseId, session);
-    input.store.paymentSessions.set(session.id, session);
-    input.store.permissionGrants.set(permission.id, permission);
-    payments.push(session);
-    const event = createTimelineEvent(
-      input.caseId,
-      "x402",
-      "Subscription payment prepared",
-      `${session.productId} requires ERC-7710 scoped payment permission before weekly monitor runs.`
-    );
-    input.store.agentTimeline.set(event.id, event);
-    timeline.push(event);
-    completed.push("erc7710");
-    status = { ...status, erc7710SubscriptionReady: true };
-  }
-
-  if (!status.veniceOutputReady && process.env.VENICE_API_KEY?.trim() && walletAddress) {
-    try {
-      assertCreditsForTokens(input.store, walletAddress, 200);
-      const analysis = await runVeniceAnalysis({
-        caseId: input.caseId,
-        kind: "classify-case",
-        notes: input.notes,
-        destination: input.destination,
-        actionType: input.actionType
-      });
-      input.store.veniceAnalyses.set(analysis.id, analysis);
-      veniceAnalyses.push(analysis);
-      const event = createTimelineEvent(input.caseId, "Venice", analysis.output.title, analysis.output.summary);
-      input.store.agentTimeline.set(event.id, event);
-      timeline.push(event);
-      completed.push("venice");
-      status = { ...status, veniceOutputReady: true };
-    } catch {
-      // Venice checklist track requires the same paid entitlement as /api/ai/*.
-    }
-  }
-
-  if (!status.a2aRedelegationVisible) {
-    const result = createAgentDelegationSet(input.caseId);
-    result.grants.forEach((grant) => input.store.permissionGrants.set(grant.id, grant));
-    result.delegations.forEach((delegation) => {
-      input.store.agentDelegations.set(delegation.id, delegation);
-      delegations.push(delegation);
-    });
-    result.messages.forEach((message) => input.store.agentMessages.set(message.id, message));
-    result.timeline.forEach((event) => {
-      input.store.agentTimeline.set(event.id, event);
-      timeline.push(event);
-    });
-    completed.push("a2a");
-    status = { ...status, a2aRedelegationVisible: true };
-  }
-
-
-
-  return {
-    completed,
-    status,
-    artifacts: { payments, veniceAnalyses, delegations, relayerEvents, timeline }
-  };
 }
 
 function createPermissionGrant(input: Omit<PermissionGrant, "id" | "createdAt">): PermissionGrant {

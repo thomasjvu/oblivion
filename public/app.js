@@ -33921,12 +33921,6 @@ function renderHackathonChecklist() {
   const target = $("#hackathon-checklist");
   if (!target) return;
   const pending = hackathonPendingTracks();
-  const finishBtn = $("#finish-pending-tracks");
-  if (finishBtn) {
-    finishBtn.hidden = !state.currentCaseId || pending.length === 0;
-    finishBtn.textContent = pending.length ? `Finish pending tracks (${pending.length})` : "All tracks ready";
-    finishBtn.disabled = pending.length === 0;
-  }
   const status = state.hackathonStatus;
   const rows = [
     ["MetaMask", status?.smartAccountVisible],
@@ -33937,7 +33931,8 @@ function renderHackathonChecklist() {
     ["A2A", status?.a2aRedelegationVisible],
     ["1Shot", status?.oneShotRelayerVisible]
   ];
-  const oneShotNote = status?.oneShotRelayerVisible ? "" : state.integrationsStatus?.liveReady?.oneShot ? '<p class="muted small warn">1Shot stays pending until you relay a paid session (Settings \u2192 Relay paid session).</p>' : "";
+  const actionNote = pending.length ? `<p class="muted small warn">Pending: ${pending.join(", ")}. Use Payment rails, Venice classify, Delegate sub-agents, and Relay paid session below \u2014 each runs a live integration.</p>` : '<p class="muted small">All sponsor tracks ready.</p>';
+  const oneShotNote = status?.oneShotRelayerVisible ? "" : state.integrationsStatus?.liveReady?.oneShot ? '<p class="muted small warn">1Shot stays pending until you relay a paid session (Relay paid session below).</p>' : "";
   target.innerHTML = rows.map(([label, value]) => {
     const hint = label === "1Shot" && value ? " (live relay)" : label === "x402" && value && !(state.hackathon?.payments || []).some((session) => session.status === "paid") ? " (session only)" : "";
     return `
@@ -33946,7 +33941,7 @@ function renderHackathonChecklist() {
       <strong class="${pillClass(value)}">${value ? `ready${hint}` : "pending"}</strong>
     </div>
   `;
-  }).join("") + oneShotNote;
+  }).join("") + actionNote + oneShotNote;
 }
 function renderAgentPresetStarters() {
   const panel = $("#agent-template-panel");
@@ -34441,11 +34436,6 @@ async function ensureCasePayment(options = {}) {
   await preparePayment(mode, { quiet: true, skipSettle: false, statusEl });
   await refreshHackathon({ silent: true }).catch(() => {
   });
-  if (!hasEntitledPayment(mode)) {
-    await finishPendingDeveloperActions({ quiet: true, stayOnTab: true });
-    await refreshHackathon({ silent: true }).catch(() => {
-    });
-  }
   if (statusEl) {
     setInlineStatus(
       statusEl,
@@ -35433,32 +35423,32 @@ async function createSmartAccount(options = {}) {
     throw { error: "case-required", message: "Start with the agent first \u2014 create a case, then enable Smart Account." };
   }
   if (!state.walletAddress) await connectWallet({ quiet: true });
-  const sessionMode = options.mode || (state.walletMode === "live" ? "live" : "demo");
+  if (!state.walletConfig?.liveEnabled) {
+    throw {
+      error: "smart-account-live-required",
+      message: "Smart Account requires WALLET_LIVE_MODE=true on the API server and MetaMask on Sepolia."
+    };
+  }
   const body = {
     caseId: state.currentCaseId,
     walletAddress: state.walletAddress,
-    mode: sessionMode,
-    smartAccountAddress: options.smartAccountAddress || (sessionMode === "live" ? state.walletAddress : void 0),
+    smartAccountAddress: options.smartAccountAddress || state.smartAccountAddress || state.walletAddress,
     txHash: options.txHash || state.smartAccountTxHash || void 0,
     callsId: options.callsId || state.walletCallsId || void 0,
     chainId: options.chainId || state.walletConfig?.chainId
   };
-  const result = await request("/api/metamask/demo-session", {
+  const result = await request("/api/metamask/smart-account-session", {
     method: "POST",
     body
   });
   state.smartAccountAddress = result.smartAccountAddress;
-  state.walletMode = result.mode || body.mode;
+  state.walletMode = result.mode || "live";
   await refreshHackathon({ silent: true });
-  if (!options.quiet) {
-    addChat("agent", "Smart Account ready. Checklist updated \u2014 finishing pending developer tracks next.");
-  }
-  await finishPendingDeveloperActions({ quiet: true });
   if (!options.quiet) {
     const remaining = hackathonPendingTracks();
     addChat(
       "agent",
-      remaining.length ? `Still pending: ${remaining.join(", ")}. Open Settings \u2192 Developer details.` : "Developer tracks ready: x402, ERC-7710, Venice, A2A, and 1Shot."
+      remaining.length ? `Smart Account ready. Still pending: ${remaining.join(", ")} \u2014 use Developer details buttons below.` : "Smart Account ready. All sponsor tracks are complete."
     );
   }
   if (options.openHub !== false) openWalletHub();
@@ -35504,11 +35494,13 @@ async function enableSmartAccount(options = {}) {
       render();
       return;
     }
+    state.walletConnectError = liveResult.message || "Live Smart Account upgrade failed. Confirm Sepolia batch in MetaMask.";
+    render();
+    throw { error: "smart-account-live-required", message: state.walletConnectError };
   }
-  await createSmartAccount({ quiet: options.quiet, openHub: options.openHub });
-  if (!options.quiet) {
-    addChat("agent", "Smart Account ready (EIP-7702 + ERC-7715). Open Payments for x402.");
-  }
+  state.walletConnectError = "Smart Account requires WALLET_LIVE_MODE=true and MetaMask on Sepolia.";
+  render();
+  throw { error: "smart-account-live-required", message: state.walletConnectError };
 }
 async function upgradeMetaMaskLive() {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create a case first." };
@@ -35577,39 +35569,6 @@ async function preparePayment(mode, options = {}) {
   if (!options.quiet) openPaymentRails();
   write({ ...result, settlement });
   return { ...result, settlement };
-}
-async function finishPendingDeveloperActions(options = {}) {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  await refreshHackathon({ silent: true });
-  if (hackathonPendingTracks().length === 0) {
-    if (!options.quiet) addChat("agent", "All developer tracks are already ready.");
-    return { completed: [], status: state.hackathonStatus };
-  }
-  if (!state.smartAccountAddress && state.walletAddress) {
-    await createSmartAccount({ quiet: true, openHub: false });
-  }
-  const result = await request("/api/hackathon/complete-pending", {
-    method: "POST",
-    body: {
-      caseId: state.currentCaseId,
-      walletAddress: state.walletAddress,
-      smartAccountAddress: state.smartAccountAddress,
-      notes: $("#purpose")?.value || "Redacted people-search cleanup case.",
-      destination: $("#destination")?.value || "approved broker",
-      actionType: state.actionType
-    }
-  });
-  await refreshHackathon({ silent: true });
-  if (!options.quiet) {
-    addChat(
-      "agent",
-      result.completed?.length ? `Finished ${result.completed.join(", ")}. Check Developer details.` : "No pending developer tracks remained."
-    );
-  }
-  state.tab = options.stayOnTab ? state.tab : "settings";
-  render();
-  write(result);
-  return result;
 }
 async function runVenice(kind) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
@@ -35995,7 +35954,6 @@ $("#agent-voice-toggle")?.addEventListener("change", (event) => {
   state.agentVoiceEnabled = Boolean(event.target.checked);
   setAgentVoiceEnabled(state.agentVoiceEnabled);
 });
-$("#finish-pending-tracks")?.addEventListener("click", () => finishPendingDeveloperActions().catch(write));
 $("#classify-case").addEventListener("click", () => runVenice("classify-case").catch(write));
 $("#draft-request").addEventListener("click", () => runVenice("draft-request").catch(write));
 $("#review-approval").addEventListener("click", () => runVenice("review-approval").catch(write));

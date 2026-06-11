@@ -4,7 +4,7 @@ import {
   buildHackathonStatus,
   createAgentDelegationSet,
   createPaymentSession,
-  demoSmartAccountAddress,
+  createRelayerEvents,
   pendingHackathonTracks,
   resolveSmartAccountAddress,
   validateErc7710Delegation,
@@ -16,24 +16,39 @@ import type { Erc7710Delegation, PermissionGrant } from "../../src/domain/types.
 
 const WALLET = "0x1111111111111111111111111111111111111111";
 
-test("resolveSmartAccountAddress uses wallet in live mode and hash in demo", () => {
+test("resolveSmartAccountAddress requires live mode or explicit smart account", () => {
   const wallet = "0x1111111111111111111111111111111111111111";
-  assert.equal(
-    resolveSmartAccountAddress({ walletAddress: wallet, mode: "live" }),
-    wallet
-  );
-  assert.equal(
-    resolveSmartAccountAddress({ walletAddress: wallet, mode: "demo" }),
-    demoSmartAccountAddress(wallet)
-  );
-  assert.equal(
-    resolveSmartAccountAddress({
-      walletAddress: wallet,
-      mode: "live",
-      smartAccountAddress: "0x2222222222222222222222222222222222222222"
-    }),
-    "0x2222222222222222222222222222222222222222"
-  );
+  const priorLive = process.env.WALLET_LIVE_MODE;
+  try {
+    delete process.env.WALLET_LIVE_MODE;
+    assert.throws(() => resolveSmartAccountAddress({ walletAddress: wallet }), /smart-account-address-required/);
+    process.env.WALLET_LIVE_MODE = "true";
+    assert.equal(resolveSmartAccountAddress({ walletAddress: wallet }), wallet);
+    assert.equal(
+      resolveSmartAccountAddress({
+        walletAddress: wallet,
+        smartAccountAddress: "0x2222222222222222222222222222222222222222"
+      }),
+      "0x2222222222222222222222222222222222222222"
+    );
+  } finally {
+    if (priorLive === undefined) delete process.env.WALLET_LIVE_MODE;
+    else process.env.WALLET_LIVE_MODE = priorLive;
+  }
+});
+
+test("createRelayerEvents does not synthesize transaction hashes", () => {
+  const events = createRelayerEvents({ caseId: "case_demo", status: "confirmed" });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].status, "submitted");
+  assert.equal(events[0].txHash, undefined);
+  const confirmed = createRelayerEvents({
+    caseId: "case_demo",
+    status: "confirmed",
+    txHash: "0xabc"
+  });
+  assert.equal(confirmed.at(-1)?.status, "confirmed");
+  assert.equal(confirmed.at(-1)?.txHash, "0xabc");
 });
 
 test("createPaymentSession uses x402-v2 when live x402 is configured", () => {

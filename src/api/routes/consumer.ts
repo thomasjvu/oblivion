@@ -15,7 +15,6 @@ import { meterVeniceAnalysis, meterVeniceChat } from "../handlers/veniceMeter.js
 import { buildAttestationProof, type TrustCenterConfig } from "../../domain/attestation.js";
 import { buildAgentPlanView, CLEANUP_PRESETS, presetUsesBrokerDiscovery, presetUsesContentDiscovery } from "../../domain/cleanup.js";
 import {
-  completePendingHackathonTracks,
   createAgentDelegationSet,
   createEip7702Authorization,
   createErc7715Permission,
@@ -657,26 +656,24 @@ export async function handleConsumerApi(
     return true;
   }
 
-  if (method === "POST" && url.pathname === "/api/metamask/demo-session") {
+  if (method === "POST" && url.pathname === "/api/metamask/smart-account-session") {
     const body = await readJson<SmartAccountBody>(request);
     const caseRecord = getCaseWithAccess(request, store, body.caseId);
     if (!body.walletAddress || !body.walletAddress.startsWith("0x")) {
       throw new HttpError(422, "wallet-address-required");
     }
-    const sessionMode = body.mode === "live" ? "live" : "demo";
+    if (process.env.WALLET_LIVE_MODE !== "true") {
+      throw new HttpError(503, "smart-account-live-required");
+    }
     const smartAccountAddress = resolveSmartAccountAddress({
       walletAddress: body.walletAddress,
-      mode: sessionMode,
       smartAccountAddress: body.smartAccountAddress
     });
     const eip7702 = createEip7702Authorization(caseRecord.id, body.walletAddress, smartAccountAddress);
     const erc7715 = createErc7715Permission(caseRecord.id);
     store.permissionGrants.set(eip7702.id, eip7702);
     store.permissionGrants.set(erc7715.id, erc7715);
-    const smartDetail =
-      sessionMode === "live"
-        ? `EIP-7702 authorization recorded after MetaMask batch${body.txHash ? ` (${body.txHash.slice(0, 10)}…)` : ""}.`
-        : "EIP-7702 demo authorization created.";
+    const smartDetail = `EIP-7702 authorization recorded after MetaMask batch${body.txHash ? ` (${body.txHash.slice(0, 10)}…)` : ""}.`;
     const timeline = [
       createTimelineEvent(caseRecord.id, "MetaMask", "Smart Account session", smartDetail),
       createTimelineEvent(
@@ -688,7 +685,7 @@ export async function handleConsumerApi(
     ];
     timeline.forEach((event) => store.agentTimeline.set(event.id, event));
     sendJson(response, 201, {
-      mode: sessionMode,
+      mode: "live",
       walletAddress: redactText(body.walletAddress),
       smartAccountAddress,
       txHash: body.txHash,
@@ -1030,21 +1027,6 @@ export async function handleConsumerApi(
       return true;
     }
 
-    if (method === "POST" && url.pathname === "/api/hackathon/complete-pending") {
-      const body = await readJson<VeniceBody & PaymentBody>(request);
-      const caseRecord = getCaseWithAccess(request, store, body.caseId);
-      const result = await completePendingHackathonTracks({
-        store,
-        caseId: caseRecord.id,
-        walletAddress: body.walletAddress?.startsWith("0x") ? body.walletAddress : undefined,
-        smartAccountAddress: body.smartAccountAddress,
-        notes: body.notes,
-        destination: body.destination,
-        actionType: body.actionType
-      });
-      sendJson(response, 201, result);
-      return true;
-    }
   }
 
   if (method === "POST" && url.pathname === "/api/export") {

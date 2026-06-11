@@ -46,7 +46,7 @@ Checklist status: **Settings → Developer details** or `GET /api/hackathon/stat
 |------|------|
 | 0:00–0:30 | Problem + encrypted vault intake |
 | 0:30–1:00 | Connect MetaMask Smart Account |
-| 1:00–1:20 | Finish pending tracks (developer checklist) |
+| 1:00–1:20 | Developer checklist — run each live action (classify, delegate, relay) |
 | 1:20–1:45 | Buy credits via x402 (if configured) |
 | 1:45–2:05 | Approval gate — read disclosure, confirm |
 | 2:05–2:25 | Execute (practice run or live) |
@@ -71,9 +71,9 @@ sequenceDiagram
   Judge->>UI: Create case and vault intake
   Judge->>UI: Connect wallet
   UI->>MM: Smart Account calls (if live)
-  UI->>API: Register demo session
-  Judge->>UI: Finish pending tracks
-  UI->>API: Complete pending integrations
+  UI->>API: Register smart-account session (live Sepolia)
+  Judge->>UI: Venice classify + delegate sub-agents
+  UI->>API: Classify + delegate (redacted)
   API->>Venice: Classify case (redacted)
   Judge->>UI: Buy credits (if configured)
   UI->>X402: USDC payment signature

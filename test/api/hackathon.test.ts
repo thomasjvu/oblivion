@@ -8,6 +8,7 @@ const originalVeniceBase = process.env.VENICE_BASE_URL;
 const originalOneShotKey = process.env.ONESHOT_API_KEY;
 const originalPayTo = process.env.X402_PAY_TO;
 const originalApiUrl = process.env.OBLIVION_PUBLIC_API_URL;
+const originalWalletLive = process.env.WALLET_LIVE_MODE;
 
 function installVeniceMock() {
   process.env.VENICE_API_KEY = "test-key";
@@ -67,19 +68,12 @@ function installVeniceMock() {
 
 function enableLiveIntegrations() {
   process.env.HACKATHON_MODE = "true";
+  process.env.WALLET_LIVE_MODE = "true";
   process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
   process.env.ONESHOT_API_KEY = "test-key";
   process.env.ONESHOT_BASE_URL = "https://relayer.test/relayers";
   process.env.OBLIVION_PUBLIC_API_URL = "https://api.example.com";
   process.env.OBLIVION_AI_BYPASS_PAYMENT = "true";
-}
-
-function enableHackathonTracksWithoutOneShot() {
-  process.env.HACKATHON_MODE = "true";
-  process.env.X402_PAY_TO = "0x1111111111111111111111111111111111111111";
-  process.env.OBLIVION_PUBLIC_API_URL = "https://api.example.com";
-  process.env.OBLIVION_AI_BYPASS_PAYMENT = "true";
-  delete process.env.ONESHOT_API_KEY;
 }
 
 const originalHackathonMode = process.env.HACKATHON_MODE;
@@ -98,6 +92,8 @@ function restoreEnv() {
   else process.env.X402_PAY_TO = originalPayTo;
   if (originalApiUrl === undefined) delete process.env.OBLIVION_PUBLIC_API_URL;
   else process.env.OBLIVION_PUBLIC_API_URL = originalApiUrl;
+  if (originalWalletLive === undefined) delete process.env.WALLET_LIVE_MODE;
+  else process.env.WALLET_LIVE_MODE = originalWalletLive;
 }
 
 test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot polling", async () => {
@@ -119,10 +115,11 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot pol
     assert.equal(integrations.liveReady.venice, true);
     assert.equal(integrations.liveReady.oneShot, true);
 
-    const smart = await post(base, "/api/metamask/demo-session", {
+    const smart = await post(base, "/api/metamask/smart-account-session", {
       caseId,
       walletAddress: "0x1111111111111111111111111111111111111111"
     }, 201);
+    assert.equal(smart.mode, "live");
 
     const oneOff = await post(base, "/api/x402/one-off", {
       caseId,
@@ -174,9 +171,8 @@ test("hackathon API flow exposes MetaMask, x402, Venice, A2A, and live 1Shot pol
   }
 });
 
-test("complete-pending only finishes configured integration tracks", async () => {
-  installVeniceMock();
-  enableHackathonTracksWithoutOneShot();
+test("complete-pending shortcut route is removed", async () => {
+  process.env.HACKATHON_MODE = "true";
   const { server, base } = await startTestServer();
 
   try {
@@ -184,57 +180,16 @@ test("complete-pending only finishes configured integration tracks", async () =>
       jurisdiction: "US",
       authorityBasis: "self"
     }, 201);
-    const caseId = created.case.id;
-
-    await post(base, "/api/metamask/demo-session", {
-      caseId,
-      walletAddress: "0x3333333333333333333333333333333333333333"
-    }, 201);
-
-    const before = await get(base, `/api/hackathon/status?caseId=${caseId}`);
-    assert.ok(before.pending.includes("x402"));
-    assert.ok(before.pending.includes("1shot"));
-
-    const finished = await post(base, "/api/hackathon/complete-pending", {
-      caseId,
-      walletAddress: "0x3333333333333333333333333333333333333333",
-      notes: "Remove person@example.com from people-search."
-    }, 201);
-    assert.ok(finished.completed.includes("x402"));
-    assert.ok(finished.completed.includes("venice"));
-    assert.ok(finished.completed.includes("a2a"));
-    assert.equal(finished.completed.includes("1shot"), false);
-    assert.equal(finished.status.oneShotRelayerVisible, false);
-    assert.doesNotMatch(JSON.stringify(finished), /person@example\.com/);
+    const response = await fetch(`${base}/api/hackathon/complete-pending`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${created.accessToken}` },
+      body: JSON.stringify({ caseId: created.case.id })
+    });
+    assert.equal(response.status, 404);
   } finally {
     server.close();
-    globalThis.fetch = originalFetch;
-    restoreEnv();
-  }
-});
-
-test("complete-pending does not fake 1shot relay completion", async () => {
-  installVeniceMock();
-  enableLiveIntegrations();
-  const { server, base } = await startTestServer();
-
-  try {
-    const created = await post(base, "/api/cases", {
-      jurisdiction: "US",
-      authorityBasis: "self"
-    }, 201);
-    const caseId = created.case.id;
-
-    const finished = await post(base, "/api/hackathon/complete-pending", {
-      caseId,
-      notes: "Remove person@example.com from people-search."
-    }, 201);
-    assert.equal(finished.completed.includes("1shot"), false);
-    assert.equal(finished.status.oneShotRelayerVisible, false);
-  } finally {
-    server.close();
-    globalThis.fetch = originalFetch;
-    restoreEnv();
+    if (originalHackathonMode === undefined) delete process.env.HACKATHON_MODE;
+    else process.env.HACKATHON_MODE = originalHackathonMode;
   }
 });
 

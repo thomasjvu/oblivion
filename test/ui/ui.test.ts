@@ -202,8 +202,9 @@ test("app keeps hackathon sponsor-track details in settings", async () => {
   assert.match(html, /A2A redelegation/);
   assert.match(html, /1Shot relayer status/);
   assert.match(html, /id="hackathon-checklist"/);
-  assert.match(html, /finish-pending-tracks/);
-  assert.match(html, /finishPendingDeveloperActions/);
+  assert.match(html, /classify-case/);
+  assert.match(html, /delegate-agents/);
+  assert.match(html, /Complete each track with the buttons below/);
   assert.match(html, /data-testid="privacy-filter-toggle"/);
   assert.match(html, /privacyFilterMode/);
   assert.match(html, /maskPrivacyText/);
