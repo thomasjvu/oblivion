@@ -8,7 +8,13 @@ import {
 } from "./platformAbuse.js";
 import { brokerCatalogEntryById } from "./brokerCatalog.js";
 import { connectorById } from "./connectors.js";
-import { createGoogleRemovalPlan, pwnedPasswordRangeUrl } from "./cleanup.js";
+import { createGoogleRemovalPlan } from "./cleanup.js";
+import {
+  buildHibpEmailConnectorResult,
+  buildHibpPasswordRangeConnectorResult,
+  fetchHibpEmailBreach,
+  fetchHibpPasswordRange
+} from "./connectors/hibp.js";
 import { followUpDate } from "./deadlines.js";
 import { assertSensitiveExecutionAllowed } from "./runtimeGuard.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
@@ -112,29 +118,11 @@ async function runHibpPasswordRange(input: LiveConnectorInput, connectorId: stri
   if (!prefix || !/^[A-Fa-f0-9]{5}$/.test(prefix)) {
     return handoffResult(input, connectorId, "Provide a 5-character SHA-1 prefix from the browser vault for the live range check.");
   }
-  const rangeUrl = pwnedPasswordRangeUrl(prefix);
-  let suffixCount = 0;
-  let status: ConnectorResult["status"] = "ready";
-  try {
-    const hibpResponse = await fetch(rangeUrl, {
-      headers: { "user-agent": "oblivion-privacy-agent", "add-padding": "true" }
-    });
-    if (!hibpResponse.ok) throw new Error(`hibp-password-range-${hibpResponse.status}`);
-    const text = await hibpResponse.text();
-    suffixCount = text.trim() ? text.trim().split(/\r?\n/).length : 0;
-  } catch {
-    status = "failed";
-  }
-  const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status,
-    sourceUrl: rangeUrl,
-    officialRemovalPath: "https://haveibeenpwned.com/API/v3#PwnedPasswords",
-    summary: `Live Pwned Passwords range check: ${suffixCount} padded suffix rows for approved prefix.`,
-    requiresUserHandoff: false
-  });
+  const range = await fetchHibpPasswordRange(prefix);
+  const result = buildHibpPasswordRangeConnectorResult(input.action.caseId, prefix, range);
   return {
     result,
-    executionRecord: `live connector ${connectorId}: range check ${status}.`,
+    executionRecord: `live connector ${connectorId}: range check ${result.status}.`,
     transmitted: ["hashPrefix"],
     neverTransmit: ["password"]
   };
@@ -149,28 +137,8 @@ async function runHibpEmail(input: LiveConnectorInput, connectorId: string): Pro
       "Live HIBP email check requires emailLabel in the execute body (decrypted in browser, never stored server-side)."
     );
   }
-  if (!process.env.HIBP_API_KEY?.trim()) {
-    throw Object.assign(new Error("hibp-api-key-not-configured"), { statusCode: 503 });
-  }
-  const hibpResponse = await fetch(
-    `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(email)}?truncateResponse=true`,
-    {
-      headers: {
-        "hibp-api-key": process.env.HIBP_API_KEY,
-        "user-agent": "oblivion-privacy-agent"
-      }
-    }
-  );
-  const result = buildConnectorResult(input.action.caseId, connectorId, {
-    status: hibpResponse.status === 404 ? "recorded" : hibpResponse.ok ? "ready" : "failed",
-    sourceUrl: "https://haveibeenpwned.com/api/v3/breachedaccount",
-    officialRemovalPath: "https://haveibeenpwned.com/API/v3",
-    summary:
-      hibpResponse.status === 404
-        ? "Live HIBP reports no breach record for the approved email."
-        : "Live HIBP email check completed or requires review.",
-    requiresUserHandoff: false
-  });
+  const hibpResponse = await fetchHibpEmailBreach(email);
+  const result = buildHibpEmailConnectorResult(input.action.caseId, hibpResponse);
   return {
     result,
     executionRecord: `live connector ${connectorId}: email check ${result.status}.`,

@@ -2,7 +2,7 @@ import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import { oneShotBaseUrl, oneShotWebhookDestinationUrl } from "./integrations.js";
 import type { RelayerEvent, RelayerStatus } from "./types.js";
-import { createRelayerEvents } from "./hackathon.js";
+import { createRelayerEvents } from "./agentTimeline.js";
 
 interface JsonRpcResponse<T = unknown> {
   jsonrpc: string;

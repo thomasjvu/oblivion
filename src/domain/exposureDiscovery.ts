@@ -5,8 +5,8 @@ import {
   buildBrokerSweepQueries,
   type BrokerCatalogEntry
 } from "./brokerCatalog.js";
+import { mapWithConcurrency } from "./asyncUtil.js";
 import { redactText } from "./redaction.js";
-import { sanitizeForLog } from "./safeLogging.js";
 import {
   braveSearchBaseUrl,
   braveSearchCount,
@@ -143,24 +143,47 @@ export async function fetchWebSearchCandidates(query: string): Promise<Discovery
   return [];
 }
 
-export async function fetchBrokerSweepCandidates(scope: RedactedScope | undefined): Promise<DiscoveryCandidate[]> {
-  if (!isDiscoverySearchConfigured()) return [];
-  const queries = buildBrokerSweepQueries(scope);
-  const candidates: DiscoveryCandidate[] = [];
-  for (const item of queries) {
+type BrokerSweepScope = { personLabel?: string; aliases?: string[]; regionLabel?: string } | undefined;
+
+export async function fetchBrokerSweepCandidates(
+  scope: BrokerSweepScope,
+  options: { limit?: number; preview?: boolean; concurrency?: number } = {}
+): Promise<{ candidates: DiscoveryCandidate[]; searchErrors: number }> {
+  if (!isDiscoverySearchConfigured()) return { candidates: [], searchErrors: 0 };
+  const queries = buildBrokerSweepQueries(scope, { limit: options.limit, preview: options.preview });
+  const collectHits = async (item: (typeof queries)[number]) => {
+    const hits: DiscoveryCandidate[] = [];
     try {
       const results = await fetchWebSearchCandidates(item.query);
       for (const result of results) {
         const broker = brokerForUrl(result.sourceUrl);
         if (broker?.brokerId === item.brokerId) {
-          candidates.push({ ...result, origin: "broker-sweep", brokerId: item.brokerId });
+          hits.push({ ...result, origin: "broker-sweep", brokerId: item.brokerId });
         }
       }
+      return { ok: true as const, hits };
     } catch {
-      continue;
+      return { ok: false as const, hits: [] };
     }
+  };
+  if (options.concurrency && options.concurrency > 1) {
+    const batches = await mapWithConcurrency(queries, options.concurrency, collectHits);
+    let searchErrors = 0;
+    const candidates: DiscoveryCandidate[] = [];
+    for (const batch of batches) {
+      if (!batch.ok) searchErrors += 1;
+      candidates.push(...batch.hits);
+    }
+    return { candidates, searchErrors };
   }
-  return candidates;
+  const candidates: DiscoveryCandidate[] = [];
+  let searchErrors = 0;
+  for (const item of queries) {
+    const batch = await collectHits(item);
+    if (!batch.ok) searchErrors += 1;
+    candidates.push(...batch.hits);
+  }
+  return { candidates, searchErrors };
 }
 
 function heuristicMatchScore(candidate: DiscoveryCandidate, scope: RedactedScope | undefined): ExposureMatchScore {
@@ -322,7 +345,7 @@ export async function discoverExposureCandidates(input: {
   if (isDiscoverySearchConfigured()) {
     try {
       if (input.brokerSweep !== false && !input.contentTakedown) {
-        const sweepResults = await fetchBrokerSweepCandidates(input.scope);
+        const { candidates: sweepResults } = await fetchBrokerSweepCandidates(input.scope);
         for (const item of sweepResults) {
           if (seen.has(item.sourceUrl)) continue;
           seen.add(item.sourceUrl);
@@ -407,23 +430,6 @@ export function applyFindingDecision(
     removalStatus: exposure.removalStatus === "not-started" ? "drafted" : exposure.removalStatus,
     matchReason: exposure.matchReason ?? "Confirmed by user."
   };
-}
-
-export function countFindingsByStatus(exposures: Exposure[]): {
-  pending: number;
-  confirmed: number;
-  rejected: number;
-} {
-  let pending = 0;
-  let confirmed = 0;
-  let rejected = 0;
-  for (const exposure of exposures) {
-    const status = exposure.matchStatus ?? "pending";
-    if (status === "confirmed") confirmed += 1;
-    else if (status === "rejected") rejected += 1;
-    else pending += 1;
-  }
-  return { pending, confirmed, rejected };
 }
 
 export interface DiscoveryPlanMethod {
@@ -534,6 +540,3 @@ export function discoveryReadinessMessage(): string {
   return `${parts.join(" + ")} ready. Paste known links or run search.`;
 }
 
-export function logSafeDiscoveryError(error: unknown): Record<string, unknown> {
-  return sanitizeForLog(error) as Record<string, unknown>;
-}

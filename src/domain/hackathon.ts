@@ -19,16 +19,6 @@ import type {
   VeniceAnalysis
 } from "./types.js";
 
-export { X402_PRODUCTS, productForMode } from "./payments/catalog.js";
-export {
-  createPaymentPermission,
-  createPaymentSession,
-  createPermissionGrant,
-  validateErc7710Delegation,
-  validatePermissionGrant
-} from "./payments/sessions.js";
-export { createRelayerEvents, createTimelineEvent } from "./agentTimeline.js";
-
 export function resolveSmartAccountAddress(input: {
   walletAddress: string;
   smartAccountAddress?: string;

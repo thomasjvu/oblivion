@@ -13,7 +13,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { deploymentEnvironment, deploymentProfile } from "./deploymentEnv.js";
 import { isX402Configured, x402FacilitatorUrl, x402Network, x402PayTo } from "./integrations.js";
 import type { PaymentProduct, PaymentSession } from "./types.js";
-import { productForMode } from "./hackathon.js";
+import { productForMode } from "./payments/catalog.js";
 
 let httpResourceServer: x402HTTPResourceServer | null = null;
 let initPromise: Promise<void> | null = null;

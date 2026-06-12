@@ -1,6 +1,7 @@
 import { assertAiBudget, maxTokensForEntitlement } from "../../domain/aiBudget.js";
 import { debitCreditsForTokens, resolveCreditsView } from "../../domain/credits.js";
-import { createTimelineEvent, X402_PRODUCTS } from "../../domain/hackathon.js";
+import { createTimelineEvent } from "../../domain/agentTimeline.js";
+import { X402_PRODUCTS } from "../../domain/payments/catalog.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "../../domain/partnerBilling.js";
 import type { ActionType, CaseRecord, VeniceAnalysisKind } from "../../domain/types.js";
 import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../../domain/venice.js";

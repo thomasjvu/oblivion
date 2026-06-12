@@ -398,7 +398,7 @@ export function createScoutFindings(caseId: string, presetId: PresetId): Connect
 }
 
 /** @deprecated use createScoutFindings */
-export const createMockExposure = createScoutFindings;
+
 
 export function createGoogleRemovalPlan(caseId: string, sourceUrl?: string): ConnectorResult {
   const now = new Date().toISOString();

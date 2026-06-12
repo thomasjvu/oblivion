@@ -1,5 +1,4 @@
 import type { MemoryStore } from "../storage/memoryStore.js";
-import { mapWithConcurrency } from "./asyncUtil.js";
 import {
   brokerCatalogEntryById,
   brokerForUrl,
@@ -14,6 +13,7 @@ import {
 } from "./discoveryHeuristics.js";
 import {
   buildBraveSearchQuery,
+  fetchBrokerSweepCandidates,
   fetchWebSearchCandidates,
   type DiscoveryCandidate
 } from "./exposureDiscovery.js";
@@ -157,26 +157,14 @@ export async function runDiscoveryPreview(input: {
   let sweepHits = 0;
   let searchErrors = 0;
 
-  const sweepResults = await mapWithConcurrency(queries, previewSearchConcurrency(), async (item) => {
-    try {
-      const results = await fetchWebSearchCandidates(item.query);
-      let hits = 0;
-      for (const result of results) {
-        const broker = brokerForUrl(result.sourceUrl);
-        if (broker?.brokerId !== item.brokerId) continue;
-        if (addCandidate(seen, candidates, { ...result, origin: "broker-sweep", brokerId: item.brokerId })) {
-          hits += 1;
-        }
-      }
-      return { ok: true as const, hits };
-    } catch {
-      return { ok: false as const, hits: 0 };
-    }
+  const sweep = await fetchBrokerSweepCandidates(sweepScope, {
+    limit: input.sweepLimit ?? previewBrokerSweepLimit(),
+    preview: true,
+    concurrency: previewSearchConcurrency()
   });
-
-  for (const result of sweepResults) {
-    if (result.ok) sweepHits += result.hits;
-    else searchErrors += 1;
+  searchErrors += sweep.searchErrors;
+  for (const result of sweep.candidates) {
+    if (addCandidate(seen, candidates, result)) sweepHits += 1;
   }
 
   let broadSearchHits = 0;

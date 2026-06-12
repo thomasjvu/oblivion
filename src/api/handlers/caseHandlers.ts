@@ -7,7 +7,7 @@ import {
   presetUsesContentDiscovery
 } from "../../domain/cleanup.js";
 import { sanitizeScope, validateEncryptedBlob } from "../../domain/cases.js";
-import { createTimelineEvent } from "../../domain/hackathon.js";
+import { createTimelineEvent } from "../../domain/agentTimeline.js";
 import {
   applyFindingDecision,
   describeDiscoveryPlan,

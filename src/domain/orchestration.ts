@@ -1,7 +1,7 @@
-import { buildAgentPlanView, defaultActionTypeForPreset } from "./cleanup.js";
+import { buildAgentPlanView } from "./cleanup.js";
 import { buildHackathonStatus } from "./hackathon.js";
 import { buildCaseStatus } from "./status.js";
-import type { ActionType, AgentPlanStep, Jurisdiction, PresetId } from "./types.js";
+import type { AgentPlanStep } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 
 export {
@@ -80,6 +80,3 @@ export function titleForPlanStep(step: AgentPlanStep): string {
   }[step];
 }
 
-export function actionTypeForPreset(presetId: PresetId, jurisdiction: Jurisdiction): ActionType {
-  return defaultActionTypeForPreset(presetId, jurisdiction);
-}

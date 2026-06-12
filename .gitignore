@@ -37,5 +37,6 @@ data/*
 # client bundle (built by npm run build:client)
 public/app.js
 public/chunk-*.js
+public/fonts/GeistPixel-Square.woff2
 # agents
 .phantasy

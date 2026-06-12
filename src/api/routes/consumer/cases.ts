@@ -10,7 +10,7 @@ import {
   type IntakeBody
 } from "../../handlers/caseHandlers.js";
 import { buildAgentPlanView, CLEANUP_PRESETS, presetUsesBrokerDiscovery, presetUsesContentDiscovery } from "../../../domain/cleanup.js";
-import { createTimelineEvent } from "../../../domain/hackathon.js";
+import { createTimelineEvent } from "../../../domain/agentTimeline.js";
 import { buildStatus, proposeApprovedAction } from "../../../domain/orchestration.js";
 import { describeDiscoveryPlan, discoveryReadinessMessage } from "../../../domain/exposureDiscovery.js";
 import {

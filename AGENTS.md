@@ -27,7 +27,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - `src/crypto/clientVault.ts`
 - `src/storage/memoryStore.ts`
 - `public/src/` → bundled `public/app.js` (`apiClient.js` manages case tokens)
-- `test/`: `domain/`, `api/`, `helpers/http.ts`, `helpers/partner.ts`, `fixtures/`, `packages/`, `e2e/`, `ui/`
+- `test/`: `domain/`, `api/`, `helpers/http.ts`, `helpers/partner.ts`, `fixtures/`, `packages/`, `e2e/`
 - `config/trust-center.json`, `Dockerfile`, `docker-compose.phala.yml`
 - `DESIGN.md`, `SECURITY.md`, docs in `docs/src/docs/content/`
 
@@ -38,7 +38,7 @@ No other frameworks. Pure node:http + Web Crypto + TS ESM.
 - `npm run dev` → builds client then `tsx src/server.ts` (port 8080)
 - `npm test` → tsx --test test/**/*.test.ts
 - `npm run version:sync` → copies version + git `sourceCommit` into `config/trust-center.json`
-- `npm run verify` → build:client + test + typecheck + design:lint
+- `npm run verify` → version:sync + build:client + build:vault-sdk + build:fonts + test + typecheck + design:lint
 - `npm run e2e` → Playwright (case tokens in `test/e2e/caseAuth.ts`)
 - `npm run docs:verify` → docs release checks
 
@@ -81,13 +81,14 @@ Always run `npm run verify` before considering a change complete.
 
 ## Current Status (as of deslop pass)
 
-- 160 unit/integration tests cover auth, policy, cleanup workflow, partner API, and package SDKs; 2 Playwright E2E specs cover consumer people-search and partner approval gate.
-- `app.ts` thin dispatcher; `consumer.ts` (~50 LOC) dispatches to `src/api/routes/consumer/*`; shared handlers in `caseHandlers.ts`, `caseLifecycle.ts`, `agentRun.ts`.
-- `hackathon.ts` re-exports payments catalog/sessions and `agentTimeline.ts`; consumer + v1 share `handleAgentRun`, `exportCaseBundle`, `deleteCaseRecord`, `emitApprovalPendingWebhook` (webhooks module).
-- Case access token auth on consumer API; partner isolation enforced.
+- 163+ unit/integration tests cover auth, policy, cleanup workflow, partner API, trust/purge/HIBP helpers, and package SDKs; 4 Playwright E2E specs (desktop + mobile).
+- `app.ts` thin dispatcher; `consumer.ts` and `v1.ts` dispatch to `routes/consumer/*` and `routes/v1/*`; `integrations/` split under consumer.
+- Shared handlers: `caseHandlers.ts`, `caseLifecycle.ts`, `agentRun.ts`; payments in `domain/payments/`; timeline in `agentTimeline.ts`; `hackathon.ts` is hackathon-only (no re-export hub).
+- HIBP logic unified in `domain/connectors/hibp.ts`; trust privacy in `domain/trustPrivacy.ts`; credit settlement in `domain/payments/settlement.ts`.
+- Case access token auth on consumer API; partner isolation enforced; v1 approve/execute checks ownership before handlers.
 - Types split under `src/domain/types/` with barrel re-export from `types.ts`.
-- Client: `public/app.js` is build output (gitignored); x402/viem lazy-loaded via `x402Gate.js`; hackathon UI gated on `integrationsStatus.hackathonMode`.
+- Client: `public/app.js` + chunks gitignored; `refresh.js` scoped refresh; `renderScheduler.js` dirty-flag render; x402 lazy via `x402Gate.js`.
 
-Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; incremental `main.js` module split + dirty-flag render.
+Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; further `main.js` extraction (wallet/payments modules).
 
 Update this file when gaps close or invariants change.

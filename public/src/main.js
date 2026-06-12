@@ -1,14 +1,60 @@
 import * as Vault from './crypto.js';
 import { buildExecuteHandoff } from './executeHandoff.js';
 import { expandNameTerms, maskPrivacyText } from './privacyFilter.js';
-import { tryLiveSmartAccountUpgrade } from './metamaskSmartAccount.js';
-import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Gate.js';
-import { apiRequest, getCaseToken, loadApiConfig, removeCaseToken, setCaseToken } from './apiClient.js';
-import { redactedScopeFromIntake } from './intakeScope.js';
-import { pollRelayTask, submitRelayBundle } from './oneShotRelayer.js';
-import { createWalletLogger, DEFAULT_WALLET_CONFIG } from './walletLog.js';
+import { isLiveX402Ready } from './x402Gate.js';
+import {
+  isHackathonMode as isHackathonModeForState,
+  refreshCreditsBalance as refreshCreditsBalanceForState,
+  refreshHackathon as refreshHackathonCore
+} from './refresh.js';
+import {
+  saveLocalCases as saveLocalCasesFlow,
+  loadLocalCases as loadLocalCasesFlow,
+  refreshCases as refreshCasesFlow,
+  loadCase as loadCaseFlow,
+  createCase as createCaseFlow,
+  linkCurrentCaseToWallet as linkCurrentCaseToWalletFlow,
+  syncWalletCases as syncWalletCasesFlow,
+  deleteCaseById as deleteCaseByIdFlow,
+  confirmDeleteCase as confirmDeleteCaseFlow,
+  deleteCase as deleteCaseFlow
+} from './casesFlow.js';
+import {
+  shortenAddress,
+  connectWallet as connectWalletFlow,
+  disconnectWallet as disconnectWalletFlow,
+  refreshWalletConfig as refreshWalletConfigFlow,
+  ensureWalletProvider as ensureWalletProviderFlow,
+  createSmartAccount as createSmartAccountFlow,
+  enableSmartAccount as enableSmartAccountFlow,
+  upgradeMetaMaskLive as upgradeMetaMaskLiveFlow
+} from './walletFlow.js';
+import {
+  paymentPlanLabel,
+  hasEntitledPayment as hasEntitledPaymentForState,
+  hasSubscriptionEntitlement as hasSubscriptionEntitlementForState,
+  caseIsActivated as caseIsActivatedForState,
+  refreshIntegrationsStatus as refreshIntegrationsStatusFlow,
+  settlePaymentForMode as settlePaymentForModeFlow,
+  preparePayment as preparePaymentFlow,
+  ensureCasePayment as ensureCasePaymentFlow
+} from './paymentsFlow.js';
+import {
+  runVenice as runVeniceFlow,
+  delegateAgents as delegateAgentsFlow,
+  relayPayment as relayPaymentFlow,
+  askAgent as askAgentFlow,
+  agentRunNext as agentRunNextFlow,
+  agentAutopilot as agentAutopilotFlow
+} from './agentFlow.js';
+import { PANELS, renderAll as renderAllPanels } from './renderScheduler.js';
+import { apiRequest, getCaseToken, loadApiConfig, setCaseToken } from './apiClient.js';
+import { createWalletLogger } from './walletLog.js';
 import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
 import { isAgentVoiceEnabled, playCharBeep, setAgentVoiceEnabled, stopAgentVoice } from './agentVnTts.js';
+
+const request = apiRequest;
+const tokenDeps = { getCaseToken, setCaseToken };
 
 function isUserRejectedError(value) {
   if (!value) return false;
@@ -294,7 +340,7 @@ const LANDING_LOCATION_OPTIONS = [
 ];
 
 function isHackathonMode() {
-  return Boolean(state.integrationsStatus?.hackathonMode);
+  return isHackathonModeForState(state);
 }
 
 function setupLocationCombobox({ input, menu, toggle, field, options = LANDING_LOCATION_OPTIONS, onEnter }) {
@@ -1292,32 +1338,11 @@ function runChatTypewriters(log, logShell) {
 }
 
 function saveLocalCases() {
-  const summaries = state.cases.map((item) => ({
-    id: item.id,
-    jurisdiction: item.jurisdiction,
-    riskLevel: item.riskLevel,
-    authorityBasis: item.authorityBasis,
-    redactedScope: item.redactedScope,
-    updatedAt: item.updatedAt
-  }));
-  localStorage.setItem("oblivion.caseSummaries", JSON.stringify(summaries));
-  for (const item of state.cases) {
-    const token = getCaseToken(item.id) || item.accessToken;
-    if (token) setCaseToken(item.id, token);
-  }
-  if (state.currentCaseId) localStorage.setItem("oblivion.currentCaseId", state.currentCaseId);
+  return saveLocalCasesFlow(state, tokenDeps);
 }
 
 function loadLocalCases() {
-  try {
-    const summaries = JSON.parse(localStorage.getItem("oblivion.caseSummaries") || "[]");
-    for (const item of summaries) {
-      if (item.accessToken) setCaseToken(item.id, item.accessToken);
-    }
-    return summaries.map(({ accessToken: _token, ...summary }) => summary);
-  } catch {
-    return [];
-  }
+  return loadLocalCasesFlow(tokenDeps);
 }
 
 async function refreshTrust() {
@@ -1336,14 +1361,7 @@ function syncAppRoute() {
 }
 
 async function refreshCases() {
-  state.cases = loadLocalCases();
-  if (state.appOpen && state.currentCaseId) {
-    await loadCase(state.currentCaseId, { silent: true, openApp: false });
-  } else {
-    await refreshAgentPlan({ silent: true }).catch(() => {});
-    await refreshHackathon({ silent: true }).catch(() => {});
-    render();
-  }
+  return refreshCasesFlow(state, casesDeps);
 }
 
 async function refreshPresets() {
@@ -1368,47 +1386,7 @@ async function refreshAgentPlan(options = {}) {
 }
 
 async function loadCase(caseId, options = {}) {
-  if (options.openApp !== false) {
-    state.appOpen = true;
-    state.dockOpen = true;
-    state.dockPinned = true;
-    location.hash = "app";
-  }
-  state.currentCaseId = caseId;
-  localStorage.setItem("oblivion.currentCaseId", caseId);
-  try {
-    const loaded = await request(`/api/cases/${caseId}`);
-    state.currentStatus = loaded.status;
-    const index = state.cases.findIndex((item) => item.id === caseId);
-    const summary = { ...loaded.case, status: loaded.status };
-    if (index >= 0) state.cases[index] = summary;
-    else state.cases.unshift(summary);
-    saveLocalCases();
-    if (!options.silent) write(loaded);
-    await refreshAgentPlan({ silent: true }).catch(() => {});
-    await refreshHackathon({ silent: true }).catch(() => {});
-    state.onboardingPreviewReady = false;
-    if (state.currentStatus && !caseIsActivated()) {
-      state.preSearchReady = false;
-      resetPreSearchUi();
-    }
-  } catch (error) {
-    state.currentStatus = null;
-    if (error?.error === "case-not-found") {
-      state.cases = state.cases.filter((item) => item.id !== caseId);
-      state.currentCaseId = "";
-      localStorage.removeItem("oblivion.currentCaseId");
-      saveLocalCases();
-      const replacement = state.appOpen ? state.cases[0] : null;
-      if (replacement) {
-        await loadCase(replacement.id, { silent: options.silent });
-        return;
-      }
-    }
-    if (!options.silent) write(error);
-  }
-  updateSessionHandoffWarning();
-  render();
+  return loadCaseFlow(state, caseId, options, casesDeps);
 }
 
 if (typeof window !== "undefined") {
@@ -1791,7 +1769,7 @@ async function maybeAutoDiscoverFindings(options = {}) {
       localStorage.setItem(`oblivion.discoveryUrls.${state.currentCaseId}`, JSON.stringify(pastedUrls));
     }
     await refreshAgentPlan({ silent: true }).catch(() => {});
-    await refreshHackathon({ silent: true }).catch(() => {});
+    await refreshHackathon({ silent: true, scope: "agent" }).catch(() => {});
     if (!options.quiet) {
       addChat(
         "agent",
@@ -1906,57 +1884,14 @@ function renderPresets() {
 }
 
 async function refreshCreditsBalance() {
-  if (!state.walletAddress) {
-    state.creditsBalance = null;
-    return null;
-  }
-  try {
-    const view = await request(`/api/credits/balance?walletAddress=${encodeURIComponent(state.walletAddress)}`);
-    state.creditsBalance = view;
-    return view;
-  } catch {
-    state.creditsBalance = null;
-    return null;
-  }
+  return refreshCreditsBalanceForState(state, request);
 }
 
 async function refreshHackathon(options = {}) {
-  const products = await request("/api/x402/products");
-  state.products = products.products || [];
-  state.creditRates = products.credits || null;
-  await refreshCreditsBalance().catch(() => {});
-  if (state.currentCaseId && state.walletAddress) {
-    try {
-      state.aiEntitlement = await request(
-        `/api/cases/${state.currentCaseId}/ai-entitlement?walletAddress=${encodeURIComponent(state.walletAddress)}`
-      );
-    } catch {
-      state.aiEntitlement = null;
-    }
-  } else {
-    state.aiEntitlement = null;
-  }
-  if (!state.currentCaseId) {
-    state.hackathon = null;
-    state.hackathonStatus = null;
-    return;
-  }
-  const [timeline, next] = await Promise.all([
-    request(`/api/agents/timeline?caseId=${state.currentCaseId}`),
-    request(`/api/agent/next?caseId=${state.currentCaseId}`)
-  ]);
-  state.hackathon = timeline;
-  state.agentNext = next;
-  if (isHackathonMode()) {
-    const checklist = await request(`/api/hackathon/status?caseId=${state.currentCaseId}`);
-    state.hackathonStatus = checklist.status;
-    state.hackathonPending = checklist.pending || [];
-    if (!options.silent) write({ products, timeline, checklist });
-    return;
-  }
-  state.hackathonStatus = null;
-  state.hackathonPending = [];
-  if (!options.silent) write({ products, timeline });
+  return refreshHackathonCore(state, request, {
+    ...options,
+    onWrite: options.silent ? undefined : write
+  });
 }
 
 async function syncCurrentCaseStatus() {
@@ -2316,88 +2251,6 @@ function hasActiveCase() {
   return Boolean(state.currentCaseId && currentCase() && state.currentStatus);
 }
 
-function shortenAddress(address) {
-  if (!address || address.length < 12) return address || "Not connected";
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-function pickMetaMaskFromWindow() {
-  const eth = window.ethereum;
-  if (!eth) return null;
-  const list = eth.providers?.length ? eth.providers : eth.isMetaMask !== undefined ? [eth] : [];
-  if (list.length) {
-    const mm = list.find((p) => p.isMetaMask);
-    if (mm) return mm;
-    walletLog.warn("No isMetaMask flag; multiple wallets may conflict", {
-      count: list.length,
-      names: list.map((p) => p.isMetaMask ? "metamask" : "other")
-    });
-  }
-  if (eth.isMetaMask) return eth;
-  return null;
-}
-
-async function resolveEthereumProvider(options = {}) {
-  if (!options.forceFresh && state.ethereumProvider?.request) {
-    walletLog.info("Reusing cached provider", { isMetaMask: state.ethereumProvider.isMetaMask });
-    return state.ethereumProvider;
-  }
-  const direct = pickMetaMaskFromWindow();
-  if (direct?.request) {
-    walletLog.info("Using window MetaMask provider", { isMetaMask: direct.isMetaMask });
-    return direct;
-  }
-  const discovered = await new Promise((resolve) => {
-    const providers = [];
-    const onAnnounce = (event) => {
-      providers.push(event.detail);
-    };
-    window.addEventListener("eip6963:announceProvider", onAnnounce);
-    window.dispatchEvent(new Event("eip6963:requestProvider"));
-    window.setTimeout(() => {
-      window.removeEventListener("eip6963:announceProvider", onAnnounce);
-      const preferred = providers.find((entry) => /metamask/i.test(entry?.info?.name || ""));
-      walletLog.info("EIP-6963 discovery", {
-        total: providers.length,
-        picked: preferred?.info?.name || providers[0]?.info?.name || "none"
-      });
-      resolve(preferred?.provider || providers[0]?.provider || null);
-    }, 800);
-  });
-  if (discovered?.request) return discovered;
-  walletLog.warn("No injected provider — demo wallet fallback");
-  return null;
-}
-
-async function revokeWalletPermissions(provider) {
-  if (!provider?.request) return;
-  try {
-    await provider.request({
-      method: "wallet_revokePermissions",
-      params: [{ eth_accounts: {} }]
-    });
-    walletLog.info("wallet_revokePermissions ok");
-  } catch (error) {
-    walletLog.warn("wallet_revokePermissions skipped", { code: error?.code, message: error?.message });
-  }
-}
-
-async function requestWalletAccounts(provider, options = {}) {
-  if (!provider?.request) return [];
-  if (options.pickAccount) {
-    try {
-      await provider.request({
-        method: "wallet_requestPermissions",
-        params: [{ eth_accounts: {} }]
-      });
-    } catch (error) {
-      if (error?.code === 4001) throw error;
-      walletLog.warn("wallet_requestPermissions skipped", { code: error?.code, message: error?.message });
-    }
-  }
-  return provider.request({ method: "eth_requestAccounts" });
-}
-
 function walletButtonLabel() {
   if (state.smartAccountAddress) return shortenAddress(state.smartAccountAddress);
   if (state.walletAddress) return shortenAddress(state.walletAddress);
@@ -2539,22 +2392,16 @@ function formatProductPrice(product) {
   return `$${product.amountUsd} ${product.token}`;
 }
 
-function paymentPlanLabel(mode) {
-  return mode === "subscription" ? "Monitor subscription ($10 USDC/mo)" : "Starter credits ($5 USDC)";
-}
-
 function hasEntitledPayment(mode) {
-  const sessions = state.hackathon?.payments || [];
-  return sessions.some((session) => session.mode === mode && session.status === "paid");
+  return hasEntitledPaymentForState(state, mode);
 }
 
 function hasSubscriptionEntitlement() {
-  return hasEntitledPayment("subscription") || state.aiEntitlement?.mode === "subscription";
+  return hasSubscriptionEntitlementForState(state);
 }
 
 function caseIsActivated() {
-  if (state.currentStatus?.activated) return true;
-  return hasEntitledPayment(state.selectedPaymentMode || "one-off");
+  return caseIsActivatedForState(state);
 }
 
 function assertCaseActivatedClient(options = {}) {
@@ -2660,82 +2507,7 @@ function renderSubscriptionUpsell() {
 }
 
 async function ensureCasePayment(options = {}) {
-  const mode = state.selectedPaymentMode || "one-off";
-  const statusEl = options.statusEl || $("#onboarding-payment-status");
-  if (!state.walletAddress) {
-    if (statusEl) {
-      setInlineStatus(statusEl, "Connect MetaMask to pay for this cleanup…", {
-        baseClass: "muted small onboarding-payment-status"
-      });
-    }
-    if (!options.quiet) {
-      addChat("agent", "Approve the MetaMask connection to pay for this cleanup.");
-    }
-    await connectWallet({ openHub: false });
-  }
-  await refreshHackathon({ silent: true }).catch(() => {});
-  if (hasEntitledPayment(mode)) {
-    if (statusEl) {
-      setInlineStatus(statusEl, `${paymentPlanLabel(mode)} is active for this case.`, {
-        baseClass: "muted small onboarding-payment-status",
-        variant: "success"
-      });
-    }
-    return { ok: true, mode, alreadyPaid: true };
-  }
-  const liveX402 = isLiveX402Ready(state.integrationsStatus);
-  if (statusEl) {
-    setInlineStatus(
-      statusEl,
-      liveX402
-        ? `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`
-        : `Confirm ${paymentPlanLabel(mode)} in MetaMask…`,
-      { baseClass: "muted small onboarding-payment-status" }
-    );
-  }
-  if (!state.smartAccountAddress) {
-    await enableSmartAccount({ quiet: true, openHub: false }).catch(() =>
-      createSmartAccount({ quiet: true, openHub: false })
-    );
-  }
-  await preparePayment(mode, { quiet: true, skipSettle: false, statusEl });
-  await refreshHackathon({ silent: true }).catch(() => {});
-  if (statusEl) {
-    setInlineStatus(
-      statusEl,
-      hasEntitledPayment(mode)
-        ? `${paymentPlanLabel(mode)} confirmed — agent AI unlocked for this case.`
-        : liveX402
-          ? "Payment not confirmed. Open Settings → Payment rails and tap Pay once / Subscribe."
-          : "Payment session prepared. Open Settings → Payment rails if MetaMask did not confirm.",
-      {
-        baseClass: "muted small onboarding-payment-status",
-        variant: hasEntitledPayment(mode) ? "success" : undefined
-      }
-    );
-  }
-  if (!options.quiet) {
-    addChat(
-      "agent",
-      hasEntitledPayment(mode)
-        ? `${paymentPlanLabel(mode)} is set for this case. I'll still pause for your approval before anything sends.`
-        : liveX402
-          ? "Confirm USDC payment in MetaMask on Base Sepolia, or finish in Settings → Payment rails."
-          : "Finish payment in Settings → Payment rails if MetaMask did not confirm."
-    );
-  }
-  renderSubscriptionUpsell();
-  const paid = hasEntitledPayment(mode);
-  const result = { ok: paid, mode, alreadyPaid: paid, paymentRequired: !paid };
-  if (!paid) {
-    const message = liveX402
-      ? "Payment not confirmed. Open Settings → Payment rails and settle USDC on Base Sepolia."
-      : "x402 is not configured on the server — payment cannot be settled until X402_PAY_TO is set.";
-    if (!options.quiet) {
-      throw { error: "payment-not-confirmed", message };
-    }
-  }
-  return result;
+  return ensureCasePaymentFlow(state, options, paymentDeps);
 }
 
 function productBudgetLine(product) {
@@ -2970,34 +2742,47 @@ function downloadJson(filename, data) {
   URL.revokeObjectURL(url);
 }
 
-function render() {
-  renderTrust();
-  renderCases();
-  renderShell();
-  renderUserGuide();
-  renderWalletCommandStrip();
-  renderIntakeInferencePreview();
-  renderDashboard();
-  renderOnboardingSteps();
-  renderOnboardingPayment();
-  renderSubscriptionUpsell();
-  renderFindings();
-  renderPresets();
-  renderAgentChat();
-  renderHackathonChecklist();
-  renderPrivacyFilterSettings();
-  renderAgentVoiceSettings();
+function panelRenderers() {
+  return {
+    [PANELS.trust]: renderTrust,
+    [PANELS.cases]: renderCases,
+    [PANELS.shell]: renderShell,
+    [PANELS.userGuide]: renderUserGuide,
+    [PANELS.walletCommandStrip]: renderWalletCommandStrip,
+    [PANELS.intakeInferencePreview]: renderIntakeInferencePreview,
+    [PANELS.dashboard]: renderDashboard,
+    [PANELS.onboardingSteps]: renderOnboardingSteps,
+    [PANELS.onboardingPayment]: renderOnboardingPayment,
+    [PANELS.subscriptionUpsell]: renderSubscriptionUpsell,
+    [PANELS.findings]: renderFindings,
+    [PANELS.presets]: renderPresets,
+    [PANELS.agentChat]: renderAgentChat,
+    [PANELS.hackathonChecklist]: renderHackathonChecklist,
+    [PANELS.privacyFilterSettings]: renderPrivacyFilterSettings,
+    [PANELS.agentVoiceSettings]: renderAgentVoiceSettings,
+    [PANELS.payments]: renderPayments,
+    [PANELS.agentNetwork]: renderAgentNetwork,
+    [PANELS.relayer]: renderRelayer,
+    [PANELS.approvals]: renderApprovals,
+    [PANELS.actions]: renderActions,
+    [PANELS.vaultPanel]: renderVaultPanel,
+    [PANELS.tabs]: renderTabs
+  };
+}
+
+function afterPanelRender() {
   applyPrivacyFilterToInputs();
-  renderPayments();
-  renderAgentNetwork();
-  renderRelayer();
-  renderApprovals();
-  renderActions();
-  renderVaultPanel();
-  renderTabs();
   updateAgentSendState();
   updateLandingSendState();
   bindIcons();
+}
+
+function renderAll() {
+  renderAllPanels(panelRenderers(), afterPanelRender);
+}
+
+function render() {
+  renderAll();
 }
 
 function updateAgentSendState() {
@@ -3158,147 +2943,16 @@ async function runOnboardingPreview() {
   }
 }
 
-const request = apiRequest;
-
 async function createCase(options = {}) {
-  state.appOpen = true;
-  state.dockOpen = true;
-  location.hash = "app";
-  if (!state.walletAddress) {
-    await connectWallet({ openHub: false });
-  }
-  if (!state.walletAddress) {
-    throw { error: "wallet-required", message: "Connect MetaMask to start cleanup." };
-  }
-  const parsed = options.parsed
-    ? { ...options.parsed }
-    : parseIntakeForCase(options.intakeText ?? $("#agent-intake")?.value ?? $("#intake")?.value ?? "");
-  if (!parsed.intakeText) {
-    throw { error: "intake-required", message: "Enter your name to continue." };
-  }
-  applyParsedIntakeToForm(parsed);
-
-  state.operatorEmailRelay = $("#operator-email-relay")?.checked !== false;
-  state.contactEmail = $("#contact-email")?.value?.trim() || "";
-  const created = await request("/api/cases", {
-    method: "POST",
-    body: {
-      jurisdiction: parsed.jurisdiction,
-      authorityBasis: parsed.authorityBasis,
-      riskLevel: parsed.riskLevel,
-      casePreferences: { operatorEmailRelay: state.operatorEmailRelay }
-    }
-  });
-  const caseId = created.case.id;
-  if (created.accessToken) setCaseToken(caseId, created.accessToken);
-  const intakeText = parsed.intakeText;
-  if (!state.vaultKey) state.vaultKey = await Vault.createVaultKey();
-  const encryptedIntake = await Vault.encryptPayload(
-    state.vaultKey,
-    { notes: intakeText, contactEmail: state.contactEmail || undefined },
-    caseId
-  );
-  const label = parsed.personLabel;
-  const intake = await request(`/api/cases/${caseId}/intake`, {
-    method: "POST",
-    body: {
-      encryptedIntake,
-      redactedScope: redactedScopeFromIntake(parsed)
-    }
-  });
-  state.currentCaseId = caseId;
-  state.currentStatus = intake.status;
-  state.cases.unshift({ ...intake.case, status: intake.status });
-  syncPaymentPlanFromForm();
-  try {
-    await ensureCasePayment({ quiet: false, statusEl: $("#onboarding-payment-status") });
-  } catch (error) {
-    await syncCurrentCaseStatus();
-    if (!caseIsActivated()) throw error;
-  }
-  if (!caseIsActivated()) {
-    throw {
-      error: "case-activation-required",
-      message: "Buy credits for this case to continue cleanup."
-    };
-  }
-  state.agentPlan = null;
-  state.connectorResults = [];
-  state.intakeText = intakeText;
-  updateSessionHandoffWarning();
-  const inferredPreset = recommendPreset({
-    jurisdiction: intake.case.jurisdiction,
-    riskLevel: intake.case.riskLevel,
-    intakeText
-  });
-  state.recommendedPresetId = options.presetId || inferredPreset;
-  state.selectedPresetId = options.presetId || inferredPreset;
-  state.showRouteTab = false;
-  state.tab = "overview";
-  state.dockOpen = true;
-  addChat("user", parsed.personLabel || intakeText);
-  if (options.autoStartRoute) {
-    await startPreset({ quiet: true });
-    if (options.pastedUrls?.length) {
-      if ($("#findings-paste-input")) {
-        $("#findings-paste-input").value = options.pastedUrls.join("\n");
-      }
-      localStorage.setItem(`oblivion.discoveryUrls.${caseId}`, JSON.stringify(options.pastedUrls));
-      await maybeAutoDiscoverFindings({ force: true, quiet: true }).catch(() => {});
-      await syncCurrentCaseStatus();
-    }
-    state.autopilotBusy = true;
-    render();
-    await agentAutopilot({ silentUser: true }).catch(() => {});
-    state.autopilotBusy = false;
-    addChat("agent", `Running ${presetTitle(state.selectedPresetId)}. Pauses for your OK.`);
-  } else {
-    addChat("agent", `Ready — ${presetTitle(state.selectedPresetId)}. Tap Next.`);
-  }
-  if (state.walletAddress) {
-    await linkCurrentCaseToWallet(caseId).catch(() => {});
-    await syncWalletCases().catch(() => {});
-  }
-  saveLocalCases();
-  render();
-  write(intake);
+  return createCaseFlow(state, options, casesDeps);
 }
 
 async function linkCurrentCaseToWallet(caseId = state.currentCaseId) {
-  if (!state.walletAddress || !caseId) return;
-  await request("/api/wallet/cases/link", {
-    method: "POST",
-    body: { caseId, walletAddress: state.walletAddress }
-  });
+  return linkCurrentCaseToWalletFlow(state, casesDeps, caseId);
 }
 
 async function syncWalletCases() {
-  if (!state.walletAddress) return;
-  const result = await request(
-    `/api/wallet/cases?walletAddress=${encodeURIComponent(state.walletAddress)}`
-  );
-  const remote = result.cases || [];
-  const byId = new Map(state.cases.map((item) => [item.id, item]));
-  for (const item of remote) {
-    if (!byId.has(item.id) && getCaseToken(item.id)) {
-      byId.set(item.id, {
-        id: item.id,
-        jurisdiction: item.jurisdiction,
-        redactedScope: item.personLabel ? { personLabel: item.personLabel } : undefined,
-        updatedAt: item.updatedAt,
-        createdAt: item.createdAt
-      });
-    } else if (byId.has(item.id)) {
-      const existing = byId.get(item.id);
-      byId.set(item.id, {
-        ...existing,
-        redactedScope: existing.redactedScope || (item.personLabel ? { personLabel: item.personLabel } : undefined),
-        updatedAt: item.updatedAt || existing.updatedAt
-      });
-    }
-  }
-  state.cases = [...byId.values()].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-  saveLocalCases();
+  return syncWalletCasesFlow(state, casesDeps);
 }
 
 function resetPreSearchUi() {
@@ -3460,7 +3114,7 @@ async function startPreset(options = {}) {
   state.currentStatus = result.status;
   state.tab = "overview";
   await refreshAgentPlan({ silent: true });
-  await refreshHackathon({ silent: true }).catch(() => {});
+  await refreshHackathon({ silent: true, scope: "agent" }).catch(() => {});
   if (!options.quiet) addChat("agent", `${presentPreset(result.preset).title} is staged. I can run the route now.`);
   render();
   write(result);
@@ -3505,7 +3159,7 @@ async function approve(approvalId) {
   });
   state.currentStatus = result.status;
   await refreshAgentPlan({ silent: true }).catch(() => {});
-  await refreshHackathon({ silent: true });
+  await refreshHackathon({ silent: true, scope: "agent" });
   addChat(
     "agent",
     isLiveExecutorMode()
@@ -3548,7 +3202,7 @@ async function executeAction(actionId) {
   });
   state.currentStatus = result.status;
   await refreshAgentPlan({ silent: true }).catch(() => {});
-  await refreshHackathon({ silent: true });
+  await refreshHackathon({ silent: true, scope: "agent" });
   const live = result.executorMode === "live";
   const mailto = result.connectorResult?.mailtoUrl;
   const handoffNote = mailto
@@ -3693,647 +3347,79 @@ function closeDeleteCaseModal() {
 }
 
 async function deleteCaseById(caseId, options = {}) {
-  if (!caseId) throw { error: "case-required", message: "Select a case." };
-  if (!options.skipConfirm) {
-    openDeleteCaseModal(caseId);
-    return;
-  }
-  const deleted = await request("/api/delete", {
-    method: "POST",
-    body: { caseId }
-  });
-  state.cases = state.cases.filter((item) => item.id !== caseId);
-  removeCaseToken(caseId);
-  if (state.currentCaseId === caseId) {
-    state.currentCaseId = "";
-    state.currentStatus = null;
-    state.vaultKey = null;
-    state.agentPlan = null;
-    state.connectorResults = [];
-    state.tab = "overview";
-    localStorage.removeItem("oblivion.currentCaseId");
-  }
-  saveLocalCases();
-  closeDeleteCaseModal();
-  render();
-  write(deleted);
+  return deleteCaseByIdFlow(state, caseId, options, casesDeps);
 }
 
 async function confirmDeleteCase() {
-  const caseId = state.deleteConfirmCaseId || state.currentCaseId;
-  if (!caseId) return;
-  await deleteCaseById(caseId, { skipConfirm: true });
+  return confirmDeleteCaseFlow(state, casesDeps);
 }
 
 async function deleteCase() {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Select a case." };
-  openDeleteCaseModal(state.currentCaseId);
+  return deleteCaseFlow(state, casesDeps);
 }
 
 async function refreshWalletConfig() {
-  try {
-    state.walletConfig = await request("/api/integrations/wallet-config");
-    walletLog.info(
-      state.walletConfig.liveEnabled
-        ? "Payments: Sepolia (WALLET_LIVE_MODE=true)"
-        : "Payments: session mode (set WALLET_LIVE_MODE=true for Sepolia on-chain)",
-      { chainId: state.walletConfig.chainId, liveEnabled: state.walletConfig.liveEnabled }
-    );
-  } catch (error) {
-    state.walletConfig = { ...DEFAULT_WALLET_CONFIG };
-    walletLog.warn("wallet-config unavailable — using embedded defaults", {
-      status: error?.error,
-      hint: "Restart npm run dev if the server is an old build"
-    });
-  }
+  return refreshWalletConfigFlow(state, request, walletDeps);
 }
 
 async function refreshIntegrationsStatus() {
-  try {
-    state.integrationsStatus = await request("/api/integrations/status");
-    if (isLiveX402Ready(state.integrationsStatus)) state.paymentRailsNotice = "";
-  } catch {
-    state.integrationsStatus = null;
-  }
-  try {
-    state.x402Config = await request("/api/x402/config");
-  } catch {
-    state.x402Config = null;
-  }
+  return refreshIntegrationsStatusFlow(state, request);
 }
 
 async function ensureWalletProvider() {
-  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
-  const provider = state.ethereumProvider || (await resolveEthereumProvider());
-  if (!provider?.request) throw { error: "no-provider", message: "Install MetaMask to settle x402 payments." };
-  return provider;
+  return ensureWalletProviderFlow(state, walletDeps, connectWalletFlow);
 }
 
 async function settlePaymentForMode(mode, options = {}) {
-  if (!isLiveX402Ready(state.integrationsStatus)) {
-    state.paymentRailsNotice =
-      "x402 is not configured on the API server — settlement was skipped. Set X402_PAY_TO and redeploy.";
-    renderPayments();
-    return { settled: false, skipped: true, reason: "x402-not-configured" };
-  }
-  state.paymentRailsNotice = "";
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  const sessions = state.hackathon?.payments || [];
-  const session = sessions.find((item) => item.productId === (mode === "subscription" ? "credit-monitor" : "credit-starter"));
-  if (!session) throw { error: "payment-session-missing", message: "Prepare payment first." };
-  if (session.status === "paid") return { settled: true, alreadyPaid: true, session };
-  const provider = await ensureWalletProvider();
-  if (!options.quiet) {
-    state.walletConnectNote = `Confirm ${paymentPlanLabel(mode)} USDC on Base Sepolia in MetaMask…`;
-    renderWalletPanels();
-  }
-  const result = await settleAgentPayment({
-    provider,
-    walletAddress: state.walletAddress,
-    endpoint: agentEndpointForMode(mode),
-    body: {
-      caseId: state.currentCaseId,
-      paymentSessionId: session.id,
-      walletAddress: state.walletAddress
-    },
-    x402Config: state.x402Config
-  });
-  await refreshHackathon({ silent: true });
-  return result;
+  return settlePaymentForModeFlow(state, mode, options, paymentDeps);
 }
 
 async function disconnectWallet() {
-  const provider = state.ethereumProvider || pickMetaMaskFromWindow();
-  await revokeWalletPermissions(provider);
-  state.walletAddress = "";
-  state.smartAccountAddress = "";
-  state.ethereumProvider = null;
-  state.walletMode = "";
-  state.walletCallsId = "";
-  state.smartAccountTxHash = "";
-  state.walletConnectError = "";
-  state.walletConnectNote = "";
-  state.walletPickAccount = true;
-  walletLog.info("disconnectWallet");
-  toggleWalletModal(false);
-  renderWalletPanels();
-  render();
+  return disconnectWalletFlow(state, walletDeps);
 }
 
 async function connectWallet(options = {}) {
-  state.walletConnectError = "";
-  state.walletConnectNote = "Opening MetaMask…";
-  state.dockOpen = true;
-  renderWalletPanels();
-  walletLog.info("connectWallet start", { hasCase: hasActiveCase() });
-  let provider = null;
-  const pickAccount = Boolean(state.walletPickAccount);
-  state.walletPickAccount = false;
-  try {
-    provider = await resolveEthereumProvider({ forceFresh: pickAccount });
-    state.ethereumProvider = provider;
-    if (provider?.request) {
-      walletLog.info("eth_requestAccounts", { pickAccount });
-      const accounts = await requestWalletAccounts(provider, { pickAccount });
-      state.walletAddress = accounts?.[0] || "";
-      if (!state.walletAddress) {
-        throw new Error("No account returned. Unlock MetaMask and try again.");
-      }
-      state.walletMode = provider.isMetaMask ? "metamask" : "injected";
-      state.walletConnectNote = provider.isMetaMask
-        ? `MetaMask connected ${shortenAddress(state.walletAddress)}`
-        : `Wallet connected ${shortenAddress(state.walletAddress)}`;
-      walletLog.info("connected", { address: shortenAddress(state.walletAddress), isMetaMask: provider.isMetaMask });
-    } else {
-      throw Object.assign(new Error("MetaMask not detected"), {
-        code: 4902,
-        message: "Install MetaMask (or disable conflicting wallet extensions) and try again."
-      });
-    }
-  } catch (error) {
-    const code = error?.code;
-    let message =
-      code === 4001
-        ? "Wallet connection cancelled in MetaMask."
-        : error?.message || "Wallet connection failed.";
-    if (/unexpected error/i.test(message) || error?.message?.includes("selectExtension")) {
-      message =
-        "Wallet extension conflict. Disable other wallet extensions (e.g. evmAsk) or pick MetaMask when prompted.";
-    }
-    state.walletConnectError = message;
-    state.walletConnectNote = "";
-    walletLog.error("connect failed", { code, message: error?.message });
-    render();
-    write({ error: "wallet-connect-failed", message, code });
-    throw error;
-  }
-  if (options.openHub) openWalletHub();
-  else render();
-  $("#wallet-feedback-primary")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
-  await syncWalletCases().catch(() => {});
-  await refreshCreditsBalance().catch(() => {});
-  write({
-    walletAddress: state.walletAddress,
-    mode: state.walletMode
-  });
-  return provider;
+  return connectWalletFlow(state, options, walletDeps);
 }
 
 async function createSmartAccount(options = {}) {
-  if (!state.currentCaseId) {
-    throw { error: "case-required", message: "Start with the agent first — create a case, then enable Smart Account." };
-  }
-  if (!state.walletAddress) await connectWallet({ quiet: true });
-  if (!state.walletConfig?.liveEnabled) {
-    throw {
-      error: "smart-account-live-required",
-      message: "Smart Account requires WALLET_LIVE_MODE=true on the API server and MetaMask on Sepolia."
-    };
-  }
-  const body = {
-    caseId: state.currentCaseId,
-    walletAddress: state.walletAddress,
-    smartAccountAddress: options.smartAccountAddress || state.smartAccountAddress || state.walletAddress,
-    txHash: options.txHash || state.smartAccountTxHash || undefined,
-    callsId: options.callsId || state.walletCallsId || undefined,
-    chainId: options.chainId || state.walletConfig?.chainId
-  };
-  const result = await request("/api/metamask/smart-account-session", {
-    method: "POST",
-    body
-  });
-  state.smartAccountAddress = result.smartAccountAddress;
-  state.walletMode = result.mode || "live";
-  await refreshHackathon({ silent: true });
-  if (!options.quiet) {
-    const remaining = hackathonPendingTracks();
-    addChat(
-      "agent",
-      remaining.length
-        ? `Smart Account ready. Still pending: ${remaining.join(", ")} — use Developer details buttons below.`
-        : "Smart Account ready. All sponsor tracks are complete."
-    );
-  }
-  if (options.openHub !== false) openWalletHub();
-  else render();
-  write(result);
-  return result;
+  return createSmartAccountFlow(state, options, walletDeps);
 }
 
 async function enableSmartAccount(options = {}) {
-  if (!state.currentCaseId) {
-    throw { error: "case-required", message: "Start a cleanup first, then enable Smart Account." };
-  }
-  if (!state.walletAddress) {
-    await connectWallet({ quiet: true, openHub: false });
-  }
-  state.walletConnectNote = "Enabling Smart Account…";
-  renderWalletPanels();
-  const provider = state.ethereumProvider || (await resolveEthereumProvider());
-  if (state.walletConfig?.liveEnabled && provider?.request) {
-    state.walletConnectNote = "Confirm Sepolia Smart Account upgrade in MetaMask…";
-    renderWalletPanels();
-    const liveResult = await tryLiveSmartAccountUpgrade(provider, state.walletAddress, state.walletConfig);
-    if (liveResult.ok) {
-      state.walletCallsId = liveResult.callsId || "";
-      state.smartAccountTxHash = liveResult.txHash || "";
-      await createSmartAccount({
-        mode: "live",
-        txHash: liveResult.txHash,
-        callsId: liveResult.callsId,
-        chainId: liveResult.chainId,
-        quiet: options.quiet,
-        openHub: options.openHub
-      });
-      if (!options.quiet) {
-        addChat(
-          "agent",
-          liveResult.txHash
-            ? `Smart Account upgrade submitted (${shortenAddress(liveResult.txHash)}).`
-            : "Smart Account upgrade sent — confirm in MetaMask if still pending."
-        );
-      }
-      return;
-    }
-    if (liveResult.reason === "user-rejected") {
-      state.walletConnectError = paymentErrorMessage({ reason: "user-rejected", message: liveResult.message });
-      render();
-      return;
-    }
-    state.walletConnectError =
-      liveResult.message || "Live Smart Account upgrade failed. Confirm Sepolia batch in MetaMask.";
-    render();
-    throw { error: "smart-account-live-required", message: state.walletConnectError };
-  }
-  state.walletConnectError = "Smart Account requires WALLET_LIVE_MODE=true and MetaMask on Sepolia.";
-  render();
-  throw { error: "smart-account-live-required", message: state.walletConnectError };
-}
-
-async function connectWalletFlow(options = {}) {
-  state.walletConnectError = "";
-  try {
-    if (!state.walletAddress) {
-      state.walletConnectNote = "Connecting MetaMask…";
-      renderWalletPanels();
-      await connectWallet({ quiet: true, openHub: false });
-    }
-    if (state.currentCaseId && !state.smartAccountAddress) {
-      await enableSmartAccount({ quiet: options.quiet, openHub: options.openHub ?? false });
-    } else if (!state.currentCaseId) {
-      state.walletConnectNote = `Wallet connected · ${shortenAddress(state.walletAddress)}. Start a cleanup to enable Smart Account.`;
-      renderWalletPanels();
-
-    } else if (!options.quiet) {
-      addChat("agent", "Wallet and Smart Account are ready.");
-    }
-    render();
-  } catch (error) {
-    write(error);
-    throw error;
-  }
+  return enableSmartAccountFlow(state, options, walletDeps);
 }
 
 async function upgradeMetaMaskLive() {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create a case first." };
-  if (!state.walletAddress) await connectWallet({ quiet: true });
-  const provider = state.ethereumProvider || (await resolveEthereumProvider());
-  if (!provider?.request) throw { error: "no-provider", message: "Install MetaMask to use live upgrade." };
-  state.walletConnectNote = "Confirm Sepolia upgrade in MetaMask…";
-  renderWalletPanels();
-  const liveResult = await tryLiveSmartAccountUpgrade(provider, state.walletAddress, state.walletConfig);
-  if (!liveResult.ok) {
-    state.walletConnectError = liveResult.message || "Live upgrade failed.";
-    render();
-    write(liveResult);
-    return;
-  }
-  state.walletCallsId = liveResult.callsId || "";
-  state.smartAccountTxHash = liveResult.txHash || "";
-  await createSmartAccount({
-    mode: "live",
-    txHash: liveResult.txHash,
-    callsId: liveResult.callsId,
-    chainId: liveResult.chainId
-  });
+  return upgradeMetaMaskLiveFlow(state, walletDeps);
 }
 
 async function preparePayment(mode, options = {}) {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
-  if (!state.smartAccountAddress) await createSmartAccount({ quiet: true, openHub: false });
-  await refreshIntegrationsStatus().catch(() => {});
-  if (!isLiveX402Ready(state.integrationsStatus)) {
-    state.paymentRailsNotice =
-      "x402 is not configured on the API server — only a payment-required session was created.";
-    renderPayments();
-  }
-  const productId = mode === "subscription" ? "credit-monitor" : "credit-starter";
-  const result = await request(`/api/x402/${mode === "subscription" ? "subscription" : "one-off"}`, {
-    method: "POST",
-    body: {
-      caseId: state.currentCaseId,
-      productId,
-      walletAddress: state.walletAddress,
-      smartAccountAddress: state.smartAccountAddress
-    }
-  });
-  await refreshHackathon({ silent: true });
-  let settlement = null;
-  if (!options.skipSettle && isLiveX402Ready(state.integrationsStatus)) {
-    try {
-      settlement = await settlePaymentForMode(mode, { quiet: options.quiet });
-    } catch (error) {
-      const message = paymentErrorMessage(error);
-      if (options.statusEl) {
-        setInlineStatus(options.statusEl, message, {
-          baseClass: "muted small onboarding-payment-status",
-          variant: isUserRejectedError(error) ? "warning" : "fail"
-        });
-      }
-      if (!options.quiet) {
-        state.walletConnectError = message;
-        addChat("agent", message);
-        throw error;
-      }
-    }
-  }
-  renderSubscriptionUpsell();
-  if (!options.quiet) openPaymentRails();
-  write({ ...result, settlement });
-  return { ...result, settlement };
+  return preparePaymentFlow(state, mode, options, paymentDeps);
 }
 
 async function runVenice(kind) {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  const path = kind === "draft-request"
-    ? "/api/ai/draft-request"
-    : kind === "review-approval"
-      ? "/api/ai/review-approval"
-      : "/api/ai/classify-case";
-  if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
-  const result = await request(path, {
-    method: "POST",
-    body: {
-      caseId: state.currentCaseId,
-      walletAddress: state.walletAddress,
-      notes: $("#purpose").value || "Redacted people-search cleanup case.",
-      destination: $("#destination").value || "approved broker",
-      actionType: state.actionType
-    }
-  });
-  await refreshHackathon({ silent: true });
-  state.tab = "settings";
-  render();
-  write(result);
+  return runVeniceFlow(state, kind, agentDeps);
 }
 
 async function delegateAgents() {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  const result = await request("/api/agents/delegate", {
-    method: "POST",
-    body: { caseId: state.currentCaseId }
-  });
-  await refreshHackathon({ silent: true });
-  state.tab = "settings";
-  render();
-  write(result);
+  return delegateAgentsFlow(state, agentDeps);
 }
 
 async function relayPayment() {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  await refreshIntegrationsStatus().catch(() => {});
-  if (!state.integrationsStatus?.liveReady?.oneShot) {
-    throw {
-      error: "oneshot-not-configured",
-      message: "Set ONESHOT_API_KEY and OBLIVION_PUBLIC_API_URL on the API server for live 1Shot relay."
-    };
-  }
-  const session =
-    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid" && item.mode === "one-off") ||
-    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid");
-  if (!session) {
-    throw { error: "payment-required", message: "Settle x402 payment before relaying via 1Shot." };
-  }
-  let result;
-  if (session.relayerTaskId) {
-    result = await pollRelayTask(state.currentCaseId, session.id, session.relayerTaskId);
-  } else if (state.pendingRelayBundle?.method && state.pendingRelayBundle?.params) {
-    result = await submitRelayBundle(
-      state.currentCaseId,
-      session.id,
-      state.pendingRelayBundle.method,
-      state.pendingRelayBundle.params,
-      state.pendingRelayBundle.destinationUrl
-    );
-  } else {
-    throw {
-      error: "oneshot-relay-payload-required",
-      message:
-        "Provide a signed relayer_send7710Transaction bundle or an existing taskId. Poll again after submitting from the wallet flow."
-    };
-  }
-  await refreshHackathon({ silent: true });
-  state.tab = "settings";
-  addChat("agent", `1Shot relay: ${result.events?.at(-1)?.status || "submitted"}.`);
-  render();
-  write(result);
+  return relayPaymentFlow(state, agentDeps);
 }
 
 async function askAgent() {
-  const text = $("#agent-input").value.trim();
-  if (!text) {
-    updateAgentSendState();
-    return;
-  }
-  addChat("user", text);
-  $("#agent-input").value = "";
-  updateAgentSendState();
-  const lower = text.toLowerCase();
-  if (teeQuestionIntent(lower)) {
-    addChat("agent", await buildTeeVerificationBrief());
-    state.tab = "trust";
-    render();
-    return;
-  }
-  if (!state.currentCaseId) {
-    if (!text) {
-      addChat("agent", "Describe what to clean up in one sentence — here or in the intake box.");
-      render();
-      return;
-    }
-    const intake = $("#agent-intake");
-    if (intake) intake.value = text;
-    renderIntakeInferencePreview();
-    await startWithAgent();
-    return;
-  }
-  if (lower.includes("run") || lower.includes("do it") || lower.includes("continue")) {
-    try {
-      assertCaseActivatedClient();
-      await agentAutopilot();
-    } catch (error) {
-      if (error?.error === "case-activation-required") {
-        addChat("agent", error.message);
-        render();
-        return;
-      }
-      throw error;
-    }
-    return;
-  }
-  if (lower.includes("disclosure") || lower.includes("explain")) {
-    $("#agent-explain-disclosure").click();
-    return;
-  }
-  if (state.integrationsStatus?.liveReady?.venice) {
-    try {
-      if (!state.walletAddress) await connectWallet({ quiet: true, openHub: false });
-      const result = await request("/api/agent/chat", {
-        method: "POST",
-        body: {
-          caseId: state.currentCaseId,
-          walletAddress: state.walletAddress,
-          message: text || "What should I do next?"
-        }
-      });
-      addChat("agent", result.reply || "No reply.");
-      await refreshHackathon({ silent: true });
-      render();
-      return;
-    } catch (error) {
-      if (error?.error === "credits-insufficient" || error?.error === "ai-payment-required") {
-        addChat(
-          "agent",
-          "Insufficient wallet credits for Venice AI — buy 500 credits ($5) or subscribe for 1,200/month in Settings → Payment rails."
-        );
-        openPaymentRails();
-        render();
-        return;
-      }
-      addChat("agent", error?.message || "Venice request failed.");
-      render();
-      return;
-    }
-  }
-  await refreshHackathon({ silent: true });
-  const next = state.agentNext;
-  addChat("agent", next ? `${shortStepTitle(next.title)}. ${next.message || ""}`.trim() : "Set VENICE_API_KEY on the server for live agent replies.");
-  render();
+  return askAgentFlow(state, agentDeps);
 }
 
 async function agentRunNext(options = {}) {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  assertCaseActivatedClient({ quiet: options.quiet });
-  await refreshHackathon({ silent: true });
-  if (state.agentNext?.action === "select-preset") {
-    await startPreset({ quiet: true });
-    await refreshHackathon({ silent: true });
-  }
-  if (state.agentNext?.action === "request-approval" && state.currentStatus?.approvalsNeeded?.length > 0) {
-    addChat("agent", "Approval required. Review the card.");
-    state.tab = "overview";
-    render();
-    return;
-  }
-  if (peopleSearchPresetActive() && needsExposureDiscovery()) {
-    const discovery = await maybeAutoDiscoverFindings({ quiet: true });
-    await refreshHackathon({ silent: true });
-    await syncCurrentCaseStatus();
-    if (discovery.reason === "urls-needed") {
-      if (!options.quiet) {
-        openFindingsPastePanel();
-        addChat("agent", "Paste profile URLs under Exposure links, then run the next step again.");
-      }
-      state.tab = "overview";
-      render();
-      return;
-    }
-  }
-  const pendingFindings = state.currentStatus?.pendingFindings?.length ?? 0;
-  if (
-    pendingFindings > 0 ||
-    state.agentNext?.action === "confirm-matches" ||
-    state.agentNext?.blockedReasons?.includes("candidate-confirmation-needed")
-  ) {
-    if (!options.quiet) {
-      addChat("agent", "Review Exposure links — confirm yours or mark Not me.");
-      openFindingsPastePanel();
-    }
-    state.tab = "overview";
-    render();
-    return;
-  }
-  const blocked = state.agentNext?.blockedReasons || [];
-  if (blocked.includes("discovery-needed")) {
-    if (!options.quiet) {
-      openFindingsPastePanel();
-      addChat("agent", state.agentNext?.message || "Paste profile URLs to discover listings.");
-    }
-    state.tab = "overview";
-    render();
-    return;
-  }
-  if (blocked.length) {
-    if (!options.quiet) addChat("agent", state.agentNext.message || "Paused for review.");
-    state.tab = "overview";
-    render();
-    return;
-  }
-  if (state.agentNext?.action === "complete") {
-    addChat("agent", "Cleanup cycle complete. Open the Trust tab for proof details.");
-    render();
-    return;
-  }
-  const result = await request(`/api/cases/${state.currentCaseId}/agent/run`, {
-    method: "POST",
-    body: {
-      highAutonomy: $("#high-autonomy-toggle").checked
-    }
-  });
-  if (result.caseStatus) state.currentStatus = result.caseStatus;
-  if (result.plan) state.agentPlan = result.plan;
-  if (result.connectorResults) state.connectorResults = result.connectorResults;
-  await refreshAgentPlan({ silent: true }).catch(() => {});
-  await refreshHackathon({ silent: true });
-  await syncCurrentCaseStatus();
-  if (!options.quiet) addChat("agent", `${shortStepTitle(result.ran.title)}. Next: ${shortStepTitle(result.next.title)}.`);
-  render();
-  write(result);
+  return agentRunNextFlow(state, options, agentDeps);
 }
 
 async function agentAutopilot(options = {}) {
-  if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  assertCaseActivatedClient({ quiet: options.silentUser });
-  if (!options.silentUser) addChat("user", "Run route.");
-  for (let index = 0; index < 12; index += 1) {
-    await refreshHackathon({ silent: true });
-    const pending = state.currentStatus?.pendingFindings?.length ?? 0;
-    const blocked = state.agentNext?.blockedReasons || [];
-    if (
-      state.agentNext?.action === "complete" ||
-      (state.agentNext?.action === "request-approval" && state.currentStatus?.approvalsNeeded?.length > 0) ||
-      pending > 0 ||
-      state.agentNext?.action === "confirm-matches" ||
-      blocked.includes("candidate-confirmation-needed") ||
-      (blocked.length > 0 && !blocked.includes("discovery-needed"))
-    ) {
-      break;
-    }
-    await agentRunNext({ quiet: true });
-  }
-  await refreshHackathon({ silent: true });
-  await refreshAgentPlan({ silent: true }).catch(() => {});
-  await syncCurrentCaseStatus();
-  addChat("agent", state.agentNext?.action === "request-approval"
-    ? "Approval required."
-    : state.agentNext?.action === "complete"
-      ? "Complete. No external submission."
-      : state.agentNext?.blockedReasons?.length
-        ? state.agentNext.message || "Paused for review."
-      : "Paused for review.");
-  state.tab = "overview";
-  render();
+  return agentAutopilotFlow(state, options, agentDeps);
 }
 
 $("#start-cleanup")?.addEventListener("click", () => startSimpleCleanup().catch(write));
@@ -4576,6 +3662,92 @@ document.querySelectorAll("[data-action-choice]").forEach((button) => {
   });
 });
 
+const walletDeps = {
+  walletLog,
+  $,
+  request,
+  render,
+  write,
+  renderWalletPanels,
+  toggleWalletModal,
+  openWalletHub,
+  addChat,
+  refreshHackathon,
+  refreshCreditsBalance,
+  hackathonPendingTracks,
+  isHackathonMode: isHackathonModeForState,
+  paymentErrorMessage,
+  hasActiveCase,
+  syncWalletCases: (s) => syncWalletCasesFlow(s, casesDeps)
+};
+
+const paymentDeps = {
+  request,
+  $,
+  addChat,
+  write,
+  refreshHackathon,
+  renderPayments,
+  renderSubscriptionUpsell,
+  openPaymentRails,
+  setInlineStatus,
+  paymentErrorMessage,
+  isUserRejectedError,
+  walletDeps
+};
+
+const casesDeps = {
+  request,
+  $,
+  tokenDeps,
+  render,
+  write,
+  refreshAgentPlan,
+  refreshHackathon,
+  resetPreSearchUi,
+  updateSessionHandoffWarning,
+  connectWallet: (options) => connectWallet(options),
+  parseIntakeForCase,
+  applyParsedIntakeToForm,
+  syncPaymentPlanFromForm,
+  ensureCasePayment: (options) => ensureCasePayment(options),
+  syncCurrentCaseStatus,
+  recommendPreset,
+  addChat,
+  startPreset,
+  maybeAutoDiscoverFindings,
+  agentAutopilot: (options) => agentAutopilot(options),
+  presetTitle,
+  openDeleteCaseModal,
+  closeDeleteCaseModal
+};
+
+const agentDeps = {
+  request,
+  $,
+  render,
+  write,
+  addChat,
+  refreshHackathon,
+  refreshAgentPlan,
+  syncCurrentCaseStatus,
+  connectWallet: (options) => connectWallet(options),
+  refreshIntegrationsStatus,
+  assertCaseActivatedClient,
+  startPreset,
+  peopleSearchPresetActive,
+  needsExposureDiscovery,
+  maybeAutoDiscoverFindings,
+  openFindingsPastePanel,
+  shortStepTitle,
+  teeQuestionIntent,
+  buildTeeVerificationBrief,
+  renderIntakeInferencePreview,
+  startWithAgent,
+  updateAgentSendState,
+  openPaymentRails
+};
+
 // One-time delegation for dynamic lists (big win: no per-render rebinds)
 function setupDelegates() {
   // Preset grid delegation + data-testid
@@ -4586,8 +3758,6 @@ function setupDelegates() {
       if (btn && !btn.disabled) {
         state.selectedPresetId = btn.dataset.presetId;
         if (state.selectedPresetId !== state.recommendedPresetId) state.showRouteTab = true;
-        renderPresets();
-        renderAgentChat();
         render();
       }
     });

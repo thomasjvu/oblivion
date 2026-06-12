@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPaymentSession, X402_PRODUCTS } from "../../src/domain/hackathon.js";
+import { X402_PRODUCTS } from "../../src/domain/payments/catalog.js";
+import { createPaymentSession } from "../../src/domain/payments/sessions.js";
 
 const WALLET = "0x1111111111111111111111111111111111111111";
 

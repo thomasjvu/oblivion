@@ -1,26 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import {
-  createPaymentPermission,
-  createPaymentSession,
-  createTimelineEvent,
-  X402_PRODUCTS
-} from "../../../domain/hackathon.js";
+import { createTimelineEvent } from "../../../domain/agentTimeline.js";
+import { X402_PRODUCTS } from "../../../domain/payments/catalog.js";
+import { createPaymentPermission, createPaymentSession } from "../../../domain/payments/sessions.js";
+import { findCreditSession, settleCreditProduct } from "../../../domain/payments/settlement.js";
 import {
   applyX402HttpResult,
-  markSessionPaid,
   processX402Request,
   settleX402Payment,
   x402PublicConfig
 } from "../../../domain/x402.js";
-import {
-  creditRates,
-  MONITOR_MONTHLY_CREDITS,
-  resolveCreditsView,
-  settleCreditsForProduct,
-  STARTER_PACK_CREDITS
-} from "../../../domain/credits.js";
+import { creditRates, resolveCreditsView } from "../../../domain/credits.js";
 import { isX402Configured } from "../../../domain/integrations.js";
-import { markCaseActivated } from "../../../domain/caseActivation.js";
 import type { PaymentMode } from "../../../domain/types.js";
 import { getCaseWithAccess } from "../../auth.js";
 import { HttpError } from "../../errors.js";
@@ -100,39 +90,32 @@ export async function handleConsumerPaymentRoutes(
         if (!settlement.ok) {
           throw new HttpError(402, "x402-settlement-failed", { error: settlement.error });
         }
-        const sessions = store.paymentSessionsForCase(caseRecord.id);
-        const session = body.paymentSessionId
-          ? store.paymentSessions.get(body.paymentSessionId)
-          : sessions.find((item) => item.mode === expectedMode && item.walletKey);
-        if (session && session.caseId === caseRecord.id) {
-          const paid = markSessionPaid(session, settlement.transaction);
-          store.paymentSessions.set(paid.id, paid);
-          markCaseActivated(store, caseRecord.id, paid);
+        const settled = settleCreditProduct(store, caseRecord, {
+          walletAddress: body.walletAddress,
+          expectedMode,
+          paymentSessionId: body.paymentSessionId,
+          settlementTransaction: settlement.transaction
+        });
+        if (!settled) {
+          throw new HttpError(402, "x402-payment-required", {
+            products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+            config: x402PublicConfig(),
+            rates: creditRates()
+          });
         }
-        const credits = settleCreditsForProduct(store, body.walletAddress, expectedMode, caseRecord.id);
-        const timeline = createTimelineEvent(
-          caseRecord.id,
-          "x402",
-          expectedMode === "subscription" ? "Monitor credits refilled via x402" : "Starter credits purchased via x402",
-          `Wallet credited ${expectedMode === "subscription" ? MONITOR_MONTHLY_CREDITS : STARTER_PACK_CREDITS} credits.`
-        );
-        store.agentTimeline.set(timeline.id, timeline);
         sendJson(response, 200, {
           entitlement: "credits-settled",
           settlement,
-          session,
-          credits: resolveCreditsView(store, body.walletAddress),
-          balanceCredits: credits.balanceCredits,
+          session: settled.session,
+          credits: settled.credits,
+          balanceCredits: settled.balanceCredits,
           nextRequired: "metered-apis-require-credits",
-          timeline
+          timeline: settled.timeline
         });
         return true;
       }
     }
-    const sessions = store.paymentSessionsForCase(caseRecord.id);
-    const session = body.paymentSessionId
-      ? store.paymentSessions.get(body.paymentSessionId)
-      : sessions.find((item) => item.mode === expectedMode);
+    const session = findCreditSession(store, caseRecord, expectedMode, body.paymentSessionId);
     if (!session || session.caseId !== caseRecord.id || session.mode !== expectedMode) {
       throw new HttpError(402, "x402-payment-required", {
         products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
@@ -140,24 +123,25 @@ export async function handleConsumerPaymentRoutes(
         rates: creditRates()
       });
     }
-    const paid = markSessionPaid(session);
-    store.paymentSessions.set(paid.id, paid);
-    markCaseActivated(store, caseRecord.id, paid);
-    const credits = settleCreditsForProduct(store, body.walletAddress, expectedMode, caseRecord.id);
-    const timeline = createTimelineEvent(
-      caseRecord.id,
-      "x402",
-      expectedMode === "subscription" ? "Monitor credits refilled" : "Starter credits purchased",
-      `Wallet credited ${expectedMode === "subscription" ? MONITOR_MONTHLY_CREDITS : STARTER_PACK_CREDITS} credits.`
-    );
-    store.agentTimeline.set(timeline.id, timeline);
+    const settled = settleCreditProduct(store, caseRecord, {
+      walletAddress: body.walletAddress,
+      expectedMode,
+      paymentSessionId: session.id
+    });
+    if (!settled) {
+      throw new HttpError(402, "x402-payment-required", {
+        products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+        config: x402PublicConfig(),
+        rates: creditRates()
+      });
+    }
     sendJson(response, 200, {
       entitlement: "credits-settled",
-      session,
-      credits: resolveCreditsView(store, body.walletAddress),
-      balanceCredits: credits.balanceCredits,
+      session: settled.session,
+      credits: settled.credits,
+      balanceCredits: settled.balanceCredits,
       nextRequired: "metered-apis-require-credits",
-      timeline
+      timeline: settled.timeline
     });
     return true;
   }

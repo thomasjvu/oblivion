@@ -64,10 +64,6 @@ function buildHttpClient(provider, walletAddress, network) {
   return new x402HTTPClient(coreClient);
 }
 
-export function isLiveX402Ready(integrationsStatus) {
-  return Boolean(integrationsStatus?.liveReady?.x402);
-}
-
 export async function settleAgentPayment({
   provider,
   walletAddress,

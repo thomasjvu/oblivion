@@ -19,7 +19,7 @@ import {
 import { emitCaseCompletedWebhook, emitRecheckScheduledWebhooks } from "./webhooks.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
 import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "./executor.js";
-import { createTimelineEvent } from "./hackathon.js";
+import { createTimelineEvent } from "./agentTimeline.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
 import { canExecuteWithApproval } from "./policy.js";

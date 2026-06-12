@@ -9,7 +9,7 @@ import {
   MONITOR_MONTHLY_CREDITS,
   STARTER_PACK_CREDITS
 } from "../../src/domain/credits.js";
-import { X402_PRODUCTS } from "../../src/domain/hackathon.js";
+import { X402_PRODUCTS } from "../../src/domain/payments/catalog.js";
 
 const pricingPath = join(process.cwd(), "docs/src/docs/content/pricing.md");
 const pricing = readFileSync(pricingPath, "utf8");

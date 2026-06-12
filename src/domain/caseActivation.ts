@@ -4,7 +4,7 @@ import {
   subscriptionActiveForWalletKey,
   walletKeyFromAddress
 } from "./credits.js";
-import { X402_PRODUCTS } from "./hackathon.js";
+import { X402_PRODUCTS } from "./payments/catalog.js";
 import { x402PublicConfig } from "./x402.js";
 import type { CaseRecord, PaymentSession } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
