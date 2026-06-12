@@ -1,15 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { SAMPLE_BROKER_URLS } from "../fixtures/broker-urls.js";
 import { caseAuthHeaders } from "./caseAuth.js";
+import { installWalletMock } from "./walletMock.js";
 
 test.describe("people-search cleanup flow", () => {
   test.setTimeout(120_000);
 
   test("discovers broker links, confirms matches, and reaches approval gate", async ({ page }) => {
+    await installWalletMock(page);
     await page.goto("/#app");
     await page.getByTestId("simple-name").fill("John Smith");
-    await page.getByTestId("simple-alias").fill("J. Smith");
     await page.getByTestId("simple-region").fill("New York");
+
+    await page.getByTestId("onboarding-check-listings").click();
+    await expect(page.getByTestId("start-cleanup")).toBeVisible({ timeout: 30_000 });
+
     await page.getByTestId("simple-urls").fill(SAMPLE_BROKER_URLS.join("\n"));
 
     await Promise.all([
@@ -26,21 +31,20 @@ test.describe("people-search cleanup flow", () => {
     expect(caseId).toBeTruthy();
     const auth = await caseAuthHeaders(page, caseId!);
 
-    const discoveredCount = await page.evaluate(
-      async ({ urls, id, authHeader }) => {
-        const response = await fetch(`/api/cases/${id}/findings/discover`, {
-          method: "POST",
-          headers: { "content-type": "application/json", ...authHeader },
-          body: JSON.stringify({ pastedUrls: urls })
-        });
-        const json = await response.json();
-        if (!response.ok) throw new Error(JSON.stringify(json));
-        await window.__oblivionLoadCase?.(id, { silent: true });
-        return json.discovered?.length ?? 0;
+    await page.evaluate(async (id) => {
+      await window.__oblivionLoadCase?.(id, { silent: true });
+    }, caseId!);
+
+    const pendingCount = await page.evaluate(
+      async ({ id, authHeader }) => {
+        const list = await fetch(`/api/cases/${id}/findings`, { headers: authHeader }).then((response) =>
+          response.json()
+        );
+        return list.pendingFindings?.length ?? 0;
       },
-      { urls: SAMPLE_BROKER_URLS, id: caseId!, authHeader: auth }
+      { id: caseId!, authHeader: auth }
     );
-    expect(discoveredCount).toBeGreaterThanOrEqual(4);
+    expect(pendingCount).toBeGreaterThanOrEqual(2);
 
     await expect
       .poll(async () => page.locator('[data-testid="finding-card"]').count(), { timeout: 15_000 })

@@ -73,7 +73,7 @@ function buildWebhookBody(
   });
 }
 
-function scheduleNextRetry(attemptCount: number): string | undefined {
+export function scheduleNextRetry(attemptCount: number): string | undefined {
   if (!WEBHOOK_RETRY_ENABLED || attemptCount >= WEBHOOK_MAX_RETRIES) return undefined;
   const delayMs = WEBHOOK_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1);
   return new Date(Date.now() + delayMs).toISOString();

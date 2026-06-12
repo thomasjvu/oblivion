@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  scheduleNextRetry,
   signWebhookPayload,
   verifyWebhookSignature,
   WEBHOOK_MAX_RETRIES,
@@ -22,12 +23,6 @@ test("webhook retry config exposes sane defaults", () => {
   assert.ok(WEBHOOK_MAX_RETRIES >= 1);
   assert.ok(WEBHOOK_RETRY_BASE_MS >= 1000);
 });
-
-function scheduleNextRetry(attemptCount: number): string | undefined {
-  if (!WEBHOOK_RETRY_ENABLED || attemptCount >= WEBHOOK_MAX_RETRIES) return undefined;
-  const delayMs = WEBHOOK_RETRY_BASE_MS * 2 ** Math.max(0, attemptCount - 1);
-  return new Date(Date.now() + delayMs).toISOString();
-}
 
 test("scheduleNextRetry backs off until max retries", () => {
   const first = scheduleNextRetry(1);

@@ -81,10 +81,10 @@ Always run `npm run verify` before considering a change complete.
 
 ## Current Status (as of deslop pass)
 
-- 191 unit/integration tests; auth, preset registry, agent runner, packages smoke tests added.
+- 160 unit/integration tests cover auth, policy, cleanup workflow, partner API, and package SDKs; 2 Playwright E2E specs cover consumer people-search and partner approval gate.
 - `app.ts` thin dispatcher; `consumer.ts` + shared handlers; orchestration split into `approvals.ts` + `agentRunner.ts`.
 - Case access token auth on consumer API; partner isolation enforced.
-- `ui.test.ts` reads `public/src/` source, not minified bundle greps.
+
 - Types split under `src/domain/types/` with barrel re-export from `types.ts`.
 
 Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; client module split + dirty-flag render.

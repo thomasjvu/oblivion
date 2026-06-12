@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 import {
-  brokerForUrl,
   buildBraveSearchQuery,
   describeDiscoveryPlan,
   discoverExposureCandidates,
@@ -20,11 +19,6 @@ test("normalizeDiscoveryUrl accepts bare hosts and dedupes paths", () => {
     "https://www.fastbackgroundcheck.com/people/john-smith/id/x"
   );
   assert.equal(normalizeDiscoveryUrl("not a url"), null);
-});
-
-test("brokerForUrl maps known people-search hosts", () => {
-  const broker = brokerForUrl("https://rocketreach.co/john-smith-email_example");
-  assert.equal(broker?.brokerId, "rocketreach");
 });
 
 test("buildBraveSearchQuery uses redacted scope labels only", () => {

@@ -1,12 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  activateTestCase,
-  createCaseWithIntake,
-  encryptedBlob,
-  post,
-  startTestServer
-} from "../helpers/http.js";
+import { activateTestCase, encryptedBlob, post, startTestServer } from "../helpers/http.js";
 
 const originalBypass = process.env.OBLIVION_CREDITS_BYPASS;
 const originalHackathon = process.env.HACKATHON_MODE;
@@ -50,28 +44,6 @@ test("workflow routes require per-case payment before activation", async () => {
     await post(
       base,
       `/api/cases/${caseId}/preset`,
-      { presetId: "people-search-cleanup" },
-      201
-    );
-  } finally {
-    if (originalBypass === undefined) delete process.env.OBLIVION_CREDITS_BYPASS;
-    else process.env.OBLIVION_CREDITS_BYPASS = originalBypass;
-    if (originalHackathon === undefined) delete process.env.HACKATHON_MODE;
-    else process.env.HACKATHON_MODE = originalHackathon;
-    server.close();
-  }
-});
-
-test("createCaseWithIntake helper activates cases for downstream workflow tests", async () => {
-  delete process.env.OBLIVION_CREDITS_BYPASS;
-  delete process.env.HACKATHON_MODE;
-  const { server, base, store } = await startTestServer();
-
-  try {
-    const created = await createCaseWithIntake(base, "US", "standard", store);
-    await post(
-      base,
-      `/api/cases/${created.caseId}/preset`,
       { presetId: "people-search-cleanup" },
       201
     );

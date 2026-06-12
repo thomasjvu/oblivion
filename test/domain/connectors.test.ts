@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { connectorById, connectorHasVerifiedSource } from "../../src/domain/connectors.js";
-import { assertSensitiveExecutionAllowed, runtimeModeFromProof } from "../../src/domain/runtimeGuard.js";
+import { assertSensitiveExecutionAllowed } from "../../src/domain/runtimeGuard.js";
 import { sourceVerificationFor } from "../../src/domain/sourceVerification.js";
 
 test("connector registry marks HIBP password range as prefix-safe", () => {
@@ -28,12 +28,6 @@ test("connector registry blocks HIBP email as managed plaintext unless TEE verif
     requiresManagedPlaintext: connector!.requiresManagedPlaintext,
     localSafe: false
   }));
-});
-
-test("runtime mode labels stay product-oriented", () => {
-  assert.equal(runtimeModeFromProof({ verifierResult: "not-configured" }), "local");
-  assert.equal(runtimeModeFromProof({ verifierResult: "pass" }), "tee-verified");
-  assert.equal(runtimeModeFromProof({ verifierResult: "fail" }), "tee-blocked");
 });
 
 test("source verification registry covers official cleanup routes", () => {

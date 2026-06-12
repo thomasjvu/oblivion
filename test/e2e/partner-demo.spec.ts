@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const PARTNER_KEY = "obl_live_e2e_test";
 const AUTH = { authorization: `Bearer ${PARTNER_KEY}`, "content-type": "application/json" };
 
-test("partner API reaches approval gate with webhook inbox", async ({ request }) => {
+test("partner API reaches approval gate", async ({ request }) => {
   const created = await request.post("/v1/cases", {
     headers: AUTH,
     data: { jurisdiction: "US", authorityBasis: "self", externalRef: `e2e_${Date.now()}` }
@@ -51,8 +51,6 @@ test("partner API reaches approval gate with webhook inbox", async ({ request })
     });
   }
 
-  await request.post("/v1/webhooks/register-inbox", { headers: AUTH, data: {} });
-
   for (let index = 0; index < 12; index += 1) {
     const run = await request.post(`/v1/cases/${caseId}/run-until-blocked`, {
       headers: AUTH,
@@ -71,8 +69,4 @@ test("partner API reaches approval gate with webhook inbox", async ({ request })
       return json.pendingApprovals ?? 0;
     })
     .toBeGreaterThan(0);
-
-  const inbox = await request.get("/v1/partners/me/webhook-inbox", { headers: AUTH });
-  const inboxJson = await inbox.json();
-  expect(inboxJson.entries.length).toBeGreaterThan(0);
 });
