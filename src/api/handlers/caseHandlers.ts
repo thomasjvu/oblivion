@@ -215,11 +215,3 @@ export async function handleExecute(
   return { action, approval, executed, caseRecord };
 }
 
-export async function handleAgentRunStep(
-  store: MemoryStore,
-  caseRecord: CaseRecord,
-  trustCenterPath: string,
-  options: { highAutonomy?: boolean } = {}
-) {
-  return handleAgentRun(store, caseRecord, trustCenterPath, options);
-}

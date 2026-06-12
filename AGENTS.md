@@ -82,11 +82,12 @@ Always run `npm run verify` before considering a change complete.
 ## Current Status (as of deslop pass)
 
 - 160 unit/integration tests cover auth, policy, cleanup workflow, partner API, and package SDKs; 2 Playwright E2E specs cover consumer people-search and partner approval gate.
-- `app.ts` thin dispatcher; `consumer.ts` + shared handlers; orchestration split into `approvals.ts` + `agentRunner.ts`.
+- `app.ts` thin dispatcher; `consumer.ts` (~50 LOC) dispatches to `src/api/routes/consumer/*`; shared handlers in `caseHandlers.ts`, `caseLifecycle.ts`, `agentRun.ts`.
+- `hackathon.ts` re-exports payments catalog/sessions and `agentTimeline.ts`; consumer + v1 share `handleAgentRun`, `exportCaseBundle`, `deleteCaseRecord`, `emitApprovalPendingWebhook` (webhooks module).
 - Case access token auth on consumer API; partner isolation enforced.
-
 - Types split under `src/domain/types/` with barrel re-export from `types.ts`.
+- Client: `public/app.js` is build output (gitignored); x402/viem lazy-loaded via `x402Gate.js`; hackathon UI gated on `integrationsStatus.hackathonMode`.
 
-Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; client module split + dirty-flag render.
+Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; incremental `main.js` module split + dirty-flag render.
 
 Update this file when gaps close or invariants change.

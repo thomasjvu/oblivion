@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Personal information removal without giving away your personal information — consumer app and partner API.",
   "scripts": {
-    "build:client": "esbuild public/src/main.js --bundle --format=esm --outfile=public/app.js --packages=bundle --loader:.ts=ts",
+    "build:client": "esbuild public/src/main.js --bundle --format=esm --splitting --outdir=public --entry-names=app --chunk-names=chunk-[hash] --packages=bundle --loader:.ts=ts",
     "build:vault-sdk": "npm run build --prefix packages/vault-sdk",
     "publish:partner-packages": "npm run build:vault-sdk && npm publish --prefix packages/vault-sdk && npm publish --prefix packages/partner-sdk",
     "build:fonts": "cp node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2 public/fonts/GeistPixel-Square.woff2",

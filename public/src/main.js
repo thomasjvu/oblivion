@@ -2,7 +2,7 @@ import * as Vault from './crypto.js';
 import { buildExecuteHandoff } from './executeHandoff.js';
 import { expandNameTerms, maskPrivacyText } from './privacyFilter.js';
 import { tryLiveSmartAccountUpgrade } from './metamaskSmartAccount.js';
-import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Pay.js';
+import { agentEndpointForMode, isLiveX402Ready, settleAgentPayment } from './x402Gate.js';
 import { apiRequest, getCaseToken, loadApiConfig, removeCaseToken, setCaseToken } from './apiClient.js';
 import { redactedScopeFromIntake } from './intakeScope.js';
 import { pollRelayTask, submitRelayBundle } from './oneShotRelayer.js';
@@ -293,7 +293,9 @@ const LANDING_LOCATION_OPTIONS = [
   "Melbourne, Australia"
 ];
 
-const previewDelay = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+function isHackathonMode() {
+  return Boolean(state.integrationsStatus?.hackathonMode);
+}
 
 function setupLocationCombobox({ input, menu, toggle, field, options = LANDING_LOCATION_OPTIONS, onEnter }) {
   if (!input || !menu) return;
@@ -1041,14 +1043,6 @@ function needsExposureDiscovery() {
   const pending = state.currentStatus?.pendingFindings?.length ?? 0;
   const total = state.currentStatus?.findings?.length ?? 0;
   return pending === 0 && total === 0;
-}
-
-function presetUsesBrokerDiscoveryClient(presetId) {
-  return presetId === "people-search-cleanup" || presetId === "high-risk-safety";
-}
-
-function presetUsesContentDiscoveryClient(presetId) {
-  return presetId === "content-takedown";
 }
 
 function renderDiscoveryPlan() {
@@ -1947,16 +1941,22 @@ async function refreshHackathon(options = {}) {
     state.hackathonStatus = null;
     return;
   }
-  const [timeline, checklist] = await Promise.all([
+  const [timeline, next] = await Promise.all([
     request(`/api/agents/timeline?caseId=${state.currentCaseId}`),
-    request(`/api/hackathon/status?caseId=${state.currentCaseId}`)
+    request(`/api/agent/next?caseId=${state.currentCaseId}`)
   ]);
-  const next = await request(`/api/agent/next?caseId=${state.currentCaseId}`);
   state.hackathon = timeline;
-  state.hackathonStatus = checklist.status;
-  state.hackathonPending = checklist.pending || [];
   state.agentNext = next;
-  if (!options.silent) write({ products, timeline, checklist });
+  if (isHackathonMode()) {
+    const checklist = await request(`/api/hackathon/status?caseId=${state.currentCaseId}`);
+    state.hackathonStatus = checklist.status;
+    state.hackathonPending = checklist.pending || [];
+    if (!options.silent) write({ products, timeline, checklist });
+    return;
+  }
+  state.hackathonStatus = null;
+  state.hackathonPending = [];
+  if (!options.silent) write({ products, timeline });
 }
 
 async function syncCurrentCaseStatus() {
@@ -2103,6 +2103,12 @@ function hackathonPendingTracks() {
 function renderHackathonChecklist() {
   const target = $("#hackathon-checklist");
   if (!target) return;
+  if (!isHackathonMode()) {
+    target.innerHTML = "";
+    target.hidden = true;
+    return;
+  }
+  target.hidden = false;
   const pending = hackathonPendingTracks();
   const status = state.hackathonStatus;
   const rows = [
@@ -3077,7 +3083,6 @@ async function streamBrokerPreviewResults(candidates, message) {
     list.appendChild(row);
     void row.offsetWidth;
     row.classList.add("pre-search-result-visible");
-    await previewDelay(70);
   }
 }
 
@@ -3115,7 +3120,6 @@ async function runOnboardingPreview() {
     });
     addChat("agent", "Scanning broker indexes and ranking likely matches…");
     renderAgentChat();
-    await previewDelay(280);
     const quotaNote =
       result.dailyLimit > 0
         ? ` ${result.remainingPreviews ?? 0} free preview(s) left today.`

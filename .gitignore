@@ -30,5 +30,12 @@ tmp-*
 phala-secrets*.json
 trust-center.local.json
 
+# database
+data/*
+!data/.gitkeep
+
+# client bundle (built by npm run build:client)
+public/app.js
+public/chunk-*.js
 # agents
 .phantasy

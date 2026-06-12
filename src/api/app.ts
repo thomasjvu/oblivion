@@ -9,9 +9,11 @@ import { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError, toHttpError } from "./errors.js";
 import { bindRequestOrigin, clearRequestOrigin, securityHeaders, sendJson } from "./http.js";
 import { handleV1Request } from "./routes/v1.js";
-import { handleConsumerApi, loadTrustCenterConfigFromPath } from "./routes/consumer.js";
+import { handleConsumerApi } from "./routes/consumer.js";
+import { loadTrustCenterConfigFromPath } from "./trustCenter.js";
 import {
   handleAppJs,
+  handleClientChunk,
   handleAssets,
   handleExamples,
   handleFavicon,
@@ -62,6 +64,7 @@ export function createApp(options: AppOptions = {}) {
       if (url.pathname.startsWith("/v1/")) {
         const handled = await handleV1Request(request, response, url, {
           store,
+          trustCenterPath,
           loadTrustCenterConfig: () => loadTrustCenterConfigFromPath(trustCenterPath)
         });
         if (handled) return;
@@ -104,6 +107,11 @@ export function createApp(options: AppOptions = {}) {
 
       if (method === "GET" && url.pathname === "/app.js") {
         await handleAppJs(response, publicDir);
+        return;
+      }
+
+      if (method === "GET" && url.pathname.endsWith(".js") && url.pathname.startsWith("/chunk-")) {
+        await handleClientChunk(response, url.pathname.slice(1), publicDir);
         return;
       }
 

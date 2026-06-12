@@ -94,6 +94,23 @@ export async function handleAppJs(response: ServerResponse, publicDir: string): 
   sendText(response, 200, js, "application/javascript");
 }
 
+export async function handleClientChunk(
+  response: ServerResponse,
+  chunkName: string,
+  publicDir: string
+): Promise<void> {
+  if (!serveStaticWithTraversalGuard(chunkName, { allowSubdirs: false }) || !chunkName.startsWith("chunk-")) {
+    sendJson(response, 400, { error: "invalid-client-chunk" });
+    return;
+  }
+  try {
+    const js = await readFile(join(publicDir, chunkName), "utf8");
+    sendText(response, 200, js, "application/javascript");
+  } catch {
+    sendJson(response, 404, { error: "client-chunk-not-found" });
+  }
+}
+
 export async function handleAssets(
   response: ServerResponse,
   assetName: string,

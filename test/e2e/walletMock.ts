@@ -4,7 +4,8 @@ const MOCK_WALLET = "0x1111111111111111111111111111111111111111";
 
 export async function installWalletMock(page: Page): Promise<void> {
   await page.addInitScript((address) => {
-    window.ethereum = {
+    const win = window as Window & { ethereum?: Record<string, unknown> };
+    win.ethereum = {
       isMetaMask: true,
       request: async ({ method }: { method: string }) => {
         if (method === "eth_requestAccounts" || method === "eth_accounts") return [address];

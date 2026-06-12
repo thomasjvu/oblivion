@@ -4,6 +4,7 @@ import { buildStatus } from "./orchestration.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type {
   FollowUp,
+  IdentifierCategory,
   PartnerRecord,
   PartnerWebhookDelivery,
   PartnerWebhookEvent,
@@ -270,6 +271,26 @@ export async function emitCaseCompletedWebhook(
 
 export async function emitCaseDeletedWebhook(store: MemoryStore, caseId: string): Promise<void> {
   await emitCaseWebhook(store, caseId, "case.deleted", { deletedAt: new Date().toISOString() });
+}
+
+export async function emitApprovalPendingWebhook(
+  store: MemoryStore,
+  caseId: string,
+  approval: {
+    id: string;
+    destination: string;
+    dataToDisclose: IdentifierCategory[];
+    expiresAt: string;
+    actionType: string;
+  }
+): Promise<void> {
+  await emitCaseWebhook(store, caseId, "approval.pending", {
+    approvalId: approval.id,
+    destination: approval.destination,
+    dataToDisclose: approval.dataToDisclose,
+    expiresAt: approval.expiresAt,
+    actionType: approval.actionType
+  });
 }
 
 export async function notifyCasePendingApprovals(store: MemoryStore, caseId: string): Promise<void> {

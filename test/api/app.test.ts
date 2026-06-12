@@ -25,6 +25,13 @@ test("serves split frontend assets with restrictive security headers", async () 
     const js = await fetch(`${base}/app.js`);
     assert.equal(js.status, 200);
     assert.match(js.headers.get("content-type") ?? "", /application\/javascript/);
+    const jsText = await js.text();
+    const chunkMatch = jsText.match(/from"\.\/(chunk-[A-Z0-9]+\.js)"/);
+    if (chunkMatch) {
+      const chunk = await fetch(`${base}/${chunkMatch[1]}`);
+      assert.equal(chunk.status, 200);
+      assert.match(chunk.headers.get("content-type") ?? "", /application\/javascript/);
+    }
 
     const heroWebp = await fetch(`${base}/assets/hero-dissolution.webp`);
     assert.equal(heroWebp.status, 200);

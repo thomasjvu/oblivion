@@ -18,14 +18,12 @@ import { creditPartnerPool, meterPartnerUsage, partnerBillingView, partnerUsageS
 import { partnerPresetAllowlist, rotatePartnerApiKey } from "../../domain/partners.js";
 import { buildPartnerCaseStatus, buildPartnerRiskSummary } from "../../domain/partnerStatus.js";
 import { buildPartnerRuntimeBadge } from "../../domain/partnerRuntime.js";
-import { purgeCaseData } from "../../domain/purgeCase.js";
-import { runCleanupAgentStep } from "../../domain/agentRunner.js";
+import { deleteCaseRecord } from "../handlers/caseLifecycle.js";
+import { handleAgentRun } from "../handlers/agentRun.js";
 import { buildStatus } from "../../domain/orchestration.js";
 import {
   dispatchPartnerWebhook,
-  emitCaseDeletedWebhook,
   emitCaseWebhook,
-  notifyCasePendingApprovals,
   partnerWebhookInboxUrl,
   processDueWebhookRetries,
   retryFailedWebhookDeliveries,
@@ -35,7 +33,6 @@ import {
 } from "../../domain/webhooks.js";
 import type {
   AuthorityBasis,
-  IdentifierCategory,
   Jurisdiction,
   PartnerWebhookEvent,
   RedactedScope,
@@ -55,6 +52,7 @@ import {
 
 export interface V1Context {
   store: MemoryStore;
+  trustCenterPath: string;
   loadTrustCenterConfig: () => Promise<TrustCenterConfig>;
 }
 
@@ -79,7 +77,7 @@ export async function handleV1Request(
   url: URL,
   context: V1Context
 ): Promise<boolean> {
-  const { store, loadTrustCenterConfig } = context;
+  const { store, trustCenterPath, loadTrustCenterConfig } = context;
   const method = request.method ?? "GET";
   const pathname = url.pathname;
 
@@ -427,21 +425,7 @@ export async function handleV1Request(
   if (method === "POST" && runMatch) {
     const caseRecord = store.getCaseOrThrow(runMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    const before = store.agentPlanForCase(caseRecord.id)?.currentStep;
-    const result = await runCleanupAgentStep({
-      store,
-      caseRecord,
-      trustCenterConfig: loadTrustCenterConfig,
-      highAutonomy: false
-    });
-    const after = store.agentPlanForCase(caseRecord.id)?.currentStep;
-    if (after && after !== before) {
-      await emitCaseWebhook(store, caseRecord.id, "case.phase_changed", {
-        currentStep: after,
-        blockedReasons: result.plan?.blockedReasons ?? []
-      });
-    }
-    await notifyCasePendingApprovals(store, caseRecord.id);
+    const result = await handleAgentRun(store, caseRecord, trustCenterPath, { highAutonomy: false });
     sendJson(response, 200, result);
     return true;
   }
@@ -479,20 +463,12 @@ export async function handleV1Request(
   if (method === "DELETE" && deleteMatch) {
     const caseRecord = store.getCaseOrThrow(deleteMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    const deletedAt = new Date().toISOString();
-    recordPartnerDataAccess(store, {
-      partnerId: partner.id,
-      caseId: caseRecord.id,
-      action: "delete",
-      source: "v1"
+    const result = await deleteCaseRecord(store, caseRecord, {
+      partner,
+      emitWebhook: true,
+      auditSource: "v1"
     });
-    await emitCaseDeletedWebhook(store, caseRecord.id);
-    caseRecord.deletedAt = deletedAt;
-    caseRecord.encryptedIntake = undefined;
-    caseRecord.encryptedVaultPointer = "deleted";
-    purgeCaseData(store, caseRecord.id);
-    store.tombstones.set(caseRecord.id, deletedAt);
-    sendJson(response, 200, { caseId: caseRecord.id, deletedAt, tombstone: true });
+    sendJson(response, 200, result);
     return true;
   }
 
@@ -653,24 +629,4 @@ function apiBaseFromRequest(request: IncomingMessage): string {
   if (configured) return configured.replace(/\/$/, "");
   const host = request.headers.host;
   return host ? `http://${host}` : "http://localhost:8080";
-}
-
-export async function emitApprovalPendingWebhook(
-  store: MemoryStore,
-  caseId: string,
-  approval: {
-    id: string;
-    destination: string;
-    dataToDisclose: IdentifierCategory[];
-    expiresAt: string;
-    actionType: string;
-  }
-): Promise<void> {
-  await emitCaseWebhook(store, caseId, "approval.pending", {
-    approvalId: approval.id,
-    destination: approval.destination,
-    dataToDisclose: approval.dataToDisclose,
-    expiresAt: approval.expiresAt,
-    actionType: approval.actionType
-  });
 }
