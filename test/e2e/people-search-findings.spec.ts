@@ -9,8 +9,12 @@ test.describe("people-search cleanup flow", () => {
   test("discovers broker links, confirms matches, and reaches approval gate", async ({ page }) => {
     await installWalletMock(page);
     await page.goto("/#app");
-    await page.getByTestId("simple-name").fill("John Smith");
-    await page.getByTestId("simple-region").fill("New York");
+    const nameInput = page.getByTestId("simple-name");
+    await nameInput.fill("John Smith");
+    const regionInput = page.getByTestId("simple-region");
+    await regionInput.fill("New York");
+    await nameInput.click();
+    await expect(regionInput).toHaveAttribute("aria-expanded", "false");
 
     await page.getByTestId("onboarding-check-listings").click();
     await expect(page.getByTestId("start-cleanup")).toBeVisible({ timeout: 30_000 });
