@@ -8,12 +8,12 @@
 
 :root {
   color-scheme: dark;
-  --gb-0: #0f380f;
-  --gb-1: #306230;
-  --gb-2: #8bac0f;
-  --gb-3: #9bbc0f;
+  --gb-0: #000000;
+  --gb-1: #1a1a1a;
+  --gb-2: #888888;
+  --gb-3: #ffffff;
   --bg: var(--gb-0);
-  --panel: #1a4d1a;
+  --panel: #111111;
   --panel-2: var(--gb-1);
   --line: var(--gb-2);
   --muted: var(--gb-2);
@@ -43,6 +43,15 @@
   --dock-rail: 56px;
   --inspector-width: min(280px, 100%);
   --console-grid: var(--gb-1);
+}
+
+[data-theme="gb"] {
+  color-scheme: dark;
+  --gb-0: #0f380f;
+  --gb-1: #306230;
+  --gb-2: #8bac0f;
+  --gb-3: #9bbc0f;
+  --panel: #1a4d1a;
 }
 
 * {
@@ -4054,6 +4063,49 @@ a.pricing-plan-cta:focus-visible {
   color: var(--green);
 }
 
+.theme-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.theme-toggle-btn {
+  flex: 1;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--gb-2);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: none;
+  min-height: 0;
+}
+
+.theme-toggle-btn:last-child {
+  border-right: 0;
+}
+
+.theme-toggle-btn:hover {
+  color: var(--gb-3);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="gb"] .theme-toggle-btn:hover {
+  background: rgba(48, 98, 48, 0.35);
+}
+
+.theme-toggle-btn.active {
+  color: var(--gb-3);
+  background: var(--gb-1);
+  box-shadow: inset 0 -2px 0 var(--gb-3);
+}
+
 .status-list,
 .table {
   display: grid;
@@ -5581,4 +5633,80 @@ button.compact, .compact { min-height: 32px; padding: 6px 10px; font-size: 0.72r
     overflow: hidden;
     text-overflow: ellipsis;
   }
+}
+
+/* 1-bit overrides for hardcoded Game Boy greens */
+[data-theme="onebit"] .app-sidebar-ascii,
+[data-theme="onebit"] .landing-ascii-title {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="onebit"] .wallet-modal::backdrop,
+[data-theme="onebit"] .confirm-modal::backdrop {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+[data-theme="onebit"] .landing-skill-inner {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="onebit"] .skill-install-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="onebit"] .scanlines,
+[data-theme="onebit"] .payment-plan-card.active::before {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(255, 255, 255, 0.06) 3px,
+    rgba(255, 255, 255, 0.06) 4px
+  );
+}
+
+[data-theme="onebit"] .workflow-panel {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="onebit"] .workflow-canvas {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    var(--gb-0);
+  background-size: 24px 24px, 24px 24px, auto;
+}
+
+[data-theme="onebit"] .payment-plan-card.active {
+  animation-name: onebit-plan-select;
+}
+
+@keyframes onebit-plan-select {
+  0%,
+  100% {
+    box-shadow: 2px 2px 0 var(--gb-1);
+  }
+  50% {
+    box-shadow: 3px 3px 0 var(--gb-0), 0 0 0 1px rgba(255, 255, 255, 0.22);
+  }
+}
+
+[data-theme="onebit"] .subscription-upsell {
+  background: linear-gradient(180deg, var(--gb-1) 0%, rgba(255, 255, 255, 0.08) 100%);
+}
+
+[data-theme="onebit"] .workflow-node {
+  background: rgba(0, 0, 0, 0.92);
+}
+
+[data-theme="onebit"] .findings-panel {
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.04) 100%);
+}
+
+[data-theme="onebit"] .finding-card {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="onebit"] .findings-queue {
+  background: rgba(0, 0, 0, 0.28);
 }

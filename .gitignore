@@ -40,3 +40,6 @@ public/chunk-*.js
 public/fonts/GeistPixel-Square.woff2
 # agents
 .phantasy
+.private/
+.agents/
+skills-lock.json

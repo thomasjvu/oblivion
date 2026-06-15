@@ -13,6 +13,7 @@ export const PANELS = {
   presets: "presets",
   agentChat: "agentChat",
   hackathonChecklist: "hackathonChecklist",
+  appearanceSettings: "appearanceSettings",
   privacyFilterSettings: "privacyFilterSettings",
   agentVoiceSettings: "agentVoiceSettings",
   payments: "payments",

@@ -48,6 +48,7 @@ import {
   agentAutopilot as agentAutopilotFlow
 } from './agentFlow.js';
 import { PANELS, renderAll as renderAllPanels } from './renderScheduler.js';
+import { readStoredTheme, setTheme } from './theme.js';
 import { apiRequest, getCaseToken, loadApiConfig, setCaseToken } from './apiClient.js';
 import { createWalletLogger } from './walletLog.js';
 import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
@@ -178,6 +179,7 @@ const state = {
   onboardingPreviewReady: false,
   onboardingPreviewBusy: false,
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
+  themeId: readStoredTheme(),
   agentVoiceEnabled: isAgentVoiceEnabled(),
   sessionHandoffWarning: "",
   paymentRailsNotice: ""
@@ -1278,6 +1280,15 @@ function applyPrivacyFilterToInputs() {
       el.readOnly = false;
       el.removeAttribute("aria-readonly");
     }
+  });
+}
+
+function renderAppearanceSettings() {
+  document.querySelectorAll(".theme-toggle-btn[data-theme-choice]").forEach((btn) => {
+    const active = btn.dataset.themeChoice === state.themeId;
+    btn.classList.toggle("active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    btn.setAttribute("aria-checked", active ? "true" : "false");
   });
 }
 
@@ -2758,6 +2769,7 @@ function panelRenderers() {
     [PANELS.presets]: renderPresets,
     [PANELS.agentChat]: renderAgentChat,
     [PANELS.hackathonChecklist]: renderHackathonChecklist,
+    [PANELS.appearanceSettings]: renderAppearanceSettings,
     [PANELS.privacyFilterSettings]: renderPrivacyFilterSettings,
     [PANELS.agentVoiceSettings]: renderAgentVoiceSettings,
     [PANELS.payments]: renderPayments,
@@ -3560,6 +3572,15 @@ document.addEventListener("click", (event) => {
   }
 });
 $("#create-smart-account")?.addEventListener("click", () => createSmartAccount().catch(write));
+
+document.querySelector(".theme-toggle")?.addEventListener("click", (event) => {
+  const btn = event.target.closest(".theme-toggle-btn[data-theme-choice]");
+  if (!btn) return;
+  const next = btn.dataset.themeChoice;
+  if (!next || next === state.themeId) return;
+  state.themeId = setTheme(next);
+  renderAppearanceSettings();
+});
 
 $("#privacy-filter-toggle")?.addEventListener("change", (event) => {
   state.privacyFilterMode = Boolean(event.target.checked);

@@ -11,6 +11,14 @@
     <link rel="manifest" href="/favicon/site.webmanifest" />
     <link rel="shortcut icon" href="/favicon/favicon.ico" />
     <link rel="preload" href="/fonts/GeistPixel-Square.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      try {
+        var t = localStorage.getItem("oblivion.theme");
+        document.documentElement.dataset.theme = t === "gb" || t === "onebit" ? t : "onebit";
+      } catch (e) {
+        document.documentElement.dataset.theme = "onebit";
+      }
+    </script>
     <link rel="stylesheet" href="/styles.css" />
     <script>window.OBLIVION_API_ORIGIN = "";</script>
   </head>
@@ -442,6 +450,14 @@
               <div class="panel-header">
                 <h3>Settings</h3>
                 <span class="pill">Advanced</span>
+              </div>
+              <div class="settings-block appearance-block" id="appearance-settings" data-testid="appearance-settings">
+                <h4>Appearance</h4>
+                <div class="theme-toggle" role="radiogroup" aria-label="Color theme">
+                  <button type="button" class="theme-toggle-btn" data-theme-choice="onebit" data-testid="theme-onebit" role="radio" aria-checked="false">1-bit</button>
+                  <button type="button" class="theme-toggle-btn" data-theme-choice="gb" data-testid="theme-gb" role="radio" aria-checked="false">Game Boy</button>
+                </div>
+                <p class="muted small">Pure black &amp; white or classic DMG green.</p>
               </div>
               <div class="settings-block case-defaults-block" id="case-defaults-settings" data-testid="case-defaults-settings">
                 <h4>Case defaults</h4>
