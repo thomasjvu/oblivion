@@ -14,7 +14,24 @@ WORK="$(mktemp -d /tmp/oblivion-node-seed.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
 image_present() {
-  ssh "${SSH_OPTS[@]}" "$HOST" "docker image inspect '$NODE_IMAGE' >/dev/null 2>&1"
+  ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$NODE_IMAGE" "$AMD64_DIGEST" <<'REMOTE'
+set -euo pipefail
+PINNED="$1"
+DIGEST="${2#sha256:}"
+for ref in "$PINNED" "node:22-bookworm-slim"; do
+  if docker image inspect "$ref" >/dev/null 2>&1; then
+    ID="$(docker image inspect "$ref" --format '{{.Id}}')"
+    if [[ "$ID" == *"$DIGEST" ]]; then
+      exit 0
+    fi
+    # Tagged node:22-bookworm-slim from prior seed — reuse without re-rsync.
+    if [[ "$ref" == "node:22-bookworm-slim" ]]; then
+      exit 0
+    fi
+  fi
+done
+exit 1
+REMOTE
 }
 
 if image_present; then
