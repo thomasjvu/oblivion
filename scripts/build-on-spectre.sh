@@ -20,10 +20,16 @@ echo "==> Rsync sources to $HOST (~/$REMOTE_DIR)"
 for attempt in 1 2 3; do
   if rsync -az --delete --timeout=120 \
     --exclude node_modules/ \
+    --exclude docs/node_modules/ \
     --exclude .git/ \
     --exclude coverage/ \
     --exclude test-results/ \
     --exclude playwright-report/ \
+    --exclude .private/ \
+    --exclude .phantasy/ \
+    --exclude .agents/ \
+    --exclude docs/dist/ \
+    --exclude dist/ \
     --exclude .env \
     --exclude '.env.*' \
     -e "$RSYNC_SSH" \
