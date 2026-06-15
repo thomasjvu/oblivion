@@ -48,7 +48,7 @@ import {
   agentAutopilot as agentAutopilotFlow
 } from './agentFlow.js';
 import { PANELS, renderAll as renderAllPanels } from './renderScheduler.js';
-import { readStoredTheme, setTheme } from './theme.js';
+import { agentPfpForTheme, applyTheme, readStoredTheme, setTheme } from './theme.js';
 import { apiRequest, getCaseToken, loadApiConfig, setCaseToken } from './apiClient.js';
 import { createWalletLogger } from './walletLog.js';
 import { bindIcons, iconEl, setButtonLabel, setIcon } from './icons.js';
@@ -1312,7 +1312,7 @@ function renderChatBubble(message) {
   if (role === "user") {
     return `<div class="chat-row user" data-chat-role="user"${rowAttrs}>${body}</div>`;
   }
-  const avatar = `<span class="chat-avatar chat-avatar-agent" title="Agent" aria-label="Agent"><img src="/assets/oblivion-agent-pfp.jpg" alt="" width="36" height="36" /></span>`;
+  const avatar = `<span class="chat-avatar chat-avatar-agent" title="Agent" aria-label="Agent"><img src="${agentPfpForTheme(state.themeId)}" alt="" width="36" height="36" /></span>`;
   return `<div class="chat-row agent" data-chat-role="agent"${rowAttrs}>${avatar}${body}</div>`;
 }
 
@@ -3911,4 +3911,5 @@ await refreshWalletConfig().catch(write);
 await refreshIntegrationsStatus().catch(write);
 await refreshCases().catch(write);
 await refreshHackathon({ silent: true }).catch(write);
+applyTheme(state.themeId);
 render();

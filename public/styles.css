@@ -1402,7 +1402,7 @@ button.skill-install-tab {
   background: var(--gb-0);
 }
 
-/* 1-bit landing hero (Game Boy dither + optional pixel poster) */
+/* Landing hero — theme tokens drive dither; per-theme ambient video + filters */
 .cinematic-hero {
   position: relative;
   min-height: min(72vh, 520px);
@@ -1429,8 +1429,17 @@ button.skill-install-tab {
   object-position: center;
   opacity: 0.22;
   z-index: 1;
-  filter: grayscale(1) contrast(1.4) brightness(0.55);
   image-rendering: pixelated;
+}
+
+[data-theme="onebit"] .cinematic-video {
+  filter: grayscale(1) contrast(1.5) brightness(0.52);
+}
+
+[data-theme="gb"] .cinematic-video {
+  filter: contrast(1.15) brightness(0.62) saturate(1.25) hue-rotate(-8deg);
+  image-rendering: auto;
+  opacity: 0.26;
 }
 
 .cinematic-fallback {
@@ -4527,6 +4536,10 @@ button.agent-preset-starter.active {
   object-fit: cover;
   display: block;
   border-radius: 50%;
+}
+
+[data-theme="onebit"] .chat-avatar-agent img {
+  image-rendering: pixelated;
 }
 
 .chat-avatar iconify-icon {

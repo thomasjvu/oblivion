@@ -40,10 +40,11 @@ function sampleSession(): PaymentSession {
 }
 
 test("markSessionPaid sets status paid and appends settlement memo", () => {
-  const paid = markSessionPaid(sampleSession(), "0xdeadbeef1234567890");
+  const session = sampleSession();
+  const paid = markSessionPaid(session, "0xdeadbeef1234567890");
   assert.equal(paid.status, "paid");
   assert.match(paid.x402Request.memo, /settled 0xdeadbeef/i);
-  assert.ok(paid.updatedAt >= sampleSession().updatedAt);
+  assert.ok(paid.updatedAt >= session.updatedAt);
 });
 
 test("x402PublicConfig reports disabled when X402_PAY_TO unset", () => {
