@@ -148,6 +148,6 @@ export async function runUntilApproval(base: string, caseId: string) {
   for (let index = 0; index < 10; index += 1) {
     const current = await get(base, `/api/cases/${caseId}`);
     if (current.status.approvalsNeeded.length > 0) return;
-    await post(base, "/api/agent/run-next", { caseId });
+    await post(base, `/api/cases/${caseId}/agent/run`, {});
   }
 }

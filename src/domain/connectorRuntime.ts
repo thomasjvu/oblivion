@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import type { TrustCenterConfig } from "./attestation.js";
 import { buildAttestationProof } from "./attestation.js";
 import { isBrokerEmailConfigured, sendBrokerOptOutEmail } from "./brokerMailer.js";
@@ -79,7 +80,7 @@ export async function runLiveConnector(input: LiveConnectorInput): Promise<LiveC
   const connectorId = connectorIdForAction(input.action.actionType, input.action.brokerId);
   const connector = connectorById(connectorId);
   if (!connector) {
-    throw Object.assign(new Error("connector-not-registered"), { statusCode: 500 });
+    throw new DomainError("connector-not-registered", 500);
   }
 
   const proof = await buildAttestationProof(input.trustCenterConfig, { fetchLive: true });
@@ -236,9 +237,7 @@ async function runBrokerOptOutLive(input: LiveConnectorInput, connectorId: strin
       };
     }
     if (relayDecision.mode === "insufficient-credits") {
-      throw Object.assign(new Error("credits-insufficient"), {
-        statusCode: 402,
-        code: "credits-insufficient",
+      throw new DomainError("credits-insufficient", 402, {
         requiredCredits: EMAIL_RELAY_CREDITS
       });
     }
@@ -335,9 +334,7 @@ async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: stri
     };
   }
   if (relayDecision.mode === "insufficient-credits") {
-    throw Object.assign(new Error("credits-insufficient"), {
-      statusCode: 402,
-      code: "credits-insufficient",
+    throw new DomainError("credits-insufficient", 402, {
       requiredCredits: EMAIL_RELAY_CREDITS
     });
   }

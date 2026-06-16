@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import { oneShotBaseUrl, oneShotWebhookDestinationUrl } from "./integrations.js";
@@ -44,14 +45,15 @@ export async function callOneShotRpc<T = unknown>(method: string, params?: unkno
     })
   });
   if (!response.ok) {
-    throw Object.assign(new Error(`oneshot-http-${response.status}`), { statusCode: 502 });
+    throw new DomainError(`oneshot-http-${response.status}`, 502);
   }
   const json = (await response.json()) as JsonRpcResponse<T>;
   if (json.error) {
-    throw Object.assign(new Error(`oneshot-rpc-${json.error.code}`), {
-      statusCode: 502,
-      details: sanitizeForLog(json.error) as Record<string, unknown>
-    });
+    throw new DomainError(
+      `oneshot-rpc-${json.error.code}`,
+      502,
+      sanitizeForLog(json.error) as Record<string, unknown>
+    );
   }
   return json.result as T;
 }
@@ -161,8 +163,7 @@ export async function relayOneShotForCase(body: OneShotRelayBody): Promise<{ eve
     return { events, taskId };
   }
 
-  throw Object.assign(new Error("oneshot-relay-payload-required"), {
-    statusCode: 422,
+  throw new DomainError("oneshot-relay-payload-required", 422, {
     message:
       "Provide taskId to poll status, or method + params (e.g. relayer_send7710Transaction) with the signed delegation bundle from the wallet."
   });

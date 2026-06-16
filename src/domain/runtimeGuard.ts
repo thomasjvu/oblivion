@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import type { AttestationProof } from "./types.js";
 
 export type RuntimeMode = "local" | "tee-verified" | "tee-blocked";
@@ -15,6 +16,6 @@ export function assertSensitiveExecutionAllowed(input: {
 }): void {
   if (!input.requiresManagedPlaintext || input.localSafe) return;
   if (runtimeModeFromProof(input.proof) === "tee-verified") return;
-  throw Object.assign(new Error("runtime-not-tee-verified"), { statusCode: 403 });
+  throw new DomainError("runtime-not-tee-verified", 403);
 }
 

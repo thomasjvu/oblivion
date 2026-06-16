@@ -23,7 +23,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - `src/api/routes/connectors.ts`, `src/api/static.ts`
 - `src/api/handlers/caseHandlers.ts`, `agentRun.ts`, `veniceMeter.ts`
 - `src/api/http.ts`, `errors.ts`, `auth.ts`
-- `src/domain/`: `policy.ts`, `redaction.ts`, `attestation.ts`, `cleanup.ts`, `approvals.ts`, `agentRunner.ts`, `orchestration.ts` (status/next re-exports), `types/` (split types), `hackathon.ts`, `connectors.ts`, `caseAccess.ts`, `intakeScope.ts`
+- `src/domain/`: `policy.ts`, `policyMatrix.ts`, `exportPrivacy.ts`, `redaction.ts`, `attestation.ts`, `cleanup/` (presets, planAdvancement, pathBuilders), `status.ts`, `approvals.ts`, `agentRunner.ts`, `executor.ts`, `walletSession.ts`, `types/` (split types), `hackathon.ts`, `connectors.ts`, `caseAccess.ts`, `intakeScope.ts`
 - `src/crypto/clientVault.ts`
 - `src/storage/memoryStore.ts`
 - `public/src/` → bundled `public/app.js` (`apiClient.js` manages case tokens)
@@ -49,7 +49,7 @@ Always run `npm run verify` before considering a change complete.
 1. `POST /api/cases` → `{ case, accessToken }` (store token client-side).
 2. `POST /api/cases/:id/intake` with Bearer token + `{encryptedIntake, redactedScope}`.
 3. `POST /api/cases/:id/preset` → AgentPlan + timeline.
-4. Agent advances via `POST /api/cases/:id/agent/run` or `/api/agent/run-next` (both require token).
+4. Agent advances via `POST /api/cases/:id/agent/run` (requires token).
    - `runCleanupAgentStep` in `agentRunner.ts`: preset registry drives discovery; approvals via `approvals.ts`; transitions via `advanceAgentPlan`.
 5. Approvals: propose → approve (`userConfirmation`) → execute when `canExecuteWithApproval`.
 6. Sensitive connectors call `assertSensitiveExecutionAllowed` before live calls.
@@ -87,8 +87,8 @@ Always run `npm run verify` before considering a change complete.
 - HIBP logic unified in `domain/connectors/hibp.ts`; trust privacy in `domain/trustPrivacy.ts`; credit settlement in `domain/payments/settlement.ts`.
 - Case access token auth on consumer API; partner isolation enforced; v1 approve/execute checks ownership before handlers.
 - Types split under `src/domain/types/` with barrel re-export from `types.ts`.
-- Client: `public/app.js` + chunks gitignored; `refresh.js` scoped refresh; `renderScheduler.js` dirty-flag render; x402 lazy via `x402Gate.js`.
+- Client: `public/app.js` + chunks gitignored; flow modules (`casesFlow`, `walletFlow`, `paymentsFlow`, `agentFlow`, `intakeFlow`, `discoveryUi`, `guideFlow`, `panelRenderers`); `renderScheduler.js` scoped invalidation; x402 lazy via `x402Gate.js`.
 
-Remaining gaps: full policy matrix; every `advanceAgentPlan` transition; export/delete privacy matrix; further `main.js` extraction (wallet/payments modules).
+Remaining gaps: none documented — policy matrix (`policyMatrix.ts`) and export/delete privacy matrix (`exportPrivacy.ts`) are source of truth with tests.
 
 Update this file when gaps close or invariants change.

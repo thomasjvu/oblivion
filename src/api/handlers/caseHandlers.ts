@@ -14,10 +14,10 @@ import {
   discoverExposureCandidates,
   discoveryReadinessMessage
 } from "../../domain/exposureDiscovery.js";
-import { canExecuteWithApproval } from "../../domain/policy.js";
-import { buildStatus } from "../../domain/orchestration.js";
+import { MIN_USER_CONFIRMATION_LENGTH } from "../../domain/constants.js";
+import { buildStatus } from "../../domain/status.js";
 import { redactText } from "../../domain/redaction.js";
-import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "../../domain/executor.js";
+import { executeApprovedActionFlow } from "../../domain/executor.js";
 import { emitCaseWebhook } from "../../domain/webhooks.js";
 import type {
   AutonomyMode,
@@ -164,7 +164,7 @@ export function handleFindingDecision(
 export async function handleApprove(store: MemoryStore, approvalId: string, body: ApproveBody) {
   const approval = store.approvals.get(approvalId);
   if (!approval) throw new HttpError(404, "approval-not-found");
-  if (!body.userConfirmation || body.userConfirmation.length < 8) {
+  if (!body.userConfirmation || body.userConfirmation.length < MIN_USER_CONFIRMATION_LENGTH) {
     throw new HttpError(422, "user-confirmation-required");
   }
   approval.status = "approved";
@@ -188,24 +188,16 @@ export async function handleExecute(
   const approval = store.approvals.get(action.approvalId);
   if (!approval) throw new HttpError(409, "approval-missing");
   const caseRecord = store.getCaseOrThrow(action.caseId);
-  const decision = canExecuteWithApproval(approval);
-  if (!decision.allowed) {
-    action.executionStatus = "blocked";
-    throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
-  }
-  const executed = await executeApprovedAction({
+  const executed = await executeApprovedActionFlow({
     store,
     action,
     approval,
     trustCenterConfig: await loadTrustCenterConfig(),
     walletAddress: body.walletAddress,
     operatorEmailRelay: caseRecord.casePreferences?.operatorEmailRelay !== false,
-    handoff: body
+    handoff: body,
+    blockActionOnDeny: true
   });
-  action.executionStatus = resolveExecutionStatusAfterExecute(executed);
-  action.executedAt = new Date().toISOString();
-  action.executionRecord = executed.executionRecord;
-  approval.status = "used";
   await emitCaseWebhook(store, action.caseId, "action.executed", {
     actionId: action.id,
     brokerId: action.brokerId,

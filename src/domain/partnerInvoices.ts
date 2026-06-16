@@ -1,4 +1,5 @@
 import { CREDITS_PER_USD } from "./credits.js";
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { PARTNER_METER_RATES } from "./partnerBilling.js";
 import type { PartnerInvoice, PartnerInvoiceLine, PartnerMeterKind, PartnerRecord } from "./types.js";
@@ -8,7 +9,7 @@ const PERIOD_RE = /^\d{4}-\d{2}$/;
 export function normalizeInvoicePeriod(period: string): string {
   const trimmed = period.trim();
   if (!PERIOD_RE.test(trimmed)) {
-    throw Object.assign(new Error("invalid-invoice-period"), { statusCode: 422 });
+    throw new DomainError("invalid-invoice-period", 422);
   }
   return trimmed;
 }
@@ -50,7 +51,7 @@ export function listPartnerInvoices(store: MemoryStore, partnerId: string) {
 export function getPartnerInvoice(store: MemoryStore, partnerId: string, invoiceId: string) {
   const invoice = store.partnerInvoices.get(invoiceId);
   if (!invoice || invoice.partnerId !== partnerId) {
-    throw Object.assign(new Error("invoice-not-found"), { statusCode: 404 });
+    throw new DomainError("invoice-not-found", 404);
   }
   return invoice;
 }

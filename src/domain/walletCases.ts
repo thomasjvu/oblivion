@@ -1,4 +1,5 @@
 import { publicCaseView } from "./cases.js";
+import { DomainError } from "./errors.js";
 import { walletKeyFromAddress } from "./credits.js";
 import type { CaseRecord } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -18,14 +19,14 @@ export function linkCaseToWallet(
   walletAddress: string
 ): CaseRecord {
   if (!walletAddress.startsWith("0x")) {
-    throw Object.assign(new Error("wallet-address-invalid"), { statusCode: 422 });
+    throw new DomainError("wallet-address-invalid", 422);
   }
   const walletKey = walletKeyFromAddress(walletAddress);
   const paidSession = store
     .paymentSessionsForCase(caseRecord.id)
     .find((session) => session.status === "paid" && session.walletKey === walletKey);
   if (!paidSession && caseRecord.activatedWalletKey && caseRecord.activatedWalletKey !== walletKey) {
-    throw Object.assign(new Error("wallet-case-mismatch"), { statusCode: 403 });
+    throw new DomainError("wallet-case-mismatch", 403);
   }
   const updated: CaseRecord = {
     ...caseRecord,

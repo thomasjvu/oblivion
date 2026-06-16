@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { buildAttestationProof } from "../../../domain/attestation.js";
-import { buildTrustPrivacyResponse } from "../../../domain/trustPrivacy.js";
+import { handleTrustAttestation, handleTrustPrivacy } from "../../handlers/trustHandlers.js";
 import { sendJson } from "../../http.js";
 import type { ConsumerContext } from "./context.js";
 
@@ -14,14 +13,13 @@ export async function handleConsumerTrustRoutes(
   const method = request.method ?? "GET";
 
   if (method === "GET" && url.pathname === "/api/trust/attestation") {
-    const config = await loadTrustCenterConfig();
     const fetchLive = url.searchParams.get("live") !== "0";
-    sendJson(response, 200, await buildAttestationProof(config, { fetchLive }));
+    sendJson(response, 200, await handleTrustAttestation(loadTrustCenterConfig, fetchLive));
     return true;
   }
 
   if (method === "GET" && url.pathname === "/api/trust/privacy") {
-    sendJson(response, 200, buildTrustPrivacyResponse("consumer"));
+    sendJson(response, 200, handleTrustPrivacy("consumer"));
     return true;
   }
 

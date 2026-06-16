@@ -1,3 +1,4 @@
+import { DomainError } from "../domain/errors.js";
 import type {
   ActionRequest,
   AgentDelegation,
@@ -61,7 +62,7 @@ export class MemoryStore implements OblivionRepository {
   getCaseOrThrow(caseId: string): CaseRecord {
     const caseRecord = this.cases.get(caseId);
     if (!caseRecord || caseRecord.deletedAt) {
-      throw Object.assign(new Error("case-not-found"), { statusCode: 404 });
+      throw new DomainError("case-not-found", 404);
     }
     return caseRecord;
   }

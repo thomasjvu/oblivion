@@ -1,4 +1,4 @@
-import { publicCaseView } from "../../domain/cases.js";
+import { buildCaseExportBundle } from "../../domain/exportPrivacy.js";
 import { purgeCaseData } from "../../domain/purgeCase.js";
 import { recordPartnerDataAccess } from "../../domain/partnerAudit.js";
 import { emitCaseDeletedWebhook } from "../../domain/webhooks.js";
@@ -32,22 +32,5 @@ export async function deleteCaseRecord(
 }
 
 export function exportCaseBundle(store: MemoryStore, caseRecord: CaseRecord) {
-  return {
-    exportedAt: new Date().toISOString(),
-    case: publicCaseView(caseRecord),
-    approvals: store.approvalsForCase(caseRecord.id),
-    actions: store.actionsForCase(caseRecord.id),
-    exposures: store.exposuresForCase(caseRecord.id),
-    sourceChecks: [...store.sourceChecks.values()].filter((sourceCheck) => sourceCheck.caseId === caseRecord.id),
-    followUps: store.followUpsForCase(caseRecord.id),
-    paymentSessions: store.paymentSessionsForCase(caseRecord.id),
-    permissionGrants: store.permissionGrantsForCase(caseRecord.id),
-    relayerEvents: store.relayerEventsForCase(caseRecord.id),
-    veniceAnalyses: store.veniceAnalysesForCase(caseRecord.id),
-    agentDelegations: store.agentDelegationsForCase(caseRecord.id),
-    agentMessages: store.agentMessagesForCase(caseRecord.id),
-    agentTimeline: store.agentTimelineForCase(caseRecord.id),
-    agentPlan: store.agentPlanForCase(caseRecord.id) ?? null,
-    connectorResults: store.connectorResultsForCase(caseRecord.id)
-  };
+  return buildCaseExportBundle(store, caseRecord, "consumer");
 }

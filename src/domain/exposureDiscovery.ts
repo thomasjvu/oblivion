@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import {
   BROKER_HOST_HINT,
   brokerCatalogEntryById,
@@ -108,7 +109,7 @@ export async function fetchBraveSearchCandidates(query: string): Promise<Discove
     }
   });
   if (!response.ok) {
-    throw Object.assign(new Error(`brave-search-${response.status}`), { statusCode: 502 });
+    throw new DomainError(`brave-search-${response.status}`, 502);
   }
   const json = (await response.json()) as {
     web?: { results?: Array<{ url?: string; title?: string; description?: string }> };

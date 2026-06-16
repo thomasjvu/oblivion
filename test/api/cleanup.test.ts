@@ -50,7 +50,7 @@ test("high-risk safety plan stops at candidate confirmation", async () => {
     for (let index = 0; index < 5; index += 1) {
       const next = await get(base, `/api/agent/next?caseId=${caseId}`);
       if (next.blockedReasons?.includes("candidate-confirmation-needed")) break;
-      await post(base, "/api/agent/run-next", { caseId });
+      await post(base, `/api/cases/${caseId}/agent/run`, {});
     }
 
     const blocked = await get(base, `/api/agent/next?caseId=${caseId}`);

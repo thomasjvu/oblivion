@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import type { PartnerMeterKind, PartnerRecord, PartnerUsageEntry } from "./types.js";
 
@@ -23,7 +24,7 @@ export function creditPartnerPool(
   credits: number
 ): PartnerRecord {
   if (!Number.isFinite(credits) || credits <= 0) {
-    throw Object.assign(new Error("invalid-credit-amount"), { statusCode: 422 });
+    throw new DomainError("invalid-credit-amount", 422);
   }
   partner.balanceCredits += credits;
   partner.updatedAt = new Date().toISOString();
@@ -46,7 +47,7 @@ export function meterPartnerCredits(
 ): PartnerRecord {
   if (!Number.isFinite(credits) || credits <= 0) return partner;
   if (partner.balanceCredits < credits) {
-    throw Object.assign(new Error("partner-credits-insufficient"), { statusCode: 402 });
+    throw new DomainError("partner-credits-insufficient", 402);
   }
   partner.balanceCredits -= credits;
   partner.updatedAt = new Date().toISOString();
@@ -79,7 +80,7 @@ export function assertPartnerAiBudget(store: MemoryStore, caseId: string, tokens
   if (!partner) return;
   const required = partnerAiCreditsForTokens(tokensEstimate);
   if (partner.balanceCredits < required) {
-    throw Object.assign(new Error("partner-credits-insufficient"), { statusCode: 402 });
+    throw new DomainError("partner-credits-insufficient", 402);
   }
 }
 

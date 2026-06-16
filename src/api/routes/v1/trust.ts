@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { buildAttestationProof } from "../../../domain/attestation.js";
-import { buildPartnerRuntimeBadge } from "../../../domain/partnerRuntime.js";
-import { buildTrustPrivacyResponse } from "../../../domain/trustPrivacy.js";
+import {
+  handlePartnerRuntimeBadge,
+  handleTrustAttestation,
+  handleTrustPrivacy
+} from "../../handlers/trustHandlers.js";
 import { sendJson } from "../../http.js";
 import type { V1Context } from "./context.js";
 
@@ -14,21 +16,20 @@ export async function handleV1TrustRoutes(
   const { loadTrustCenterConfig } = context;
   const method = request.method ?? "GET";
   const pathname = url.pathname;
+  const fetchLive = url.searchParams.get("live") !== "0";
 
   if (method === "GET" && pathname === "/v1/trust/attestation") {
-    const config = await loadTrustCenterConfig();
-    const fetchLive = url.searchParams.get("live") !== "0";
-    sendJson(response, 200, await buildAttestationProof(config, { fetchLive }));
+    sendJson(response, 200, await handleTrustAttestation(loadTrustCenterConfig, fetchLive));
     return true;
   }
 
   if (method === "GET" && pathname === "/v1/trust/runtime") {
-    sendJson(response, 200, await buildPartnerRuntimeBadge(loadTrustCenterConfig, url.searchParams.get("live") !== "0"));
+    sendJson(response, 200, await handlePartnerRuntimeBadge(loadTrustCenterConfig, fetchLive));
     return true;
   }
 
   if (method === "GET" && pathname === "/v1/trust/privacy") {
-    sendJson(response, 200, buildTrustPrivacyResponse("partner"));
+    sendJson(response, 200, handleTrustPrivacy("partner"));
     return true;
   }
 

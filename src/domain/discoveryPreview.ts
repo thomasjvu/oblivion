@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import {
   brokerCatalogEntryById,
@@ -60,9 +61,7 @@ export function assertPreviewQuota(store: MemoryStore, ip: string, walletAddress
   if (!previewQuotaEnabled()) return;
   const remaining = previewUsageRemaining(store, ip, walletAddress);
   if (remaining !== null && remaining <= 0) {
-    throw Object.assign(new Error("preview-quota-exceeded"), {
-      statusCode: 429,
-      code: "preview-quota-exceeded",
+    throw new DomainError("preview-quota-exceeded", 429, {
       limit: previewDailyLimit()
     });
   }
@@ -140,7 +139,7 @@ export async function runDiscoveryPreview(input: {
     sensitiveConstraints: []
   };
   if (!scope.personLabel || scope.personLabel === "Unknown") {
-    throw Object.assign(new Error("person-label-required"), { statusCode: 422 });
+    throw new DomainError("person-label-required", 422);
   }
 
   const sweepScope = {

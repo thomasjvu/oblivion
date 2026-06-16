@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
-import { buildStatus } from "./orchestration.js";
+import { buildStatus } from "./status.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type {
   FollowUp,
@@ -166,13 +167,13 @@ export async function retryWebhookDelivery(
 ): Promise<PartnerWebhookDelivery> {
   const delivery = store.webhookDeliveries.get(deliveryId);
   if (!delivery || delivery.partnerId !== partner.id) {
-    throw Object.assign(new Error("webhook-delivery-not-found"), { statusCode: 404 });
+    throw new DomainError("webhook-delivery-not-found", 404);
   }
   if (delivery.status === "delivered") {
-    throw Object.assign(new Error("webhook-already-delivered"), { statusCode: 409 });
+    throw new DomainError("webhook-already-delivered", 409);
   }
   if ((delivery.attemptCount || 0) >= WEBHOOK_MAX_RETRIES) {
-    throw Object.assign(new Error("webhook-max-retries-exceeded"), { statusCode: 409 });
+    throw new DomainError("webhook-max-retries-exceeded", 409);
   }
   delivery.status = "pending";
   delivery.nextRetryAt = undefined;

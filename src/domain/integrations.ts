@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import {
   deploymentEnvironment,
   deploymentProfile,
@@ -76,8 +77,7 @@ export function oblivionPublicApiUrl(): string {
 export function oneShotWebhookDestinationUrl(caseId: string, sessionId?: string): string {
   const base = oblivionPublicApiUrl();
   if (!base) {
-    throw Object.assign(new Error("oblivion-public-api-url-required"), {
-      statusCode: 503,
+    throw new DomainError("oblivion-public-api-url-required", 503, {
       message: "Set OBLIVION_PUBLIC_API_URL to your public API origin for 1Shot webhooks."
     });
   }

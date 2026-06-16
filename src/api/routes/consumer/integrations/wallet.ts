@@ -4,7 +4,7 @@ import {
   createEip7702Authorization,
   createErc7715Permission,
   resolveSmartAccountAddress
-} from "../../../../domain/hackathon.js";
+} from "../../../../domain/walletSession.js";
 import { redactText } from "../../../../domain/redaction.js";
 import { deploymentEnvironment, deploymentProfile, walletChainConfig } from "../../../../domain/deploymentEnv.js";
 import { getCaseWithAccess } from "../../../auth.js";

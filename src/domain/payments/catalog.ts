@@ -1,3 +1,4 @@
+import { DomainError } from "../errors.js";
 import type { PaymentMode, PaymentProduct } from "../types.js";
 
 export const X402_PRODUCTS: PaymentProduct[] = [
@@ -28,6 +29,6 @@ export const X402_PRODUCTS: PaymentProduct[] = [
 
 export function productForMode(mode: PaymentMode, productId?: string): PaymentProduct {
   const product = X402_PRODUCTS.find((item) => item.mode === mode && (!productId || item.id === productId));
-  if (!product) throw Object.assign(new Error("payment-product-not-found"), { statusCode: 404 });
+  if (!product) throw new DomainError("payment-product-not-found", 404);
   return product;
 }

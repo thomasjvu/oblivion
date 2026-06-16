@@ -1,4 +1,5 @@
 import { generateCaseAccessToken, hashCaseAccessToken } from "./caseAccess.js";
+import { DomainError } from "./errors.js";
 import { redactText } from "./redaction.js";
 import type {
   AuthorityBasis,
@@ -24,10 +25,10 @@ export interface CreateCaseInput {
 
 export function createCaseRecord(body: CreateCaseInput): { caseRecord: CaseRecord; accessToken?: string } {
   if (!["US", "EU", "UK"].includes(body.jurisdiction)) {
-    throw Object.assign(new Error("unsupported-jurisdiction"), { statusCode: 422 });
+    throw new DomainError("unsupported-jurisdiction", 422);
   }
   if (!body.authorityBasis) {
-    throw Object.assign(new Error("authority-basis-required"), { statusCode: 422 });
+    throw new DomainError("authority-basis-required", 422);
   }
   const now = new Date().toISOString();
   const id = `case_${crypto.randomUUID()}`;
@@ -59,7 +60,7 @@ export function publicCaseView(caseRecord: CaseRecord): CaseRecord {
 
 export function validateEncryptedBlob(blob: EncryptedBlob): void {
   if (!blob || blob.alg !== "AES-256-GCM" || !blob.keyId || !blob.nonce || !blob.ciphertext) {
-    throw Object.assign(new Error("valid-encrypted-intake-required"), { statusCode: 422 });
+    throw new DomainError("valid-encrypted-intake-required", 422);
   }
 }
 

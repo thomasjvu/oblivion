@@ -47,7 +47,7 @@ test("complete-pending shortcut route is removed", async () => {
   }
 });
 
-test("agent run-next endpoint requires a cleanup preset and advances the cleanup plan", async () => {
+test("agent run endpoint requires a cleanup preset and advances the cleanup plan", async () => {
   delete process.env.OBLIVION_CREDITS_BYPASS;
   delete process.env.OBLIVION_AI_BYPASS_PAYMENT;
   delete process.env.HACKATHON_MODE;
@@ -62,7 +62,7 @@ test("agent run-next endpoint requires a cleanup preset and advances the cleanup
 
     const nextWithoutPreset = await get(base, `/api/agent/next?caseId=${caseId}`);
     assert.equal(nextWithoutPreset.action, "select-preset");
-    await post(base, "/api/agent/run-next", { caseId }, 402);
+    await post(base, `/api/cases/${caseId}/agent/run`, {}, 402);
 
     await post(base, `/api/cases/${caseId}/intake`, {
       encryptedIntake: encryptedBlob(caseId),
@@ -75,7 +75,7 @@ test("agent run-next endpoint requires a cleanup preset and advances the cleanup
     });
 
     activateTestCase(store, caseId);
-    await post(base, "/api/agent/run-next", { caseId }, 409);
+    await post(base, `/api/cases/${caseId}/agent/run`, {}, 409);
     await post(base, `/api/cases/${caseId}/preset`, { presetId: "people-search-cleanup" }, 201);
     const run = await post(base, `/api/cases/${caseId}/agent/run`, {}, 200);
     assert.ok(run.plan);

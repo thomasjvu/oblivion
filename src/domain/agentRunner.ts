@@ -18,11 +18,10 @@ import {
 } from "./cleanup.js";
 import { emitCaseCompletedWebhook, emitRecheckScheduledWebhooks } from "./webhooks.js";
 import { discoverExposureCandidates, discoveryReadinessMessage } from "./exposureDiscovery.js";
-import { executeApprovedAction, resolveExecutionStatusAfterExecute } from "./executor.js";
+import { executeApprovedActionFlow } from "./executor.js";
 import { createTimelineEvent } from "./agentTimeline.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
-import { canExecuteWithApproval } from "./policy.js";
 import type { AgentPlan, CaseRecord, ConnectorResult, Exposure } from "./types.js";
 import { HttpError } from "../api/errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -31,7 +30,7 @@ import {
   buildAgentNextStep,
   buildHackathonStatusForCase,
   buildStatus
-} from "./orchestration.js";
+} from "./status.js";
 
 export async function runCleanupAgentStep(input: {
   store: MemoryStore;
@@ -107,40 +106,6 @@ export async function runCleanupAgentStep(input: {
       );
       input.store.agentTimeline.set(timeline.id, timeline);
       artifacts.push({ exposures: discovered, connector, timeline });
-    }
-  } else if (updatedPlan.currentStep === "confirm-matches") {
-    const caseStatus = buildStatus(input.store, input.caseRecord.id);
-    if (caseStatus.pendingFindings.length > 0) {
-      updatedPlan = {
-        ...updatedPlan,
-        blockedReasons: ["candidate-confirmation-needed"],
-        nextUserDecision: `Review ${caseStatus.pendingFindings.length} pending link(s): confirm yours or mark Not me.`,
-        updatedAt: new Date().toISOString()
-      };
-      updatedPlan.visualNodes = advanceAgentPlan({
-        plan: updatedPlan,
-        caseRecord: input.caseRecord,
-        findingsCount: caseStatus.confirmedFindings.length,
-        pendingFindingsCount: caseStatus.pendingFindings.length,
-        approvalsPending: 0,
-        actionsReady: 0,
-        submittedActions: 0,
-        trustPass: trustProof.verifierResult === "pass"
-      }).visualNodes.map((node) => (node.id === "confirm-matches" ? { ...node, status: "blocked" as const } : node));
-      input.store.agentPlans.set(updatedPlan.id, updatedPlan);
-      artifacts.push({ blocked: "candidate-confirmation-needed", pending: caseStatus.pendingFindings.length });
-      return buildAgentRunResponse(input.store, input.caseRecord.id, before, artifacts);
-    }
-    if (caseStatus.confirmedFindings.length === 0) {
-      updatedPlan = {
-        ...updatedPlan,
-        blockedReasons: ["no-confirmed-matches"],
-        nextUserDecision: "Confirm at least one listing or paste more URLs and discover again.",
-        updatedAt: new Date().toISOString()
-      };
-      input.store.agentPlans.set(updatedPlan.id, updatedPlan);
-      artifacts.push({ blocked: "no-confirmed-matches" });
-      return buildAgentRunResponse(input.store, input.caseRecord.id, before, artifacts);
     }
   } else if (updatedPlan.currentStep === "verify-removal-path") {
     const confirmedCount = buildStatus(input.store, input.caseRecord.id).confirmedFindings.length;
@@ -248,19 +213,13 @@ export async function runCleanupAgentStep(input: {
     if (action) {
       const approval = input.store.approvals.get(action.approvalId);
       if (!approval) throw new HttpError(409, "approval-missing");
-      const decision = canExecuteWithApproval(approval);
-      if (!decision.allowed) throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
-      const executed = await executeApprovedAction({
+      const executed = await executeApprovedActionFlow({
         store: input.store,
         action,
         approval,
         trustCenterConfig: await input.trustCenterConfig(),
         handoff: buildExecuteHandoffFromStore(input.store, action)
       });
-      action.executionStatus = resolveExecutionStatusAfterExecute(executed);
-      action.executedAt = new Date().toISOString();
-      action.executionRecord = executed.executionRecord;
-      approval.status = "used";
       const timeline = createTimelineEvent(
         input.caseRecord.id,
         "OblivionRoot",

@@ -15,8 +15,7 @@ export function hasSubscriptionEntitlement(state) {
 }
 
 export function caseIsActivated(state) {
-  if (state.currentStatus?.activated) return true;
-  return hasEntitledPayment(state, state.selectedPaymentMode || "one-off");
+  return state.currentStatus?.activated === true;
 }
 
 export async function refreshIntegrationsStatus(state, request) {

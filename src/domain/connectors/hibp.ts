@@ -1,4 +1,5 @@
 import { pwnedPasswordRangeUrl } from "../cleanup.js";
+import { DomainError } from "../errors.js";
 import { followUpDate } from "../deadlines.js";
 import type { ConnectorResult } from "../types.js";
 
@@ -30,7 +31,7 @@ export async function fetchHibpPasswordRange(hashPrefix: string): Promise<{
 
 export async function fetchHibpEmailBreach(email: string): Promise<Response> {
   if (!process.env.HIBP_API_KEY?.trim()) {
-    throw Object.assign(new Error("hibp-api-key-not-configured"), { statusCode: 503 });
+    throw new DomainError("hibp-api-key-not-configured", 503);
   }
   return fetch(
     `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(email)}?truncateResponse=true`,

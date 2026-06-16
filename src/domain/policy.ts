@@ -1,10 +1,15 @@
-import type {
-  ActionType,
-  Approval,
-  AuthorityBasis,
-  IdentifierCategory
-} from "./types.js";
+import type { ActionType, Approval, AuthorityBasis, IdentifierCategory } from "./types.js";
 import { detectForbiddenSecrets } from "./redaction.js";
+import {
+  ACTION_POLICY_MATRIX,
+  ALL_ACTION_TYPES,
+  PROHIBITED_ACTION_TERMS,
+  actionPolicySpec,
+  requiresSourceVerificationForAction
+} from "./policyMatrix.js";
+
+export { ACTION_POLICY_MATRIX, ALL_ACTION_TYPES, actionPolicySpec, requiresSourceVerificationForAction };
+export { requiresSourceVerificationForAction as requiresSourceVerification };
 
 const SENSITIVE_IDENTIFIERS = new Set<IdentifierCategory>([
   "email",
@@ -19,15 +24,6 @@ const SENSITIVE_IDENTIFIERS = new Set<IdentifierCategory>([
   "password",
   "payment"
 ]);
-
-const PROHIBITED_ACTION_TERMS = [
-  "dark web",
-  "breach dump",
-  "stolen database",
-  "buy leaked",
-  "leaked credentials",
-  "forum dump"
-];
 
 export interface PolicyDecision {
   allowed: boolean;
@@ -55,18 +51,23 @@ export function evaluateProposedAction(input: ProposedActionInput): PolicyDecisi
   const reasons: string[] = [];
   const combinedText = `${input.destination} ${input.purpose} ${input.plaintextPreview ?? ""}`.toLowerCase();
   const forbiddenSecrets = detectForbiddenSecrets(input.plaintextPreview ?? "");
+  const spec = actionPolicySpec(input.actionType);
 
   if (!input.authorityBasis) reasons.push("missing-authority-basis");
   if (!input.destination.trim()) reasons.push("missing-destination");
   if (!input.purpose.trim()) reasons.push("missing-purpose");
   if (forbiddenSecrets.length > 0) reasons.push(...forbiddenSecrets);
-  if (input.dataToDisclose.includes("password")) reasons.push("password-disclosure-blocked");
-  if (input.dataToDisclose.includes("ssn")) reasons.push("ssn-disclosure-blocked");
-  if (input.dataToDisclose.includes("payment")) reasons.push("payment-disclosure-blocked");
+  for (const category of spec.blockedDisclosureCategories) {
+    if (input.dataToDisclose.includes(category)) {
+      if (category === "password") reasons.push("password-disclosure-blocked");
+      else if (category === "ssn") reasons.push("ssn-disclosure-blocked");
+      else if (category === "payment") reasons.push("payment-disclosure-blocked");
+    }
+  }
   if (PROHIBITED_ACTION_TERMS.some((term) => combinedText.includes(term))) {
     reasons.push("dark-web-or-breach-dump-access-blocked");
   }
-  if (requiresSourceVerification(input.actionType) && !input.sourceVerified) {
+  if (spec.requiresSourceVerification && !input.sourceVerified) {
     reasons.push("source-verification-required");
   }
 
@@ -83,20 +84,6 @@ export function evaluateProposedAction(input: ProposedActionInput): PolicyDecisi
     reasons,
     requiresApproval
   };
-}
-
-export function requiresSourceVerification(actionType: ActionType): boolean {
-  return [
-    "broker-opt-out",
-    "search-result-removal",
-    "gdpr-erasure",
-    "uk-gdpr-erasure",
-    "hibp-email-check",
-    "follow-up",
-    "escalation-draft",
-    "dmca-takedown",
-    "platform-abuse-report"
-  ].includes(actionType);
 }
 
 export function canExecuteWithApproval(approval: Approval, now = new Date()): PolicyDecision {

@@ -19,7 +19,8 @@ import { buildPartnerCaseExport, recordPartnerDataAccess } from "../../../domain
 import { meterPartnerUsage } from "../../../domain/partnerBilling.js";
 import { partnerPresetAllowlist } from "../../../domain/partners.js";
 import { buildPartnerCaseStatus, buildPartnerRiskSummary } from "../../../domain/partnerStatus.js";
-import { buildStatus } from "../../../domain/orchestration.js";
+import { withPartnerCase } from "../../handlers/caseRouteAdapters.js";
+import { buildStatus } from "../../../domain/status.js";
 import { emitCaseWebhook } from "../../../domain/webhooks.js";
 import { HttpError } from "../../errors.js";
 import { readJson, sendJson } from "../../http.js";
@@ -93,10 +94,11 @@ export async function handleV1CaseRoutes(
   const intakeMatch = pathname.match(/^\/v1\/cases\/([^/]+)\/intake$/);
   if (method === "POST" && intakeMatch) {
     const body = await readJson<IntakeBody>(request);
-    const caseRecord = store.getCaseOrThrow(intakeMatch[1]);
-    assertPartnerOwnsCase(partner, caseRecord);
-    handleCaseIntake(store, caseRecord, body);
-    sendJson(response, 200, { case: summarizePartnerCase(caseRecord), status: buildStatus(store, caseRecord.id) });
+    const result = await withPartnerCase(partner, store, intakeMatch[1], (caseRecord) => {
+      handleCaseIntake(store, caseRecord, body);
+      return { case: summarizePartnerCase(caseRecord), status: buildStatus(store, caseRecord.id) };
+    });
+    sendJson(response, 200, result);
     return true;
   }
 
@@ -219,36 +221,33 @@ export async function handleV1CaseRoutes(
 
   const discoverMatch = pathname.match(/^\/v1\/cases\/([^/]+)\/discover$/);
   if (method === "POST" && discoverMatch) {
-    const caseRecord = store.getCaseOrThrow(discoverMatch[1]);
-    assertPartnerOwnsCase(partner, caseRecord);
-    meterPartnerUsage(store, partner, "discover", caseRecord.id);
+    meterPartnerUsage(store, partner, "discover", discoverMatch[1]);
     const body = await readJson<{ pastedUrls?: string[] }>(request);
-    const plan = store.agentPlanForCase(caseRecord.id);
-    const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(
-      store,
-      caseRecord,
-      body,
-      plan?.presetId
-    );
-    sendJson(response, 201, {
-      discovered,
-      discovery,
-      discoveryPlan,
-      partnerStatus: buildPartnerCaseStatus(store, caseRecord.id)
+    const result = await withPartnerCase(partner, store, discoverMatch[1], async (caseRecord) => {
+      const plan = store.agentPlanForCase(caseRecord.id);
+      const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(
+        store,
+        caseRecord,
+        body,
+        plan?.presetId
+      );
+      return { discovered, discovery, discoveryPlan };
     });
+    sendJson(response, 201, result);
     return true;
   }
 
   const exposureDecisionMatch = pathname.match(/^\/v1\/cases\/([^/]+)\/exposures\/([^/]+)\/(confirm|reject)$/);
   if (method === "POST" && exposureDecisionMatch) {
-    const caseRecord = store.getCaseOrThrow(exposureDecisionMatch[1]);
-    assertPartnerOwnsCase(partner, caseRecord);
     const decision = exposureDecisionMatch[3] === "confirm" ? "confirmed" : "rejected";
-    const { exposure } = handleFindingDecision(store, caseRecord, exposureDecisionMatch[2], decision, {
-      notFoundError: "exposure-not-found",
-      createTimeline: false
+    const result = await withPartnerCase(partner, store, exposureDecisionMatch[1], (caseRecord) => {
+      const { exposure } = handleFindingDecision(store, caseRecord, exposureDecisionMatch[2], decision, {
+        notFoundError: "exposure-not-found",
+        createTimeline: false
+      });
+      return { exposure };
     });
-    sendJson(response, 200, { exposure, partnerStatus: buildPartnerCaseStatus(store, caseRecord.id) });
+    sendJson(response, 200, result);
     return true;
   }
 
@@ -269,11 +268,12 @@ export async function handleV1CaseRoutes(
   if (method === "POST" && approveMatch) {
     const approval = store.approvals.get(approveMatch[1]);
     if (!approval) throw new HttpError(404, "approval-not-found");
-    const caseRecord = store.getCaseOrThrow(approval.caseId);
-    assertPartnerOwnsCase(partner, caseRecord);
     const body = await readJson<{ userConfirmation: string }>(request);
-    const { approval: approvedApproval } = await handleApprove(store, approveMatch[1], body);
-    sendJson(response, 200, { approval: approvedApproval, partnerStatus: buildPartnerCaseStatus(store, caseRecord.id) });
+    const result = await withPartnerCase(partner, store, approval.caseId, async () => {
+      const { approval: approvedApproval } = await handleApprove(store, approveMatch[1], body);
+      return { approval: approvedApproval };
+    });
+    sendJson(response, 200, result);
     return true;
   }
 
@@ -281,22 +281,22 @@ export async function handleV1CaseRoutes(
   if (method === "POST" && executeMatch) {
     const action = store.actions.get(executeMatch[1]);
     if (!action) throw new HttpError(404, "action-not-found");
-    const caseRecord = store.getCaseOrThrow(action.caseId);
-    assertPartnerOwnsCase(partner, caseRecord);
     const body = await readJson<{ hashPrefix?: string; emailLabel?: string; sourceUrl?: string }>(request);
-    const { action: executedAction, executed } = await handleExecute(
-      store,
-      executeMatch[1],
-      body,
-      loadTrustCenterConfig
-    );
-    meterPartnerUsage(store, partner, "execute", caseRecord.id);
-    sendJson(response, 200, {
-      action: executedAction,
-      executorMode: executed.mode,
-      connectorResult: executed.connectorResult,
-      partnerStatus: buildPartnerCaseStatus(store, caseRecord.id)
+    const result = await withPartnerCase(partner, store, action.caseId, async (caseRecord) => {
+      const { action: executedAction, executed } = await handleExecute(
+        store,
+        executeMatch[1],
+        body,
+        loadTrustCenterConfig
+      );
+      meterPartnerUsage(store, partner, "execute", caseRecord.id);
+      return {
+        action: executedAction,
+        executorMode: executed.mode,
+        connectorResult: executed.connectorResult
+      };
     });
+    sendJson(response, 200, result);
     return true;
   }
 

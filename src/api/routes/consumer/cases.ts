@@ -11,7 +11,9 @@ import {
 } from "../../handlers/caseHandlers.js";
 import { buildAgentPlanView, CLEANUP_PRESETS, presetUsesBrokerDiscovery, presetUsesContentDiscovery } from "../../../domain/cleanup.js";
 import { createTimelineEvent } from "../../../domain/agentTimeline.js";
-import { buildStatus, proposeApprovedAction } from "../../../domain/orchestration.js";
+import { proposeApprovedAction } from "../../../domain/approvals.js";
+import { buildStatus } from "../../../domain/status.js";
+import { isEvmAddress } from "../../../domain/constants.js";
 import { describeDiscoveryPlan, discoveryReadinessMessage } from "../../../domain/exposureDiscovery.js";
 import {
   assertCreditsForDiscovery,
@@ -29,6 +31,12 @@ import { walletAddressForCase } from "../../../domain/walletCases.js";
 import { createCaseRecord, publicCaseView } from "../../../domain/cases.js";
 import { emitApprovalPendingWebhook } from "../../../domain/webhooks.js";
 import type { AutonomyMode, PresetId } from "../../../domain/types.js";
+import {
+  resolveConsumerCaseForAction,
+  resolveConsumerCaseForApproval,
+  withActivatedConsumerCase,
+  withConsumerCase
+} from "../../handlers/caseRouteAdapters.js";
 import { getCaseWithAccess } from "../../auth.js";
 import { HttpError } from "../../errors.js";
 import { readJson, sendJson } from "../../http.js";
@@ -61,11 +69,10 @@ export async function handleConsumerCaseRoutes(
 
   const caseReadMatch = url.pathname.match(/^\/api\/cases\/([^/]+)$/);
   if (method === "GET" && caseReadMatch) {
-    const caseRecord = getCaseWithAccess(request, store, caseReadMatch[1]);
-    sendJson(response, 200, {
-      case: publicCaseView(caseRecord),
-      status: buildStatus(store, caseRecord.id)
-    });
+    const result = await withConsumerCase(request, store, caseReadMatch[1], (caseRecord) => ({
+      case: publicCaseView(caseRecord)
+    }));
+    sendJson(response, 200, result);
     return true;
   }
 
@@ -74,19 +81,16 @@ export async function handleConsumerCaseRoutes(
     const body = await readJson<{ presetId: PresetId; autonomyMode?: AutonomyMode; walletAddress?: string }>(
       request
     );
-    let caseRecord = getCaseWithAccess(request, store, presetMatch[1]);
-    if (body.walletAddress?.startsWith("0x")) {
-      const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
-      if (activated) caseRecord = activated;
-    }
-    assertCaseActivated(store, caseRecord);
-    const { preset, plan, timeline } = await handleApplyPreset(store, caseRecord, body);
-    sendJson(response, 201, {
-      preset,
-      plan,
-      timeline,
-      status: buildStatus(store, caseRecord.id)
+    const result = await withConsumerCase(request, store, presetMatch[1], async (caseRecord) => {
+      if (isEvmAddress(body.walletAddress)) {
+        const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
+        if (activated) Object.assign(caseRecord, activated);
+      }
+      assertCaseActivated(store, caseRecord);
+      const { preset, plan, timeline } = await handleApplyPreset(store, caseRecord, body);
+      return { preset, plan, timeline };
     });
+    sendJson(response, 201, result);
     return true;
   }
 
@@ -118,78 +122,82 @@ export async function handleConsumerCaseRoutes(
   const intakeMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/intake$/);
   if (method === "POST" && intakeMatch) {
     const body = await readJson<IntakeBody>(request);
-    const caseRecord = getCaseWithAccess(request, store, intakeMatch[1]);
-    handleCaseIntake(store, caseRecord, body);
-    sendJson(response, 200, {
-      case: publicCaseView(caseRecord),
-      status: buildStatus(store, caseRecord.id)
+    const result = await withConsumerCase(request, store, intakeMatch[1], (caseRecord) => {
+      handleCaseIntake(store, caseRecord, body);
+      return { case: publicCaseView(caseRecord) };
     });
+    sendJson(response, 200, result);
     return true;
   }
 
   const findingsListMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings$/);
   if (method === "GET" && findingsListMatch) {
-    const caseRecord = getCaseWithAccess(request, store, findingsListMatch[1]);
-    const status = buildStatus(store, caseRecord.id);
-    const plan = store.agentPlanForCase(caseRecord.id);
-    const presetId = plan?.presetId;
-    sendJson(response, 200, {
-      findings: status.findings,
-      pendingFindings: status.pendingFindings,
-      confirmedFindings: status.confirmedFindings,
-      discovery: discoveryReadinessMessage(),
-      discoveryPlan: describeDiscoveryPlan({
-        scope: caseRecord.redactedScope,
-        pastedUrlCount: 0,
-        brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
-        contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
-      })
+    const result = await withConsumerCase(request, store, findingsListMatch[1], (caseRecord) => {
+      const status = buildStatus(store, caseRecord.id);
+      const plan = store.agentPlanForCase(caseRecord.id);
+      const presetId = plan?.presetId;
+      return {
+        findings: status.findings,
+        pendingFindings: status.pendingFindings,
+        confirmedFindings: status.confirmedFindings,
+        discovery: discoveryReadinessMessage(),
+        discoveryPlan: describeDiscoveryPlan({
+          scope: caseRecord.redactedScope,
+          pastedUrlCount: 0,
+          brokerSweep: presetId ? presetUsesBrokerDiscovery(presetId) : true,
+          contentTakedown: presetId ? presetUsesContentDiscovery(presetId) : false
+        })
+      };
     });
+    sendJson(response, 200, result);
     return true;
   }
 
   const findingsDiscoverMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/discover$/);
   if (method === "POST" && findingsDiscoverMatch) {
-    let caseRecord = getCaseWithAccess(request, store, findingsDiscoverMatch[1]);
     const body = await readJson<{ pastedUrls?: string[]; walletAddress?: string }>(request);
-    if (body.walletAddress?.startsWith("0x")) {
-      const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
-      if (activated) caseRecord = activated;
-    }
-    assertCaseActivated(store, caseRecord);
-    const walletAddress =
-      body.walletAddress?.startsWith("0x") ? body.walletAddress : walletAddressForCase(store, caseRecord.id);
-    if (!walletAddress && !creditsBypassEnabled()) {
-      throw new HttpError(422, "wallet-address-required");
-    }
-    if (walletAddress) assertCreditsForDiscovery(store, walletAddress);
-    const plan = store.agentPlanForCase(caseRecord.id);
-    const presetId = plan?.presetId;
-    const brokerSweep = presetId ? presetUsesBrokerDiscovery(presetId) : true;
     try {
-      const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(store, caseRecord, body, presetId);
-      if (walletAddress && brokerSweep) {
-        debitCreditsForDiscovery(store, walletAddress, caseRecord.id);
-      }
-      const timeline = createTimelineEvent(
-        caseRecord.id,
-        "ScoutAgent",
-        "Discovery run",
-        discovered.length
-          ? `${discovered.length} candidate link(s) added for review.`
-          : "No new candidates. Paste URLs or configure Brave search."
-      );
-      store.agentTimeline.set(timeline.id, timeline);
-      sendJson(response, 201, {
-        discovered,
-        status: buildStatus(store, caseRecord.id),
-        timeline,
-        discovery,
-        discoveryPlan,
-        credits: walletAddress ? resolveCreditsView(store, walletAddress) : undefined,
-        discoveryCreditsDebited: walletAddress && brokerSweep ? discoveryCredits() : 0
+      const result = await withConsumerCase(request, store, findingsDiscoverMatch[1], async (caseRecord) => {
+        if (isEvmAddress(body.walletAddress)) {
+          const activated = autoActivateCaseForSubscriptionWallet(store, caseRecord, body.walletAddress);
+          if (activated) Object.assign(caseRecord, activated);
+        }
+        assertCaseActivated(store, caseRecord);
+        const walletAddress = isEvmAddress(body.walletAddress)
+          ? body.walletAddress
+          : walletAddressForCase(store, caseRecord.id);
+        if (!walletAddress && !creditsBypassEnabled()) {
+          throw new HttpError(422, "wallet-address-required");
+        }
+        if (walletAddress) assertCreditsForDiscovery(store, walletAddress);
+        const plan = store.agentPlanForCase(caseRecord.id);
+        const presetId = plan?.presetId;
+        const brokerSweep = presetId ? presetUsesBrokerDiscovery(presetId) : true;
+        const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(store, caseRecord, body, presetId);
+        if (walletAddress && brokerSweep) {
+          debitCreditsForDiscovery(store, walletAddress, caseRecord.id);
+        }
+        const timeline = createTimelineEvent(
+          caseRecord.id,
+          "ScoutAgent",
+          "Discovery run",
+          discovered.length
+            ? `${discovered.length} candidate link(s) added for review.`
+            : "No new candidates. Paste URLs or configure Brave search."
+        );
+        store.agentTimeline.set(timeline.id, timeline);
+        return {
+          discovered,
+          timeline,
+          discovery,
+          discoveryPlan,
+          credits: walletAddress ? resolveCreditsView(store, walletAddress) : undefined,
+          discoveryCreditsDebited: walletAddress && brokerSweep ? discoveryCredits() : 0
+        };
       });
+      sendJson(response, 201, result);
     } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw new HttpError(502, "discovery-failed", {
         message: discoveryReadinessMessage(),
         detail: sanitizeForLog(error)
@@ -200,51 +208,48 @@ export async function handleConsumerCaseRoutes(
 
   const findingConfirmMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/([^/]+)\/(confirm|reject)$/);
   if (method === "POST" && findingConfirmMatch) {
-    const caseRecord = getCaseWithAccess(request, store, findingConfirmMatch[1]);
-    assertCaseActivated(store, caseRecord);
     const decision = findingConfirmMatch[3] === "confirm" ? "confirmed" : "rejected";
-    const { exposure, timeline, status } = handleFindingDecision(
-      store,
-      caseRecord,
-      findingConfirmMatch[2],
-      decision
-    );
-    sendJson(response, 200, { exposure, status, timeline });
+    const result = await withActivatedConsumerCase(request, store, findingConfirmMatch[1], (caseRecord) => {
+      const { exposure, timeline } = handleFindingDecision(
+        store,
+        caseRecord,
+        findingConfirmMatch[2],
+        decision
+      );
+      return { exposure, timeline };
+    });
+    sendJson(response, 200, result);
     return true;
   }
 
   if (method === "POST" && url.pathname === "/api/actions/propose") {
     const body = await readJson<ProposeActionBody>(request);
-    const caseRecord = getCaseWithAccess(request, store, body.caseId);
-    assertCaseActivated(store, caseRecord);
-    const { approval, action } = proposeApprovedAction({
-      store,
-      caseRecord,
-      body: {
-        ...body,
-        identifiers: body.identifiers ?? [],
-        dataToDisclose: body.dataToDisclose ?? []
-      }
+    const result = await withActivatedConsumerCase(request, store, body.caseId, async (caseRecord) => {
+      const { approval, action } = proposeApprovedAction({
+        store,
+        caseRecord,
+        body: {
+          ...body,
+          identifiers: body.identifiers ?? [],
+          dataToDisclose: body.dataToDisclose ?? []
+        }
+      });
+      await emitApprovalPendingWebhook(store, caseRecord.id, approval);
+      return {
+        policy: { allowed: true, reasons: [] },
+        approval,
+        action
+      };
     });
-    await emitApprovalPendingWebhook(store, caseRecord.id, approval);
-    sendJson(response, 201, {
-      policy: { allowed: true, reasons: [] },
-      approval,
-      action,
-      status: buildStatus(store, caseRecord.id)
-    });
+    sendJson(response, 201, result);
     return true;
   }
 
   const approveMatch = url.pathname.match(/^\/api\/approvals\/([^/]+)\/approve$/);
   if (method === "POST" && approveMatch) {
     const body = await readJson<{ userConfirmation: string }>(request);
-    const pendingApproval = store.approvals.get(approveMatch[1]);
-    if (!pendingApproval) throw new HttpError(404, "approval-not-found");
-    const approvalCase = getCaseWithAccess(request, store, pendingApproval.caseId);
-    assertCaseActivated(store, approvalCase);
+    resolveConsumerCaseForApproval(request, store, approveMatch[1]);
     const { approval, caseId } = await handleApprove(store, approveMatch[1], body);
-    getCaseWithAccess(request, store, caseId);
     sendJson(response, 200, { approval, status: buildStatus(store, caseId) });
     return true;
   }
@@ -252,17 +257,13 @@ export async function handleConsumerCaseRoutes(
   const executeMatch = url.pathname.match(/^\/api\/actions\/([^/]+)\/execute$/);
   if (method === "POST" && executeMatch) {
     const body = await readJson<{ hashPrefix?: string; emailLabel?: string; sourceUrl?: string; walletAddress?: string }>(request);
-    const pendingAction = store.actions.get(executeMatch[1]);
-    if (!pendingAction) throw new HttpError(404, "action-not-found");
-    const executeCase = getCaseWithAccess(request, store, pendingAction.caseId);
-    assertCaseActivated(store, executeCase);
-    const { action, approval, executed, caseRecord } = await handleExecute(
+    resolveConsumerCaseForAction(request, store, executeMatch[1]);
+    const { action, approval, executed } = await handleExecute(
       store,
       executeMatch[1],
       body,
       loadTrustCenterConfig
     );
-    getCaseWithAccess(request, store, caseRecord.id);
     sendJson(response, 200, {
       action,
       approval,

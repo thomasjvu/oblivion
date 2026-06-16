@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import {
   creditRates,
   creditsBypassEnabled,
@@ -75,9 +76,7 @@ export function markCaseActivated(
 
 export function assertCaseActivated(store: MemoryStore, caseRecord: CaseRecord): void {
   if (caseRecord.partnerId || isCaseActivated(store, caseRecord.id)) return;
-  throw Object.assign(new Error("case-activation-required"), {
-    statusCode: 402,
-    code: "case-activation-required",
+  throw new DomainError("case-activation-required", 402, {
     caseId: caseRecord.id,
     products: X402_PRODUCTS,
     rates: creditRates(),

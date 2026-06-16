@@ -1,9 +1,11 @@
 import type { TrustCenterConfig } from "./attestation.js";
 import { connectorIdForAction, runLiveConnector } from "./connectorRuntime.js";
 import { isLiveExecutorEnabled } from "./integrations.js";
+import { canExecuteWithApproval } from "./policy.js";
 import type { ActionRequest, Approval, ConnectorResult } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
+import { HttpError } from "../api/errors.js";
 
 export interface ExecuteActionInput {
   store: MemoryStore;
@@ -32,6 +34,41 @@ export function resolveExecutionStatusAfterExecute(input: {
   if (input.connectorResult?.status === "failed") return "failed";
   if (input.mode === "live" && input.connectorResult) return "executed";
   return "recorded";
+}
+
+export interface ExecuteApprovedActionFlowInput {
+  store: MemoryStore;
+  action: ActionRequest;
+  approval: Approval;
+  trustCenterConfig: TrustCenterConfig;
+  walletAddress?: string;
+  operatorEmailRelay?: boolean;
+  handoff?: ExecuteActionInput["handoff"];
+  blockActionOnDeny?: boolean;
+}
+
+export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlowInput): Promise<ExecuteActionResult> {
+  const decision = canExecuteWithApproval(input.approval);
+  if (!decision.allowed) {
+    if (input.blockActionOnDeny) {
+      input.action.executionStatus = "blocked";
+    }
+    throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
+  }
+  const executed = await executeApprovedAction({
+    store: input.store,
+    action: input.action,
+    approval: input.approval,
+    trustCenterConfig: input.trustCenterConfig,
+    walletAddress: input.walletAddress,
+    operatorEmailRelay: input.operatorEmailRelay,
+    handoff: input.handoff
+  });
+  input.action.executionStatus = resolveExecutionStatusAfterExecute(executed);
+  input.action.executedAt = new Date().toISOString();
+  input.action.executionRecord = executed.executionRecord;
+  input.approval.status = "used";
+  return executed;
 }
 
 export async function executeApprovedAction(input: ExecuteActionInput): Promise<ExecuteActionResult> {

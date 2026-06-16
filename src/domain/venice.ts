@@ -1,3 +1,4 @@
+import { DomainError } from "./errors.js";
 import { redactText } from "./redaction.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type { ActionType, VeniceAnalysis, VeniceAnalysisKind } from "./types.js";
@@ -54,7 +55,7 @@ export async function veniceWebSearch(
 ): Promise<VeniceWebSearchResult[]> {
   const apiKey = process.env.VENICE_API_KEY?.trim();
   if (!apiKey) {
-    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+    throw new DomainError("venice-not-configured", 503);
   }
   const response = await fetch(`${veniceBaseUrl()}/augment/search`, {
     method: "POST",
@@ -70,8 +71,7 @@ export async function veniceWebSearch(
   });
   const raw = await response.text();
   if (!response.ok) {
-    throw Object.assign(new Error(`venice-search-${response.status}`), {
-      statusCode: response.status === 401 ? 502 : 502,
+    throw new DomainError(`venice-search-${response.status}`, 502, {
       detail: sanitizeForLog(raw.slice(0, 240))
     });
   }
@@ -79,7 +79,7 @@ export async function veniceWebSearch(
   try {
     parsed = JSON.parse(raw) as VeniceWebSearchResponse;
   } catch {
-    throw Object.assign(new Error("venice-search-invalid-json"), { statusCode: 502 });
+    throw new DomainError("venice-search-invalid-json", 502);
   }
   const results = parsed.results ?? [];
   return results
@@ -98,7 +98,7 @@ export async function veniceChatCompletion(
 ): Promise<VeniceChatResult> {
   const apiKey = process.env.VENICE_API_KEY?.trim();
   if (!apiKey) {
-    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+    throw new DomainError("venice-not-configured", 503);
   }
   const response = await fetch(`${veniceBaseUrl()}/chat/completions`, {
     method: "POST",
@@ -115,8 +115,7 @@ export async function veniceChatCompletion(
   });
   const raw = await response.text();
   if (!response.ok) {
-    throw Object.assign(new Error(`venice-http-${response.status}`), {
-      statusCode: response.status === 401 ? 502 : 502,
+    throw new DomainError(`venice-http-${response.status}`, 502, {
       detail: sanitizeForLog(raw.slice(0, 240))
     });
   }
@@ -124,11 +123,11 @@ export async function veniceChatCompletion(
   try {
     parsed = JSON.parse(raw) as VeniceChatResponse;
   } catch {
-    throw Object.assign(new Error("venice-invalid-json"), { statusCode: 502 });
+    throw new DomainError("venice-invalid-json", 502);
   }
   const content = parsed.choices?.[0]?.message?.content;
   if (!content || typeof content !== "string") {
-    throw Object.assign(new Error("venice-empty-response"), { statusCode: 502 });
+    throw new DomainError("venice-empty-response", 502);
   }
   const maxCompletion = options.maxTokens ?? 1200;
   const tokensUsed =
@@ -144,7 +143,7 @@ function extractJsonObject(text: string): Record<string, unknown> {
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
   if (start < 0 || end <= start) {
-    throw Object.assign(new Error("venice-json-parse-failed"), { statusCode: 502 });
+    throw new DomainError("venice-json-parse-failed", 502);
   }
   return JSON.parse(candidate.slice(start, end + 1)) as Record<string, unknown>;
 }
@@ -237,7 +236,7 @@ export async function runVeniceAnalysis(input: {
   const actionType = input.actionType ?? "broker-opt-out";
   const destination = redactText(input.destination || "approved destination");
   if (!isVeniceConfigured()) {
-    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+    throw new DomainError("venice-not-configured", 503);
   }
   const chat = await veniceChatCompletion(buildVeniceMessages(input.kind, redacted, destination, actionType), {
     maxTokens: input.maxTokens
@@ -264,7 +263,7 @@ export async function runVeniceAgentReply(input: {
 }): Promise<{ reply: string; tokensUsed: number }> {
   const redacted = redactText(input.message);
   if (!isVeniceConfigured()) {
-    throw Object.assign(new Error("venice-not-configured"), { statusCode: 503 });
+    throw new DomainError("venice-not-configured", 503);
   }
   const chat = await veniceChatCompletion([
     {

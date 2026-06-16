@@ -1,3 +1,5 @@
+import { DomainError } from "../domain/errors.js";
+
 export class HttpError extends Error {
   constructor(
     readonly statusCode: number,
@@ -10,6 +12,9 @@ export class HttpError extends Error {
 
 export function toHttpError(error: unknown): HttpError {
   if (error instanceof HttpError) return error;
+  if (error instanceof DomainError) {
+    return new HttpError(error.statusCode, error.code, error.details);
+  }
   if (error instanceof Error && "statusCode" in error && typeof error.statusCode === "number") {
     const enriched = error as Error & {
       statusCode: number;

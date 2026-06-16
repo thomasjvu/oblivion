@@ -1,10 +1,7 @@
 import { followUpDate } from "./deadlines.js";
 import { walletHasCreditsOrPayment } from "./credits.js";
 import { createTimelineEvent } from "./agentTimeline.js";
-import {
-  createPermissionGrant,
-  validatePermissionGrant
-} from "./payments/sessions.js";
+import { createPermissionGrant } from "./payments/sessions.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import type {
   AgentDelegation,
@@ -19,50 +16,7 @@ import type {
   VeniceAnalysis
 } from "./types.js";
 
-export function resolveSmartAccountAddress(input: {
-  walletAddress: string;
-  smartAccountAddress?: string;
-}): string {
-  if (input.smartAccountAddress?.startsWith("0x") && input.smartAccountAddress.length === 42) {
-    return input.smartAccountAddress;
-  }
-  if (process.env.WALLET_LIVE_MODE === "true" && input.walletAddress.startsWith("0x") && input.walletAddress.length === 42) {
-    return input.walletAddress;
-  }
-  throw Object.assign(new Error("smart-account-address-required"), { statusCode: 422 });
-}
-
-export function createEip7702Authorization(
-  caseId: string,
-  walletAddress: string,
-  smartAccountAddress?: string
-): PermissionGrant {
-  return createPermissionGrant({
-    caseId,
-    permissionType: "eip7702-authorization",
-    delegate: smartAccountAddress ?? walletAddress,
-    scope: ["upgrade-wallet-to-smart-account", "display-smart-account-session"],
-    expiresAt: followUpDate(30),
-    redelegatable: false,
-    status: "granted"
-  });
-}
-
-export function createErc7715Permission(caseId: string, delegate = "OblivionRoot"): PermissionGrant {
-  return createPermissionGrant({
-    caseId,
-    permissionType: "erc7715-advanced",
-    delegate,
-    scope: [
-      "propose-redacted-cleanup-tasks",
-      "request-per-action-approval",
-      "redelegate-minimum-agent-capabilities"
-    ],
-    expiresAt: followUpDate(14),
-    redelegatable: true,
-    status: "granted"
-  });
-}
+export { createEip7702Authorization, createErc7715Permission, resolveSmartAccountAddress } from "./walletSession.js";
 
 export function createAgentDelegationSet(caseId: string): {
   grants: PermissionGrant[];

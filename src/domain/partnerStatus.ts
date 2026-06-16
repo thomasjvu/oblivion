@@ -1,5 +1,5 @@
 import type { MemoryStore } from "../storage/memoryStore.js";
-import { buildStatus } from "./orchestration.js";
+import { buildStatus } from "./status.js";
 import type { AgentPlanStep } from "./types.js";
 
 export interface PartnerCaseStatusView {

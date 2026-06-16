@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type { CreditAccount, CreditLedgerEntry, CreditLedgerKind } from "./types.js";
@@ -47,7 +48,7 @@ export function creditRates(): CreditRates {
 export function walletKeyFromAddress(walletAddress: string): string {
   const normalized = walletAddress.trim().toLowerCase();
   if (!normalized.startsWith("0x") || normalized.length !== 42) {
-    throw Object.assign(new Error("wallet-address-invalid"), { statusCode: 422 });
+    throw new DomainError("wallet-address-invalid", 422);
   }
   return createHash("sha256").update(normalized).digest("hex");
 }
@@ -89,11 +90,11 @@ export function creditWallet(
   entry: Omit<CreditLedgerEntry, "id" | "walletKey" | "credits" | "createdAt">
 ): CreditAccount {
   if (!Number.isFinite(credits) || credits <= 0) {
-    throw Object.assign(new Error("credit-amount-invalid"), { statusCode: 422 });
+    throw new DomainError("credit-amount-invalid", 422);
   }
   const account = store.creditAccounts.get(walletKey);
   if (!account) {
-    throw Object.assign(new Error("credit-account-not-found"), { statusCode: 404 });
+    throw new DomainError("credit-account-not-found", 404);
   }
   const now = new Date().toISOString();
   const ledgerEntry: CreditLedgerEntry = {
@@ -124,13 +125,11 @@ export function debitCredits(
   entry: Omit<CreditLedgerEntry, "id" | "walletKey" | "credits" | "createdAt">
 ): CreditAccount {
   if (!Number.isFinite(credits) || credits <= 0) {
-    throw Object.assign(new Error("debit-amount-invalid"), { statusCode: 422 });
+    throw new DomainError("debit-amount-invalid", 422);
   }
   const account = store.creditAccounts.get(walletKey);
   if (!account || account.balanceCredits < credits) {
-    throw Object.assign(new Error("credits-insufficient"), {
-      statusCode: 402,
-      code: "credits-insufficient",
+    throw new DomainError("credits-insufficient", 402, {
       balanceCredits: account?.balanceCredits ?? 0,
       requiredCredits: credits
     });
@@ -175,9 +174,7 @@ export function assertCreditsForTokens(store: MemoryStore, walletAddress: string
   const account = getOrCreateCreditAccount(store, walletAddress);
   const required = creditsForTokens(tokensEstimate);
   if (account.balanceCredits < required) {
-    throw Object.assign(new Error("credits-insufficient"), {
-      statusCode: 402,
-      code: "credits-insufficient",
+    throw new DomainError("credits-insufficient", 402, {
       balanceCredits: account.balanceCredits,
       requiredCredits: required
     });
@@ -191,9 +188,7 @@ export function assertCreditsForEmailRelay(store: MemoryStore, walletAddress: st
   }
   const account = getOrCreateCreditAccount(store, walletAddress);
   if (account.balanceCredits < EMAIL_RELAY_CREDITS) {
-    throw Object.assign(new Error("credits-insufficient"), {
-      statusCode: 402,
-      code: "credits-insufficient",
+    throw new DomainError("credits-insufficient", 402, {
       balanceCredits: account.balanceCredits,
       requiredCredits: EMAIL_RELAY_CREDITS
     });
@@ -242,9 +237,7 @@ export function assertCreditsForDiscovery(store: MemoryStore, walletAddress: str
   const account = getOrCreateCreditAccount(store, walletAddress);
   const required = discoveryCredits();
   if (account.balanceCredits < required) {
-    throw Object.assign(new Error("credits-insufficient"), {
-      statusCode: 402,
-      code: "credits-insufficient",
+    throw new DomainError("credits-insufficient", 402, {
       balanceCredits: account.balanceCredits,
       requiredCredits: required
     });

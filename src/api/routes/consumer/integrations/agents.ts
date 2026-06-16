@@ -1,17 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { handleAgentRun } from "../../../handlers/agentRun.js";
 import { meterVeniceChat } from "../../../handlers/veniceMeter.js";
 import { createAgentDelegationSet, pendingHackathonTracks } from "../../../../domain/hackathon.js";
-import { buildAgentNextStep, buildHackathonStatusForCase } from "../../../../domain/orchestration.js";
+import { buildAgentNextStep, buildHackathonStatusForCase } from "../../../../domain/status.js";
 import { redactText } from "../../../../domain/redaction.js";
-import { assertCaseActivated } from "../../../../domain/caseActivation.js";
 import { getCaseWithAccess } from "../../../auth.js";
 import { HttpError } from "../../../errors.js";
 import { readJson, sendJson } from "../../../http.js";
 import {
   type AgentDelegateBody,
   type AgentMessageBody,
-  type AgentRunBody,
   type ConsumerContext,
   parseAgentName
 } from "../context.js";
@@ -22,7 +19,7 @@ export async function handleIntegrationAgentRoutes(
   url: URL,
   context: ConsumerContext
 ): Promise<boolean> {
-  const { store, trustCenterPath } = context;
+  const { store } = context;
   const method = request.method ?? "GET";
 
   if (method === "GET" && url.pathname === "/api/agent/next") {
@@ -41,15 +38,6 @@ export async function handleIntegrationAgentRoutes(
       message: body.message,
       walletAddress: body.walletAddress
     });
-    sendJson(response, 200, result);
-    return true;
-  }
-
-  if (method === "POST" && url.pathname === "/api/agent/run-next") {
-    const body = await readJson<AgentRunBody>(request);
-    const caseRecord = getCaseWithAccess(request, store, body.caseId);
-    assertCaseActivated(store, caseRecord);
-    const result = await handleAgentRun(store, caseRecord, trustCenterPath);
     sendJson(response, 200, result);
     return true;
   }

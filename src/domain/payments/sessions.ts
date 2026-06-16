@@ -1,3 +1,4 @@
+import { DomainError } from "../errors.js";
 import { followUpDate } from "../deadlines.js";
 import { walletKeyFromAddress } from "../credits.js";
 import { isX402Configured, x402Network } from "../integrations.js";
@@ -20,13 +21,12 @@ export function createPaymentSession(input: {
   const product = productForMode(input.mode, input.productId);
   const expiresAt = followUpDate(product.mode === "subscription" ? 30 : 1);
   if (!isX402Configured()) {
-    throw Object.assign(new Error("x402-not-configured"), {
-      statusCode: 503,
+    throw new DomainError("x402-not-configured", 503, {
       message: "Set X402_PAY_TO and X402_FACILITATOR_URL for payment sessions."
     });
   }
   if (!input.walletAddress?.startsWith("0x")) {
-    throw Object.assign(new Error("wallet-address-required"), { statusCode: 422 });
+    throw new DomainError("wallet-address-required", 422);
   }
   const walletKey = walletKeyFromAddress(input.walletAddress);
   const x402Request: X402PaymentRequest = {
@@ -90,28 +90,28 @@ export function createPaymentPermission(caseId: string, session: PaymentSession)
 
 export function validateErc7710Delegation(delegation: Erc7710Delegation): void {
   if (!delegation.expiresAt || Number.isNaN(Date.parse(delegation.expiresAt))) {
-    throw Object.assign(new Error("erc7710-expiration-required"), { statusCode: 422 });
+    throw new DomainError("erc7710-expiration-required", 422);
   }
   if (new Date(delegation.expiresAt).getTime() <= Date.now()) {
-    throw Object.assign(new Error("erc7710-expired"), { statusCode: 422 });
+    throw new DomainError("erc7710-expired", 422);
   }
   if (!Number.isFinite(delegation.spendCapUsd) || delegation.spendCapUsd <= 0 || delegation.spendCapUsd > 100) {
-    throw Object.assign(new Error("erc7710-spend-cap-invalid"), { statusCode: 422 });
+    throw new DomainError("erc7710-spend-cap-invalid", 422);
   }
   if (containsBroadScope(delegation.scope)) {
-    throw Object.assign(new Error("erc7710-scope-too-broad"), { statusCode: 422 });
+    throw new DomainError("erc7710-scope-too-broad", 422);
   }
 }
 
 export function validatePermissionGrant(grant: PermissionGrant): void {
   if (!grant.expiresAt || new Date(grant.expiresAt).getTime() <= Date.now()) {
-    throw Object.assign(new Error("permission-expiration-required"), { statusCode: 422 });
+    throw new DomainError("permission-expiration-required", 422);
   }
   if (containsBroadScope(grant.scope)) {
-    throw Object.assign(new Error("permission-scope-too-broad"), { statusCode: 422 });
+    throw new DomainError("permission-scope-too-broad", 422);
   }
   if (grant.permissionType === "erc7710-payment" && (!grant.spendCapUsd || grant.spendCapUsd <= 0)) {
-    throw Object.assign(new Error("payment-permission-spend-cap-required"), { statusCode: 422 });
+    throw new DomainError("payment-permission-spend-cap-required", 422);
   }
 }
 
