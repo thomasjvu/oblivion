@@ -29,11 +29,26 @@ npm run verify   # build + test + typecheck
 
 Full lifecycle, presets, and security model: [docs site](https://oblivion-docs.phantasy.bot) · [`SECURITY.md`](SECURITY.md) · [`AGENTS.md`](AGENTS.md)
 
+## Secrets
+
+API keys and deploy URLs live in [Infisical](https://infisical.phantasy.bot/organizations/3f80ae72-bc03-474a-8b14-108b3bb2dbf4/projects/secret-management/baa5ece8-bf19-441b-96f9-5d3f6affd104/overview) (`dev` → `.env`, `prod` → `.env.production`). Profile defaults (x402 network, executor mode, chain IDs) are derived in `src/domain/deploymentEnv.ts` — not stored in the vault.
+
+```sh
+cloudflared access login https://infisical.phantasy.bot
+cp .env.infisical.example .env.infisical   # machine identity
+source .env.infisical
+npm run secrets:pull:dev                   # ~6 managed keys → .env
+npm run secrets:pull:prod                  # ~10 managed keys → .env.production
+npm run secrets:doctor
+```
+
 ## Deploy
 
 ```sh
 OBLIVION_ENV_FILE=.env.production npm run deploy:production
 ```
+
+`deploy:production` pulls prod secrets from Infisical first (set `OBLIVION_SKIP_SECRETS_PULL=1` to skip).
 
 Builds on spectre, deploys Phala CVM, syncs trust center, deploys Cloudflare UI. Details: [`SECURITY.md` § Production runbook](SECURITY.md#production-runbook).
 

@@ -7,6 +7,24 @@ CF_UI_ORIGIN="${OBLIVION_CORS_ORIGIN:-https://oblivion.phantasy.bot}"
 TAG="${OBLIVION_TAG:-$(git -C "$ROOT" rev-parse --short HEAD)-prod}"
 ENV_FILE="${OBLIVION_ENV_FILE:-$ROOT/.env}"
 
+if [[ "${OBLIVION_SKIP_SECRETS_PULL:-}" != "1" ]]; then
+  echo "==> Pull production secrets from Infisical"
+  if [[ -f "$ROOT/.env.infisical" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$ROOT/.env.infisical"
+    set +a
+  fi
+  if ! npm run secrets:pull:prod; then
+    echo "Failed to pull prod secrets from Infisical." >&2
+    echo "Bootstrap: cloudflared access login https://infisical.phantasy.bot" >&2
+    echo "Then copy .env.infisical.example -> .env.infisical and add machine identity credentials." >&2
+    echo "Or set OBLIVION_SKIP_SECRETS_PULL=1 to deploy with the local env file only." >&2
+    exit 1
+  fi
+  ENV_FILE="$ROOT/.env.production"
+fi
+
 echo "==> Sync app version into trust center"
 npm run version:sync
 

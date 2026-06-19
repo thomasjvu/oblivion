@@ -9,6 +9,11 @@ export interface DeploymentProfile {
   walletChainName: string;
   walletRpcUrls: string[];
   walletBlockExplorerUrls: string[];
+  executorMode: "record-only" | "live";
+  disablePlaintextLogs: boolean;
+  walletLiveMode: boolean;
+  x402Enabled: boolean;
+  persistenceStore: "file" | "memory";
 }
 
 const PROFILES: Record<DeploymentEnvironment, DeploymentProfile> = {
@@ -20,7 +25,12 @@ const PROFILES: Record<DeploymentEnvironment, DeploymentProfile> = {
     walletChainId: 11155111,
     walletChainName: "Sepolia",
     walletRpcUrls: ["https://rpc.sepolia.org"],
-    walletBlockExplorerUrls: ["https://sepolia.etherscan.io"]
+    walletBlockExplorerUrls: ["https://sepolia.etherscan.io"],
+    executorMode: "record-only",
+    disablePlaintextLogs: false,
+    walletLiveMode: true,
+    x402Enabled: true,
+    persistenceStore: "file"
   },
   production: {
     environment: "production",
@@ -30,7 +40,12 @@ const PROFILES: Record<DeploymentEnvironment, DeploymentProfile> = {
     walletChainId: 8453,
     walletChainName: "Base",
     walletRpcUrls: ["https://mainnet.base.org"],
-    walletBlockExplorerUrls: ["https://basescan.org"]
+    walletBlockExplorerUrls: ["https://basescan.org"],
+    executorMode: "live",
+    disablePlaintextLogs: true,
+    walletLiveMode: true,
+    x402Enabled: true,
+    persistenceStore: "file"
   }
 };
 

@@ -79,7 +79,7 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
     return {
       mode: "record-only",
       executionRecord:
-        "record-only executor: approved action recorded. Set OBLIVION_EXECUTOR_MODE=live to run connectors after TEE pass."
+        "record-only executor: approved action recorded. Production profile runs live connectors after TEE pass."
     };
   }
 

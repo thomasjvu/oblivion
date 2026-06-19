@@ -7,6 +7,7 @@ import {
 } from "../../../../domain/walletSession.js";
 import { redactText } from "../../../../domain/redaction.js";
 import { deploymentEnvironment, deploymentProfile, walletChainConfig } from "../../../../domain/deploymentEnv.js";
+import { walletLiveMode } from "../../../../domain/integrations.js";
 import { getCaseWithAccess } from "../../../auth.js";
 import { HttpError } from "../../../errors.js";
 import { readJson, sendJson } from "../../../http.js";
@@ -23,7 +24,7 @@ export async function handleIntegrationWalletRoutes(
 
   if (method === "GET" && url.pathname === "/api/integrations/wallet-config") {
     const chain = walletChainConfig();
-    const liveEnabled = process.env.WALLET_LIVE_MODE === "true";
+    const liveEnabled = walletLiveMode();
     const profile = deploymentProfile();
     sendJson(response, 200, {
       mode: liveEnabled ? "live" : "demo",
@@ -44,7 +45,7 @@ export async function handleIntegrationWalletRoutes(
     if (!body.walletAddress || !body.walletAddress.startsWith("0x")) {
       throw new HttpError(422, "wallet-address-required");
     }
-    if (process.env.WALLET_LIVE_MODE !== "true") {
+    if (!walletLiveMode()) {
       throw new HttpError(503, "smart-account-live-required");
     }
     const smartAccountAddress = resolveSmartAccountAddress({

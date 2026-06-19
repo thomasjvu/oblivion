@@ -50,7 +50,8 @@ test("Phala compose template is port-aligned and digest-pinned", async () => {
   assert.match(compose, /healthcheck:/);
   assert.match(compose, /restart: unless-stopped/);
   assert.match(compose, /VENICE_API_KEY=\$\{VENICE_API_KEY:-\}/);
-  assert.match(compose, /OBLIVION_EXECUTOR_MODE=\$\{OBLIVION_EXECUTOR_MODE:-record-only\}/);
+  assert.match(compose, /OBLIVION_DEPLOYMENT_ENV=production/);
+  assert.doesNotMatch(compose, /OBLIVION_EXECUTOR_MODE=/);
   assert.doesNotMatch(compose, /VENICE_API_KEY=sk-|ONESHOT_API_KEY=[0-9a-f]{8}-/i);
 });
 

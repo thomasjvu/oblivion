@@ -6,7 +6,14 @@ import {
   walletChainConfig,
   walletChainId
 } from "../../src/domain/deploymentEnv.js";
-import { x402FacilitatorUrl, x402Network } from "../../src/domain/integrations.js";
+import {
+  disablePlaintextLogs,
+  executorMode,
+  persistenceStore,
+  walletLiveMode,
+  x402FacilitatorUrl,
+  x402Network
+} from "../../src/domain/integrations.js";
 
 test("development profile defaults to Base Sepolia x402 and Ethereum Sepolia wallet", () => {
   const prior = process.env.OBLIVION_DEPLOYMENT_ENV;
@@ -19,6 +26,10 @@ test("development profile defaults to Base Sepolia x402 and Ethereum Sepolia wal
     assert.equal(walletChainId(), 11155111);
     assert.equal(x402Network(), "eip155:84532");
     assert.equal(x402FacilitatorUrl(), "https://x402.org/facilitator");
+    assert.equal(executorMode(), "record-only");
+    assert.equal(disablePlaintextLogs(), false);
+    assert.equal(walletLiveMode(), true);
+    assert.equal(persistenceStore(), "file");
   } finally {
     if (prior === undefined) delete process.env.OBLIVION_DEPLOYMENT_ENV;
     else process.env.OBLIVION_DEPLOYMENT_ENV = prior;
@@ -45,6 +56,10 @@ test("production profile defaults to Base mainnet x402 and wallet", () => {
     const chain = walletChainConfig();
     assert.equal(chain.chainId, 8453);
     assert.equal(chain.addChainParams.chainName, "Base");
+    assert.equal(executorMode(), "live");
+    assert.equal(disablePlaintextLogs(), true);
+    assert.equal(walletLiveMode(), true);
+    assert.equal(persistenceStore(), "file");
   } finally {
     if (prior === undefined) delete process.env.OBLIVION_DEPLOYMENT_ENV;
     else process.env.OBLIVION_DEPLOYMENT_ENV = prior;

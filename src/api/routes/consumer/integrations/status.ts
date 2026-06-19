@@ -7,7 +7,8 @@ import {
   isHibpConfigured,
   isLiveExecutorEnabled,
   isOneShotLiveReady,
-  isX402Configured
+  isX402Configured,
+  walletLiveMode
 } from "../../../../domain/integrations.js";
 import { isVeniceConfigured } from "../../../../domain/venice.js";
 import { isBrokerEmailConfigured } from "../../../../domain/brokerMailer.js";
@@ -37,7 +38,7 @@ export async function handleIntegrationStatusRoutes(
       mode: isVeniceConfigured() ? "live-agent" : "wallet-and-policy",
       executorMode: isLiveExecutorEnabled() ? "live" : "record-only",
       liveReady: {
-        metamaskSmartAccounts: process.env.WALLET_LIVE_MODE === "true",
+        metamaskSmartAccounts: walletLiveMode(),
         x402: isX402Configured(),
         erc7710: isX402Configured(),
         venice: isVeniceConfigured(),

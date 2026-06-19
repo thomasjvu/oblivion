@@ -1,5 +1,6 @@
 import { followUpDate } from "./deadlines.js";
 import { DomainError } from "./errors.js";
+import { walletLiveMode } from "./integrations.js";
 import { isEvmAddress } from "./constants.js";
 import { createPermissionGrant } from "./payments/sessions.js";
 import type { PermissionGrant } from "./types.js";
@@ -11,7 +12,7 @@ export function resolveSmartAccountAddress(input: {
   if (isEvmAddress(input.smartAccountAddress)) {
     return input.smartAccountAddress;
   }
-  if (process.env.WALLET_LIVE_MODE === "true" && isEvmAddress(input.walletAddress)) {
+  if (walletLiveMode() && isEvmAddress(input.walletAddress)) {
     return input.walletAddress;
   }
   throw new DomainError("smart-account-address-required", 422);

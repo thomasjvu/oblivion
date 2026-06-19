@@ -16,7 +16,33 @@ export function envString(name: string, fallback = ""): string {
 }
 
 export function executorMode(): "record-only" | "live" {
-  return envString("OBLIVION_EXECUTOR_MODE", "record-only") === "live" ? "live" : "record-only";
+  const raw = process.env.OBLIVION_EXECUTOR_MODE?.trim();
+  if (raw === "live" || raw === "record-only") return raw;
+  return deploymentProfile().executorMode;
+}
+
+export function disablePlaintextLogs(): boolean {
+  const raw = process.env.OBLIVION_DISABLE_PLAINTEXT_LOGS?.trim();
+  if (raw !== undefined && raw !== "") return envFlag("OBLIVION_DISABLE_PLAINTEXT_LOGS", false);
+  return deploymentProfile().disablePlaintextLogs;
+}
+
+export function walletLiveMode(): boolean {
+  const raw = process.env.WALLET_LIVE_MODE?.trim();
+  if (raw !== undefined && raw !== "") return envFlag("WALLET_LIVE_MODE", false);
+  return deploymentProfile().walletLiveMode;
+}
+
+export function persistenceStore(): "file" | "memory" {
+  const raw = process.env.OBLIVION_STORE?.trim();
+  if (raw === "file" || raw === "memory") return raw;
+  return deploymentProfile().persistenceStore;
+}
+
+function x402EnabledFlag(): boolean {
+  const raw = process.env.X402_ENABLED?.trim();
+  if (raw !== undefined && raw !== "") return envFlag("X402_ENABLED", true);
+  return deploymentProfile().x402Enabled;
 }
 
 export function isLiveExecutorEnabled(): boolean {
@@ -32,9 +58,9 @@ export function isHibpConfigured(): boolean {
 }
 
 export function isX402Configured(): boolean {
-  if (!envFlag("X402_ENABLED", true)) return false;
+  if (!x402EnabledFlag()) return false;
   const payTo = envString("X402_PAY_TO");
-  const facilitator = envString("X402_FACILITATOR_URL", "https://x402.org/facilitator");
+  const facilitator = x402FacilitatorUrl();
   return Boolean(payTo && facilitator && payTo.startsWith("0x") && !/^0x0+$/i.test(payTo));
 }
 

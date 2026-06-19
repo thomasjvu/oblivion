@@ -9,7 +9,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - Every action that could disclose data goes through `proposeApprovedAction` (`approvals.ts`) → policy `evaluateProposedAction` (`policy.ts`) → `Approval` record → explicit `userConfirmation` on approve → `canExecuteWithApproval` before `execute`.
 - `assertSensitiveExecutionAllowed` + runtimeGuard blocks `requiresManagedPlaintext` connectors (e.g. hibp-email) unless `verifierResult === "pass"`.
 - No plaintext secrets in logs or responses: `sanitizeForLog` + `redactText`. All timelines, exports, connector results, venice inputs are redacted.
-- Record-only is the default executor. Live connectors are stubs or gated. See `agentRunner.ts`, `executor.ts`.
+- Record-only is the default executor in development; production profile enables live connectors (override with `OBLIVION_EXECUTOR_MODE`). See `deploymentEnv.ts`, `agentRunner.ts`, `executor.ts`.
 - Attestation is not optional theater: `buildAttestationProof` checks pinned digests, compose hash, fresh Intel TDX quote via Phala, `verifierResult`.
 - Presets and plans are the source of truth for workflow (`CLEANUP_PRESETS` metadata in `cleanup.ts`; `advanceAgentPlan`). Client may mirror for UX but server decides.
 - `MemoryStore` + `OblivionRepository` (storage/) is the current persistence seam. All case data purge happens in `purgeCaseData` on delete.
@@ -35,6 +35,7 @@ No other frameworks. Pure node:http + Web Crypto + TS ESM.
 
 ## Running & Verification
 
+- Operator secrets: Infisical `secret-management` project syncs API keys + deploy URLs only (`scripts/lib/secrets-config.mjs` allowlists). Profile defaults live in `src/domain/deploymentEnv.ts`. `npm run secrets:pull:dev|prod` (see `SECURITY.md` § Infisical secret workflow).
 - `npm run dev` → builds client then `tsx src/server.ts` (port 8080)
 - `npm test` → tsx --test test/**/*.test.ts
 - `npm run version:sync` → copies version + git `sourceCommit` into `config/trust-center.json`

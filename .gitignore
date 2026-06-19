@@ -12,6 +12,10 @@ playwright-report/
 .env
 .env.*
 !.env.example
+!.env.production.example
+!.env.infisical.example
+.env.infisical
+tmp/secrets/
 
 *.log
 npm-debug.log*

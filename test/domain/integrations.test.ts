@@ -11,20 +11,27 @@ import {
 
 test("integration env helpers reflect executor and adapter flags", () => {
   const priorExecutor = process.env.OBLIVION_EXECUTOR_MODE;
+  const priorDeployment = process.env.OBLIVION_DEPLOYMENT_ENV;
   const priorPayTo = process.env.X402_PAY_TO;
   const priorEnabled = process.env.X402_ENABLED;
   const priorBase = process.env.ONESHOT_BASE_URL;
   const priorApiUrl = process.env.OBLIVION_PUBLIC_API_URL;
   try {
+    process.env.OBLIVION_DEPLOYMENT_ENV = "development";
     delete process.env.OBLIVION_EXECUTOR_MODE;
     assert.equal(executorMode(), "record-only");
     assert.equal(isLiveExecutorEnabled(), false);
 
-    process.env.OBLIVION_EXECUTOR_MODE = "live";
+    process.env.OBLIVION_DEPLOYMENT_ENV = "production";
+    delete process.env.OBLIVION_EXECUTOR_MODE;
+    assert.equal(executorMode(), "live");
     assert.equal(isLiveExecutorEnabled(), true);
 
+    process.env.OBLIVION_EXECUTOR_MODE = "record-only";
+    assert.equal(executorMode(), "record-only");
+
     delete process.env.X402_PAY_TO;
-    process.env.X402_ENABLED = "true";
+    delete process.env.X402_ENABLED;
     assert.equal(isX402Configured(), false);
 
     process.env.X402_PAY_TO = "0x0000000000000000000000000000000000000000";
@@ -49,6 +56,8 @@ test("integration env helpers reflect executor and adapter flags", () => {
   } finally {
     if (priorExecutor === undefined) delete process.env.OBLIVION_EXECUTOR_MODE;
     else process.env.OBLIVION_EXECUTOR_MODE = priorExecutor;
+    if (priorDeployment === undefined) delete process.env.OBLIVION_DEPLOYMENT_ENV;
+    else process.env.OBLIVION_DEPLOYMENT_ENV = priorDeployment;
     if (priorPayTo === undefined) delete process.env.X402_PAY_TO;
     else process.env.X402_PAY_TO = priorPayTo;
     if (priorEnabled === undefined) delete process.env.X402_ENABLED;

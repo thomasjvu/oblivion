@@ -53,32 +53,64 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 - Optionally set `PHALA_ATTESTATION_URL` as an HTTP fallback attestation endpoint.
 - Confirm `GET /api/trust/attestation` returns `verifierResult: "pass"` before accepting sensitive tasks.
 - Pin every production image by `@sha256:` digest.
-- Keep secrets in Phala encrypted secrets, not Docker Compose plaintext.
+- Store operator secrets in Infisical (`secret-management` project), sync to gitignored `.env.production`, then inject into Phala via `scripts/deploy-phala.sh -e .env.production`. Never commit `.env`, `.env.production`, or `.env.infisical`.
 - Disable plaintext logs and request tracing.
 - Add external adapters only after tests prove blocked execution without matching approval.
 
 ## Production Runbook
 
 1. **Build and pin** — `npm run docker:build:remote` (or local build), then `npm run docker:pin -- ghcr.io/thomasjvu/oblivion@sha256:<digest>`.
-2. **Deploy CVM** — `npm run phala:deploy` with secrets via `scripts/deploy-phala.sh -e .env` (never commit `.env`).
-3. **Sync trust** — `npm run phala:sync-trust` copies the live compose hash into `config/trust-center.json` and updates `sourceCommit`.
-4. **Rebuild trust image** — bake the synced `config/trust-center.json` into a `-prod-trust` image and redeploy so the CVM serves matching metadata.
-5. **Verify attestation** — `curl -s $API/api/trust/attestation | jq '.verifierResult, .composeHashMatches, .hardwareQuoteVerified'` must show `pass`, `true`, `true`.
-6. **Check integrations** — `GET /api/integrations/status` lists `liveReady.*` for configured adapters only.
-7. **Enable live executor (optional)** — set `OBLIVION_EXECUTOR_MODE=live` in Phala secrets after attestation passes. Managed-plaintext connectors (HIBP email, broker live paths) still require `verifierResult: "pass"`.
-8. **Never enable `OBLIVION_AI_BYPASS_PAYMENT` in production** — Venice chat/analysis requires a paid x402 session per case.
+2. **Pull secrets** — `npm run secrets:pull:prod` (Infisical → `.env.production`). `npm run deploy:production` does this automatically unless `OBLIVION_SKIP_SECRETS_PULL=1`.
+3. **Deploy CVM** — `npm run phala:deploy` with secrets via `scripts/deploy-phala.sh -e .env.production` (never commit env files).
+4. **Sync trust** — `npm run phala:sync-trust` copies the live compose hash into `config/trust-center.json` and updates `sourceCommit`.
+5. **Rebuild trust image** — bake the synced `config/trust-center.json` into a `-prod-trust` image and redeploy so the CVM serves matching metadata.
+6. **Verify attestation** — `curl -s $API/api/trust/attestation | jq '.verifierResult, .composeHashMatches, .hardwareQuoteVerified'` must show `pass`, `true`, `true`.
+7. **Check integrations** — `GET /api/integrations/status` lists `liveReady.*` for configured adapters only.
+8. **Live executor** — production profile (`OBLIVION_DEPLOYMENT_ENV=production`) enables `OBLIVION_EXECUTOR_MODE=live` by default. Managed-plaintext connectors still require `verifierResult: "pass"`.
+9. **Never enable `OBLIVION_AI_BYPASS_PAYMENT` in production** — Venice chat/analysis requires a paid x402 session per case.
 
-### Live integration secrets checklist
+### Infisical secret workflow
 
-| Secret | Enables |
-|--------|---------|
-| `BRAVE_SEARCH_API_KEY` | Primary exposure web search (broker sweep + preview) |
-| `VENICE_API_KEY` | Agent classify/draft/review/chat + match scoring; fallback web search via `augment/search` (Brave ZDR) |
-| `X402_PAY_TO` + `X402_FACILITATOR_URL` | Real x402 settlement |
-| `ONESHOT_API_KEY` | Live 1Shot JSON-RPC relay |
-| `HIBP_API_KEY` | Live breach email check (TEE-gated) |
-| `RESEND_API_KEY` or `SMTP_*` | Broker/platform email connectors |
-| `OBLIVION_EXECUTOR_MODE=live` | External connector execution after approval |
+Infisical stores **API keys and deploy URLs only** (~6 keys in `dev`, ~10 in `prod`). Runtime profile defaults (x402 network/facilitator, executor mode, wallet chain, file store, plaintext log suppression) are derived from `OBLIVION_DEPLOYMENT_ENV` in `src/domain/deploymentEnv.ts`. The app reads `process.env` at runtime — no Infisical SDK in the server.
+
+| Item | Value |
+|------|-------|
+| Instance | `https://infisical.phantasy.bot` |
+| Project | `baa5ece8-bf19-441b-96f9-5d3f6affd104` (`secret-management`) |
+| Environments | `dev` → `.env`, `prod` → `.env.production` |
+| Allowlists | `scripts/lib/secrets-config.mjs` (`DEV_SYNC_KEYS`, `PROD_SYNC_KEYS`) |
+
+Bootstrap (one-time):
+
+```bash
+cloudflared access login https://infisical.phantasy.bot
+cp .env.infisical.example .env.infisical   # add machine identity credentials
+source .env.infisical
+npm run secrets:bootstrap                  # prune legacy keys, push allowlist, pull clean env files
+npm run secrets:doctor
+```
+
+Day-to-day:
+
+```bash
+npm run secrets:pull:prod
+OBLIVION_ENV_FILE=.env.production npm run deploy:production
+```
+
+### Infisical-managed keys
+
+| Key | Environment | Enables |
+|-----|-------------|---------|
+| `BRAVE_SEARCH_API_KEY` | dev, prod | Exposure web search |
+| `VENICE_API_KEY` | dev, prod | Agent AI + fallback search |
+| `ONESHOT_API_KEY` | dev, prod | 1Shot JSON-RPC relay |
+| `X402_PAY_TO` | dev, prod | x402 payout wallet |
+| `OBLIVION_PUBLIC_API_URL` | dev, prod | 1Shot webhook origin (Phala hostname in prod) |
+| `OBLIVION_CORS_ORIGIN` | dev, prod | Cloudflare Workers UI origin |
+| `HIBP_API_KEY` | prod | Live breach email check (TEE-gated) |
+| `X402_CDP_API_KEY_ID` / `SECRET` | prod | CDP x402 settlement on Base mainnet |
+| `PHALA_ATTESTATION_URL` | prod | Live TDX quote endpoint (often set by compose) |
+| Partner / email keys | prod (optional) | B2B rail and live email connectors |
 
 ## User-Facing Claim
 
