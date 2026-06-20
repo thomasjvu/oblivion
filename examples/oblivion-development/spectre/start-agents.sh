@@ -27,7 +27,6 @@ for spec in "${agents[@]}"; do
   fi
 
   (
-    export PORT="${port}"
     export AGENT_ID="${agent}"
     export AGENT_FRAMEWORK_URL="http://127.0.0.1:${port}"
     export PARTY_QUEST_ENABLE_ASSIGNMENTS=true
@@ -36,6 +35,7 @@ for spec in "${agents[@]}"; do
     # shellcheck disable=SC1090
     source "${env_file}"
     set +a
+    export PORT="${port}"
     exec node dist/server.js
   ) > "${LOG_DIR}/${agent}.log" 2>&1 &
 
