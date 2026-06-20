@@ -466,7 +466,7 @@ export const seedOblivionDevelopment = mutation({
         agentFrameworkId: 'oblivion-opencode-agent',
         frameworkType: 'opencode' as const,
         priority: 'normal' as const,
-        execution: { kind: 'workflow', workflowPath: 'npm run verify' },
+        execution: { kind: 'workflow', workflowPath: 'npm run typecheck' },
         sourceRef: {
           provider: 'forgejo' as const,
           kind: 'repository' as const,
@@ -481,7 +481,7 @@ export const seedOblivionDevelopment = mutation({
         agentFrameworkId: 'oblivion-phantasy-agent',
         frameworkType: 'phantasy' as const,
         priority: 'normal' as const,
-        execution: { kind: 'workflow', workflowPath: 'npm run docs:verify' },
+        execution: { kind: 'workflow', workflowPath: 'npm run build --prefix docs' },
         sourceRef: {
           provider: 'forgejo' as const,
           kind: 'repository' as const,
@@ -525,7 +525,7 @@ export const seedOblivionDevelopment = mutation({
         priority: 'normal' as const,
         execution: {
           kind: 'workflow',
-          workflowPath: 'npm test -- --test-name-pattern=broker',
+          workflowPath: 'npm test -- test/orchestration/broker.test.ts',
         },
         sourceRef: {
           provider: 'forgejo' as const,

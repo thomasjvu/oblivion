@@ -35,14 +35,14 @@
       "squad": "code",
       "priority": "normal",
       "schedule": "0 9 * * *",
-      "workflowPath": "npm run verify"
+      "workflowPath": "npm run typecheck"
     },
     {
       "title": "Weekly docs verify",
       "squad": "marketing",
       "priority": "normal",
       "schedule": "0 10 * * 1",
-      "workflowPath": "npm run docs:verify"
+      "workflowPath": "npm run build --prefix docs"
     },
     {
       "title": "GitHub contribution triage",
@@ -71,7 +71,7 @@
       "squad": "research",
       "priority": "normal",
       "schedule": "0 11 * * 3",
-      "workflowPath": "npm test -- --test-name-pattern=broker"
+      "workflowPath": "npm test -- test/orchestration/broker.test.ts"
     },
     {
       "title": "Trust-center version sync",

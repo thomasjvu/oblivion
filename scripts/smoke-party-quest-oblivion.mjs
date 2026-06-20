@@ -30,7 +30,7 @@ const AGENT_PROFILES = {
   'oblivion-code': {
     frameworkType: 'opencode',
     defaultQuest: 'Daily verify on main',
-    workflowPath: 'npm run verify',
+    workflowPath: 'npm run typecheck',
   },
   'oblivion-debug': {
     frameworkType: 'openclaw',
@@ -40,12 +40,12 @@ const AGENT_PROFILES = {
   'oblivion-marketing': {
     frameworkType: 'phantasy',
     defaultQuest: 'Weekly docs verify',
-    workflowPath: 'npm run docs:verify',
+    workflowPath: 'npm run build --prefix docs',
   },
   'oblivion-research': {
     frameworkType: 'hermes',
     defaultQuest: 'Broker catalog policy review',
-    workflowPath: 'npm test -- --test-name-pattern=broker',
+    workflowPath: 'npm test -- test/orchestration/broker.test.ts',
   },
 };
 
