@@ -56,7 +56,7 @@ function reseedQuests() {
     'bash',
     [
       '-lc',
-      `cd "${partyQuestDir}" && set -a && source .env.self-hosted && set +a && npx convex run seed:seedOblivionDevelopment`,
+      `cd "${partyQuestDir}" && docker compose -f docker-compose.spectre.yml --env-file .env.self-hosted run --rm -e CONVEX_SELF_HOSTED_URL=http://party-quest-convex-1:3210 convex-deploy npx convex run seed:seedOblivionDevelopment`,
     ],
     { encoding: 'utf8' },
   );
