@@ -82,7 +82,7 @@ async function ensureUser(entry) {
     return { user: existing, created: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes('404')) {
+    if (!message.includes('404') && !message.includes('does not exist')) {
       throw error;
     }
   }
