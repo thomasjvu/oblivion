@@ -28,5 +28,6 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run verify
+      - run: npm run typecheck
+      - run: npm run design:lint
       - run: npm audit --audit-level=critical
