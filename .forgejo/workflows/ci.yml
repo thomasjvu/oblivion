@@ -5,9 +5,9 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, development, staging]
   pull_request:
-    branches: [main]
+    branches: [main, development, staging]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +28,4 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run design:lint
-      - run: npm audit --audit-level=critical
+      - run: npm run verify
