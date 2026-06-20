@@ -1,0 +1,15 @@
+{
+  "id": "oblivion-research",
+  "name": "Oblivion Research",
+  "frameworkType": "hermes",
+  "engineKind": "workspace-runtime",
+  "status": "experimental-live-adapter",
+  "capabilities": ["task-routing", "analysis", "research"],
+  "transport": "callback",
+  "metadata": {
+    "campaign": "oblivion-development",
+    "squad": "research",
+    "repoPath": "~/oblivion-ops/oblivion",
+    "partyQuestAgentFrameworkId": "oblivion-hermes-agent"
+  }
+}

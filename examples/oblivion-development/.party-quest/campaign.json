@@ -1,0 +1,83 @@
+{
+  "slug": "oblivion-development",
+  "title": "Oblivion Development",
+  "description": "Code, debug, marketing, and research squads build and maintain Oblivion on Forgejo.",
+  "repoProvider": "forgejo",
+  "repoOwner": "oblivion",
+  "repoName": "oblivion",
+  "defaultBranch": "main",
+  "repoUrl": "https://forgejo.phantasy.bot/oblivion/oblivion",
+  "squads": [
+    {
+      "slug": "code",
+      "name": "Code",
+      "description": "Features, tests, PRs, and npm run verify."
+    },
+    {
+      "slug": "debug",
+      "name": "Debug",
+      "description": "CI failures, flakes, and incident triage."
+    },
+    {
+      "slug": "marketing",
+      "name": "Marketing",
+      "description": "Docs, trust-center, copy, and business channels."
+    },
+    {
+      "slug": "research",
+      "name": "Research",
+      "description": "Broker landscape, policy, and competitive research."
+    }
+  ],
+  "quests": [
+    {
+      "title": "Daily verify on main",
+      "squad": "code",
+      "priority": "normal",
+      "schedule": "0 9 * * *",
+      "workflowPath": "npm run verify"
+    },
+    {
+      "title": "Weekly docs verify",
+      "squad": "marketing",
+      "priority": "normal",
+      "schedule": "0 10 * * 1",
+      "workflowPath": "npm run docs:verify"
+    },
+    {
+      "title": "GitHub contribution triage",
+      "squad": "debug",
+      "priority": "high",
+      "sourceRef": {
+        "provider": "github",
+        "kind": "repository",
+        "repoOwner": "thomasjvu",
+        "repoName": "oblivion"
+      }
+    },
+    {
+      "title": "Forgejo CI failure response",
+      "squad": "debug",
+      "priority": "high",
+      "sourceRef": {
+        "provider": "forgejo",
+        "kind": "repository",
+        "repoOwner": "oblivion",
+        "repoName": "oblivion"
+      }
+    },
+    {
+      "title": "Broker catalog policy review",
+      "squad": "research",
+      "priority": "normal",
+      "schedule": "0 11 * * 3",
+      "workflowPath": "npm test -- --test-name-pattern=broker"
+    },
+    {
+      "title": "Trust-center version sync",
+      "squad": "marketing",
+      "priority": "normal",
+      "workflowPath": "npm run version:sync"
+    }
+  ]
+}

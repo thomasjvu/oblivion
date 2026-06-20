@@ -1,0 +1,89 @@
+# Host-side Oblivion agent runtimes for Spectre.
+# Copy to ~/oblivion-ops/docker-compose.agents.yml
+
+name: oblivion-agents
+
+services:
+  phantasy-marketing:
+    image: node:22-bookworm
+    restart: unless-stopped
+    working_dir: /opt/phantasy-agent
+    network_mode: host
+    volumes:
+      - ${PHANTASY_AGENT_ROOT:-~/oblivion-ops/phantasy-agent}:/opt/phantasy-agent:ro
+      - ${OBLIVION_REPO:-~/oblivion-ops/oblivion}:/opt/oblivion:rw
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/phantasy:/opt/workspace:rw
+    env_file:
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/env/oblivion-marketing.env
+    environment:
+      PORT: "2100"
+      AGENT_ID: oblivion-marketing
+      AGENT_FRAMEWORK_URL: http://127.0.0.1:2100
+      PARTY_QUEST_URL: https://party-convex-site.phantasy.bot
+      PARTY_QUEST_ENABLE_ASSIGNMENTS: "true"
+      PARTY_QUEST_AUTO_RUN_WORKFLOWS: "true"
+      FORGEJO_BASE_URL: https://forgejo.phantasy.bot
+    command: ["npm", "run", "start"]
+
+  hermes-research:
+    image: node:22-bookworm
+    restart: unless-stopped
+    working_dir: /opt/phantasy-agent
+    network_mode: host
+    volumes:
+      - ${PHANTASY_AGENT_ROOT:-~/oblivion-ops/phantasy-agent}:/opt/phantasy-agent:ro
+      - ${OBLIVION_REPO:-~/oblivion-ops/oblivion}:/opt/oblivion:rw
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/hermes:/opt/workspace:rw
+    env_file:
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/env/oblivion-research.env
+    environment:
+      PORT: "2101"
+      AGENT_ID: oblivion-research
+      AGENT_FRAMEWORK_URL: http://127.0.0.1:2101
+      PARTY_QUEST_URL: https://party-convex-site.phantasy.bot
+      PARTY_QUEST_ENABLE_ASSIGNMENTS: "true"
+      PARTY_QUEST_AUTO_RUN_WORKFLOWS: "true"
+      FORGEJO_BASE_URL: https://forgejo.phantasy.bot
+    command: ["npm", "run", "start"]
+
+  openclaw-debug:
+    image: node:22-bookworm
+    restart: unless-stopped
+    working_dir: /opt/phantasy-agent
+    network_mode: host
+    volumes:
+      - ${PHANTASY_AGENT_ROOT:-~/oblivion-ops/phantasy-agent}:/opt/phantasy-agent:ro
+      - ${OBLIVION_REPO:-~/oblivion-ops/oblivion}:/opt/oblivion:rw
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/openclaw:/opt/workspace:rw
+    env_file:
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/env/oblivion-debug.env
+    environment:
+      PORT: "2102"
+      AGENT_ID: oblivion-debug
+      AGENT_FRAMEWORK_URL: http://127.0.0.1:2102
+      PARTY_QUEST_URL: https://party-convex-site.phantasy.bot
+      PARTY_QUEST_ENABLE_ASSIGNMENTS: "true"
+      PARTY_QUEST_AUTO_RUN_WORKFLOWS: "true"
+      FORGEJO_BASE_URL: https://forgejo.phantasy.bot
+    command: ["npm", "run", "start"]
+
+  opencode-code:
+    image: node:22-bookworm
+    restart: unless-stopped
+    working_dir: /opt/phantasy-agent
+    network_mode: host
+    volumes:
+      - ${PHANTASY_AGENT_ROOT:-~/oblivion-ops/phantasy-agent}:/opt/phantasy-agent:ro
+      - ${OBLIVION_REPO:-~/oblivion-ops/oblivion}:/opt/oblivion:rw
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/opencode:/opt/workspace:rw
+    env_file:
+      - ${OBLIVION_WORKSPACES:-~/oblivion-ops/workspaces}/env/oblivion-code.env
+    environment:
+      PORT: "2103"
+      AGENT_ID: oblivion-code
+      AGENT_FRAMEWORK_URL: http://127.0.0.1:2103
+      PARTY_QUEST_URL: https://party-convex-site.phantasy.bot
+      PARTY_QUEST_ENABLE_ASSIGNMENTS: "true"
+      PARTY_QUEST_AUTO_RUN_WORKFLOWS: "true"
+      FORGEJO_BASE_URL: https://forgejo.phantasy.bot
+    command: ["npm", "run", "start"]

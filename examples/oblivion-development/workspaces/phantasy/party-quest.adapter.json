@@ -1,0 +1,15 @@
+{
+  "id": "oblivion-marketing",
+  "name": "Oblivion Marketing",
+  "frameworkType": "phantasy",
+  "engineKind": "workspace-runtime",
+  "status": "experimental-live-adapter",
+  "capabilities": ["task-routing", "content", "analysis"],
+  "transport": "callback",
+  "metadata": {
+    "campaign": "oblivion-development",
+    "squad": "marketing",
+    "repoPath": "~/oblivion-ops/oblivion",
+    "partyQuestAgentFrameworkId": "oblivion-phantasy-agent"
+  }
+}

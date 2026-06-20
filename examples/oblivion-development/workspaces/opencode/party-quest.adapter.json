@@ -1,0 +1,15 @@
+{
+  "id": "oblivion-code",
+  "name": "Oblivion Code",
+  "frameworkType": "opencode",
+  "engineKind": "workspace-runtime",
+  "status": "experimental-live-adapter",
+  "capabilities": ["task-routing", "coding", "source-control"],
+  "transport": "callback",
+  "metadata": {
+    "campaign": "oblivion-development",
+    "squad": "code",
+    "repoPath": "~/oblivion-ops/oblivion",
+    "partyQuestAgentFrameworkId": "oblivion-opencode-agent"
+  }
+}

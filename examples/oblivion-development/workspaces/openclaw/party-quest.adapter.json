@@ -1,0 +1,15 @@
+{
+  "id": "oblivion-debug",
+  "name": "Oblivion Debug",
+  "frameworkType": "openclaw",
+  "engineKind": "workspace-runtime",
+  "status": "experimental-live-adapter",
+  "capabilities": ["task-routing", "debugging", "triage"],
+  "transport": "callback",
+  "metadata": {
+    "campaign": "oblivion-development",
+    "squad": "debug",
+    "repoPath": "~/oblivion-ops/oblivion",
+    "partyQuestAgentFrameworkId": "oblivion-openclaw-agent"
+  }
+}
