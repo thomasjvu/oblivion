@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   assertSafeOutboundHttpsUrl,
+  assertSafePartnerInboxUrl,
   isSafeOutboundHttpsUrl,
   safeOutboundFetch
 } from "../../src/domain/safeOutboundUrl.js";
@@ -23,6 +24,13 @@ test("assertSafeOutboundHttpsUrl blocks loopback and metadata hosts", () => {
     assert.throws(() => assertSafeOutboundHttpsUrl(url), DomainError);
     assert.equal(isSafeOutboundHttpsUrl(url), false);
   }
+});
+
+test("assertSafePartnerInboxUrl blocks metadata hosts disguised as inbox paths", () => {
+  assert.throws(
+    () => assertSafePartnerInboxUrl("https://169.254.169.254/v1/partners/p1/webhook-inbox"),
+    DomainError
+  );
 });
 
 test("safeOutboundFetch blocks redirect chains to private hosts", async () => {

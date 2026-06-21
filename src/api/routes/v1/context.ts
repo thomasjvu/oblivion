@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { TrustCenterConfig } from "../../../domain/attestation.js";
+import { DomainError } from "../../../domain/errors.js";
 import type {
   AuthorityBasis,
   Jurisdiction,
@@ -66,6 +67,22 @@ export function apiBaseFromRequest(request: IncomingMessage): string {
   if (configured) return configured.replace(/\/$/, "");
   const host = request.headers.host;
   return host ? `http://${host}` : "http://localhost:8080";
+}
+
+export function publicApiBaseForInboxRegistration(request: IncomingMessage): string {
+  const configured = process.env.OBLIVION_PUBLIC_API_URL?.trim();
+  if (configured) {
+    const base = configured.replace(/\/$/, "");
+    if (!base.startsWith("https://")) {
+      throw new DomainError("public-api-url-https-required", 422);
+    }
+    return base;
+  }
+  const host = request.headers.host;
+  if (host && (/^127\.0\.0\.1:\d+$/.test(host) || /^localhost:\d+$/.test(host))) {
+    return `http://${host}`;
+  }
+  throw new DomainError("public-api-url-required", 503);
 }
 
 export type { PartnerWebhookEvent };

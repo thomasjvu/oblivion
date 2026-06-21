@@ -62,12 +62,52 @@ function isBlockedHost(hostname: string): boolean {
   return false;
 }
 
+function isLocalDevHost(hostname: string): boolean {
+  const host = normalizeHostname(hostname);
+  return host === "127.0.0.1" || host === "localhost" || host === "::1";
+}
+
 export function isPartnerInboxDeliveryUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return /\/v1\/partners\/[^/]+\/webhook-inbox$/.test(parsed.pathname);
   } catch {
     return false;
+  }
+}
+
+export function assertSafePartnerInboxUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new DomainError("outbound-url-invalid", 422);
+  }
+  if (!isPartnerInboxDeliveryUrl(url)) {
+    throw new DomainError("outbound-url-invalid", 422);
+  }
+  const configured = process.env.OBLIVION_PUBLIC_API_URL?.trim();
+  if (configured) {
+    const expected = new URL(configured);
+    if (parsed.origin !== expected.origin) {
+      throw new DomainError("outbound-url-blocked", 422);
+    }
+    if (expected.protocol !== "https:") {
+      throw new DomainError("outbound-url-https-required", 422);
+    }
+    return;
+  }
+  if (isLocalDevHost(parsed.hostname)) {
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new DomainError("outbound-url-invalid", 422);
+    }
+    return;
+  }
+  if (isBlockedHost(parsed.hostname)) {
+    throw new DomainError("outbound-url-blocked", 422);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new DomainError("outbound-url-https-required", 422);
   }
 }
 
@@ -88,6 +128,10 @@ export function assertSafeOutboundHttpsUrl(url: string): void {
 
 export function isSafeOutboundHttpsUrl(url: string): boolean {
   try {
+    if (isPartnerInboxDeliveryUrl(url)) {
+      assertSafePartnerInboxUrl(url);
+      return true;
+    }
     assertSafeOutboundHttpsUrl(url);
     return true;
   } catch {
@@ -95,15 +139,19 @@ export function isSafeOutboundHttpsUrl(url: string): boolean {
   }
 }
 
-export async function safeOutboundFetch(url: string, init?: RequestInit): Promise<Response> {
+async function safeOutboundFetchHop(url: string, init?: RequestInit): Promise<Response> {
   if (isPartnerInboxDeliveryUrl(url)) {
-    return fetch(url, { ...init, redirect: "follow" });
+    assertSafePartnerInboxUrl(url);
+  } else {
+    assertSafeOutboundHttpsUrl(url);
   }
+  return fetch(url, { ...init, redirect: "manual" });
+}
 
+export async function safeOutboundFetch(url: string, init?: RequestInit): Promise<Response> {
   let current = url;
   for (let hop = 0; hop <= MAX_OUTBOUND_REDIRECTS; hop += 1) {
-    assertSafeOutboundHttpsUrl(current);
-    const response = await fetch(current, { ...init, redirect: "manual" });
+    const response = await safeOutboundFetchHop(current, init);
     if (response.status < 300 || response.status >= 400) {
       return response;
     }

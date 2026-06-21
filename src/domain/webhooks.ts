@@ -20,6 +20,12 @@ export const WEBHOOK_RETRY_ENABLED = process.env.OBLIVION_WEBHOOK_RETRY_ENABLED 
 export const WEBHOOK_DELIVERY_RETENTION_DAYS = Number(
   process.env.OBLIVION_WEBHOOK_DELIVERY_RETENTION_DAYS || "30"
 );
+export const WEBHOOK_INBOX_RETENTION_DAYS = Number(
+  process.env.OBLIVION_WEBHOOK_INBOX_RETENTION_DAYS || "30"
+);
+export const WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER = Number(
+  process.env.OBLIVION_WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER || "500"
+);
 
 export function signWebhookPayload(secret: string, timestamp: string, body: string): string {
   return createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
@@ -287,6 +293,44 @@ export function pruneStaleWebhookDeliveries(store: MemoryStore): number {
     }
     store.webhookDeliveries.delete(id);
     pruned += 1;
+  }
+  if (pruned > 0) store.markDirty();
+  return pruned;
+}
+
+export function pruneStaleWebhookInboxEntries(store: MemoryStore): number {
+  const retentionDays = Number(
+    process.env.OBLIVION_WEBHOOK_INBOX_RETENTION_DAYS || String(WEBHOOK_INBOX_RETENTION_DAYS)
+  );
+  const maxPerPartner = Number(
+    process.env.OBLIVION_WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER ||
+      String(WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER)
+  );
+  let pruned = 0;
+  if (Number.isFinite(retentionDays) && retentionDays > 0) {
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    for (const [id, entry] of store.partnerWebhookInbox) {
+      const receivedAt = Date.parse(entry.receivedAt);
+      if (Number.isFinite(receivedAt) && receivedAt <= cutoff) {
+        store.partnerWebhookInbox.delete(id);
+        pruned += 1;
+      }
+    }
+  }
+  if (Number.isFinite(maxPerPartner) && maxPerPartner > 0) {
+    const byPartner = new Map<string, Array<{ id: string; receivedAt: string }>>();
+    for (const [id, entry] of store.partnerWebhookInbox) {
+      const bucket = byPartner.get(entry.partnerId) ?? [];
+      bucket.push({ id, receivedAt: entry.receivedAt });
+      byPartner.set(entry.partnerId, bucket);
+    }
+    for (const entries of byPartner.values()) {
+      if (entries.length <= maxPerPartner) continue;
+      entries.sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+      for (const stale of entries.slice(maxPerPartner)) {
+        if (store.partnerWebhookInbox.delete(stale.id)) pruned += 1;
+      }
+    }
   }
   if (pruned > 0) store.markDirty();
   return pruned;

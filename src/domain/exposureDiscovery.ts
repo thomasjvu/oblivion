@@ -28,6 +28,15 @@ import { veniceChatCompletion, isVeniceConfigured, veniceWebSearch } from "./ven
 import { isJunkDiscoveryUrl, scoreDiscoveryCandidate } from "./discoveryHeuristics.js";
 
 export type { BrokerCatalogEntry };
+
+function discoverySearchConcurrency(): number {
+  const raw = Number(
+    process.env.OBLIVION_DISCOVERY_SEARCH_CONCURRENCY ??
+      process.env.OBLIVION_PREVIEW_SEARCH_CONCURRENCY ??
+      "4"
+  );
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 8) : 4;
+}
 export { brokerForUrl, brokerCatalogEntryById, BROKER_HOST_HINT };
 
 export interface DiscoveryCandidate {
@@ -346,7 +355,9 @@ export async function discoverExposureCandidates(input: {
   if (isDiscoverySearchConfigured()) {
     try {
       if (input.brokerSweep !== false && !input.contentTakedown) {
-        const { candidates: sweepResults } = await fetchBrokerSweepCandidates(input.scope);
+        const { candidates: sweepResults } = await fetchBrokerSweepCandidates(input.scope, {
+          concurrency: discoverySearchConcurrency()
+        });
         for (const item of sweepResults) {
           if (seen.has(item.sourceUrl)) continue;
           seen.add(item.sourceUrl);

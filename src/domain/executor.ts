@@ -32,8 +32,17 @@ export function resolveExecutionStatusAfterExecute(input: {
   connectorResult?: ConnectorResult;
 }): ActionRequest["executionStatus"] {
   if (input.connectorResult?.status === "failed") return "failed";
+  if (input.connectorResult?.requiresUserHandoff) {
+    return "ready";
+  }
   if (input.mode === "live" && input.connectorResult) return "executed";
   return "recorded";
+}
+
+export function shouldConsumeApprovalAfterExecute(executed: ExecuteActionResult): boolean {
+  if (executed.connectorResult?.requiresUserHandoff) return false;
+  if (executed.mode === "live" && !executed.connectorResult) return false;
+  return true;
 }
 
 export interface ExecuteApprovedActionFlowInput {
@@ -82,7 +91,9 @@ export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlow
     input.action.executionStatus = resolveExecutionStatusAfterExecute(executed);
     input.action.executedAt = new Date().toISOString();
     input.action.executionRecord = executed.executionRecord;
-    input.approval.status = "used";
+    if (shouldConsumeApprovalAfterExecute(executed)) {
+      input.approval.status = "used";
+    }
     return executed;
   } catch (error) {
     if (input.action.executionStatus === "executing") {
@@ -107,10 +118,7 @@ export async function executeApprovedAction(input: ExecuteActionInput): Promise<
   const connectorId = connectorIdForAction(input.action.actionType, input.action.brokerId);
   const source = sourceVerificationFor(connectorId);
   if (!source?.claimVerified) {
-    return {
-      mode: "live",
-      executionRecord: `live executor blocked: source verification missing for ${connectorId}.`
-    };
+    throw new DomainError("connector-source-unverified", 503, { connectorId });
   }
 
   const output = await runLiveConnector({

@@ -70,8 +70,17 @@ curl -sS -H "Authorization: Bearer obl_live_..." http://localhost:8080/v1/partne
 
 ## Templates (v1)
 
+Default partner presets (`GET /v1/presets`):
+
 - `people-search-cleanup` — broker discovery + opt-out
 - `breach-exposure` — breach email check + password range (prefix-only)
+- `search-result-suppression` — search-result removal workflows
+- `california-drop` — California broker opt-out rights
+- `gdpr-erasure` — GDPR erasure requests
+
+Consumer-only presets (not on partner allowlist by default): `high-risk-safety`, `content-takedown`.
+
+Server operators can narrow or expand the partner preset allowlist via deployment configuration (see operator runbooks).
 
 Live broker submission needs production trust verification and user approval.
 

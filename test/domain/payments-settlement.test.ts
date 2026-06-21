@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { settleCreditProduct } from "../../src/domain/payments/settlement.js";
+import {
+  claimPaymentSessionForSettlement,
+  settleCreditProduct
+} from "../../src/domain/payments/settlement.js";
+import { DomainError } from "../../src/domain/errors.js";
 import type { CaseRecord, PaymentSession } from "../../src/domain/types.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 
@@ -106,6 +110,35 @@ test("settleCreditProduct is idempotent when session already paid", () => {
     if (originalBypass === undefined) delete process.env.OBLIVION_CREDITS_BYPASS;
     else process.env.OBLIVION_CREDITS_BYPASS = originalBypass;
   }
+});
+
+test("claimPaymentSessionForSettlement allows only one credit grant", () => {
+  const store = new MemoryStore();
+  const caseRecord = seedCase(store);
+  const session = seedSession(caseRecord.id);
+  store.paymentSessions.set(session.id, session);
+  const first = claimPaymentSessionForSettlement(store, session.id, "0xabc123");
+  const second = claimPaymentSessionForSettlement(store, session.id, "0xabc123");
+  assert.notEqual(first, "already-paid");
+  assert.equal(second, "already-paid");
+});
+
+test("settleCreditProduct rejects ambiguous sessions without paymentSessionId", () => {
+  const store = new MemoryStore();
+  const caseRecord = seedCase(store);
+  const sessionA = seedSession(caseRecord.id);
+  const sessionB = { ...seedSession(caseRecord.id), id: "payment_session_b" };
+  store.paymentSessions.set(sessionA.id, sessionA);
+  store.paymentSessions.set(sessionB.id, sessionB);
+  assert.throws(
+    () =>
+      settleCreditProduct(store, caseRecord, {
+        walletAddress: sessionA.walletAddress!,
+        expectedMode: "one-off",
+        settlementTransaction: "0xabc123"
+      }),
+    (error: unknown) => error instanceof DomainError && error.code === "payment-session-ambiguous"
+  );
 });
 
 test("settleCreditProduct accepts settlement transaction", () => {

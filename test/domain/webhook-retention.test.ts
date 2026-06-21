@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pruneStaleWebhookDeliveries } from "../../src/domain/webhooks.js";
+import { pruneStaleWebhookDeliveries, pruneStaleWebhookInboxEntries } from "../../src/domain/webhooks.js";
+import type { PartnerWebhookInboxEntry } from "../../src/domain/types.js";
 import type { PartnerWebhookDelivery } from "../../src/domain/types.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 
@@ -43,4 +44,31 @@ test("pruneStaleWebhookDeliveries removes old terminal deliveries", () => {
   assert.equal(store.webhookDeliveries.has("wh_stale"), false);
   assert.equal(store.webhookDeliveries.has("wh_fresh"), true);
   assert.equal(store.webhookDeliveries.has("wh_retry"), true);
+});
+
+test("pruneStaleWebhookInboxEntries removes stale inbox rows and enforces per-partner cap", () => {
+  const store = new MemoryStore();
+  const stale: PartnerWebhookInboxEntry = {
+    id: "inbox_stale",
+    partnerId: "partner_1",
+    event: "case.created",
+    payload: { caseId: "case_1" },
+    signatureValid: true,
+    receivedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString()
+  };
+  const fresh: PartnerWebhookInboxEntry = {
+    id: "inbox_fresh",
+    partnerId: "partner_1",
+    event: "case.created",
+    payload: { caseId: "case_2" },
+    signatureValid: true,
+    receivedAt: new Date().toISOString()
+  };
+  store.partnerWebhookInbox.set(stale.id, stale);
+  store.partnerWebhookInbox.set(fresh.id, fresh);
+  process.env.OBLIVION_WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER = "1";
+  const pruned = pruneStaleWebhookInboxEntries(store);
+  assert.ok(pruned >= 1);
+  assert.equal(store.partnerWebhookInbox.has("inbox_fresh"), true);
+  delete process.env.OBLIVION_WEBHOOK_INBOX_MAX_ENTRIES_PER_PARTNER;
 });

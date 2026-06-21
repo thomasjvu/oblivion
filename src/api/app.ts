@@ -8,6 +8,7 @@ import { seedPartnersFromEnv } from "../domain/seedPartners.js";
 import { processDueRechecks } from "../domain/recheck.js";
 import {
   pruneStaleWebhookDeliveries,
+  pruneStaleWebhookInboxEntries,
   processDueWebhookRetries,
   WEBHOOK_RETRY_ENABLED
 } from "../domain/webhooks.js";
@@ -207,6 +208,7 @@ export function createApp(options: AppOptions = {}) {
             if (maintenanceSchedulerEnabled) {
               mutated = (await processDueRechecks(store)) > 0 || mutated;
               mutated = pruneStaleWebhookDeliveries(store) > 0 || mutated;
+              mutated = pruneStaleWebhookInboxEntries(store) > 0 || mutated;
             }
             if (mutated && persistPath) {
               store.markDirty();

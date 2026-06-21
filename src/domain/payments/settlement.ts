@@ -8,9 +8,53 @@ import {
   STARTER_PACK_CREDITS
 } from "../credits.js";
 import { walletKeyFromAddress } from "../credits.js";
+import { DomainError } from "../errors.js";
 import { markSessionPaid } from "../x402.js";
 import type { CaseRecord, PaymentMode, PaymentSession } from "../types.js";
 import type { MemoryStore } from "../../storage/memoryStore.js";
+
+export type PaymentSessionClaim = PaymentSession | "already-paid" | null;
+
+export function claimPaymentSessionForSettlement(
+  store: MemoryStore,
+  sessionId: string,
+  settlementTransaction?: string
+): PaymentSessionClaim {
+  const session = store.paymentSessions.get(sessionId);
+  if (!session) return null;
+  if (session.status === "paid") return "already-paid";
+  if (session.status !== "payment-required") return null;
+  const paid = markSessionPaid(session, settlementTransaction);
+  store.paymentSessions.set(sessionId, paid);
+  return paid;
+}
+
+function resolveSettlementSession(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  input: {
+    expectedMode: PaymentMode;
+    paymentSessionId?: string;
+    settlementTransaction?: string;
+  }
+): PaymentSession | null {
+  if (input.paymentSessionId) {
+    const session = store.paymentSessions.get(input.paymentSessionId);
+    if (!session || session.caseId !== caseRecord.id || session.mode !== input.expectedMode) {
+      return null;
+    }
+    return session;
+  }
+  const candidates = store.paymentSessionsForCase(caseRecord.id).filter((item) => {
+    if (item.mode !== input.expectedMode) return false;
+    if (input.settlementTransaction) return Boolean(item.walletKey);
+    return true;
+  });
+  if (candidates.length > 1) {
+    throw new DomainError("payment-session-ambiguous", 422);
+  }
+  return candidates[0] ?? null;
+}
 
 export function settleCreditProduct(
   store: MemoryStore,
@@ -22,13 +66,8 @@ export function settleCreditProduct(
     settlementTransaction?: string;
   }
 ) {
-  const sessions = store.paymentSessionsForCase(caseRecord.id);
-  const session = input.paymentSessionId
-    ? store.paymentSessions.get(input.paymentSessionId)
-    : sessions.find(
-        (item) => item.mode === input.expectedMode && (!input.settlementTransaction || Boolean(item.walletKey))
-      );
-  if (!session || session.caseId !== caseRecord.id || session.mode !== input.expectedMode) {
+  const session = resolveSettlementSession(store, caseRecord, input);
+  if (!session) {
     return null;
   }
   if (!input.settlementTransaction && !creditsBypassEnabled()) {
@@ -42,7 +81,11 @@ export function settleCreditProduct(
   ) {
     return null;
   }
-  if (session.status === "paid") {
+  const claim = claimPaymentSessionForSettlement(store, session.id, input.settlementTransaction);
+  if (claim === null) {
+    return null;
+  }
+  if (claim === "already-paid") {
     const credits = resolveCreditsView(store, input.walletAddress);
     return {
       session,
@@ -50,8 +93,7 @@ export function settleCreditProduct(
       balanceCredits: credits.balanceCredits
     };
   }
-  const paid = markSessionPaid(session, input.settlementTransaction);
-  store.paymentSessions.set(paid.id, paid);
+  const paid = claim;
   markCaseActivated(store, caseRecord.id, paid);
   const credits = settleCreditsForProduct(store, billingWallet, input.expectedMode, caseRecord.id);
   const timeline = createTimelineEvent(

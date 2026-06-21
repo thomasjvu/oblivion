@@ -1,7 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { DomainError } from "./errors.js";
 import type { PartnerEnvironment, PartnerRecord, PartnerWebhookEvent } from "./types.js";
 
-const DEFAULT_EVENTS: PartnerWebhookEvent[] = [
+export const PARTNER_WEBHOOK_EVENTS: readonly PartnerWebhookEvent[] = [
   "case.created",
   "case.phase_changed",
   "exposure.discovered",
@@ -11,7 +12,24 @@ const DEFAULT_EVENTS: PartnerWebhookEvent[] = [
   "recheck.due",
   "case.completed",
   "case.deleted"
-];
+] as const;
+
+const DEFAULT_EVENTS: PartnerWebhookEvent[] = [...PARTNER_WEBHOOK_EVENTS];
+
+export function parsePartnerWebhookEvents(events: unknown): PartnerWebhookEvent[] {
+  if (!Array.isArray(events) || events.length === 0) {
+    throw new DomainError("webhook-events-required", 422);
+  }
+  const allowed = new Set<string>(PARTNER_WEBHOOK_EVENTS);
+  const parsed: PartnerWebhookEvent[] = [];
+  for (const event of events) {
+    if (typeof event !== "string" || !allowed.has(event)) {
+      throw new DomainError("webhook-event-invalid", 422, { allowed: [...PARTNER_WEBHOOK_EVENTS] });
+    }
+    parsed.push(event as PartnerWebhookEvent);
+  }
+  return parsed;
+}
 
 export function hashPartnerApiKey(apiKey: string): string {
   return createHash("sha256").update(apiKey.trim()).digest("hex");
