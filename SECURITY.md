@@ -68,6 +68,7 @@ Broad consent is not enough. The system converts broad intent into concrete appr
 7. **Check integrations** — `GET /api/integrations/status` lists `liveReady.*` for configured adapters only.
 8. **Live executor** — production profile (`OBLIVION_DEPLOYMENT_ENV=production`) enables `OBLIVION_EXECUTOR_MODE=live` by default. Managed-plaintext connectors still require `verifierResult: "pass"`.
 9. **Never enable `OBLIVION_AI_BYPASS_PAYMENT` in production** — Venice chat/analysis requires a paid x402 session per case.
+10. **Rotate 1Shot credentials after HMAC deploy** — issue a new `ONESHOT_API_KEY` in the 1Shot dashboard, `npm run secrets:push:prod`, redeploy the CVM, then revoke the previous key. Confirms plan 035 webhook verification is live with fresh secrets.
 
 ### Infisical secret workflow
 

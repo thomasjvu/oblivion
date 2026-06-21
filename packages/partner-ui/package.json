@@ -1,12 +1,19 @@
 {
   "name": "@oblivion/partner-ui",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Embeddable vanilla JS widgets for Oblivion partner integrations",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thomasjvu/oblivion.git",
+    "directory": "packages/partner-ui"
+  },
+  "files": ["widgets.js", "widgets.css", "README.md"],
   "main": "widgets.js",
   "exports": {
     ".": "./widgets.js",
     "./widgets.css": "./widgets.css"
-  }
+  },
+  "keywords": ["oblivion", "privacy", "partner-api", "widgets", "embed"]
 }

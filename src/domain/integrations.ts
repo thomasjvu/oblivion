@@ -33,9 +33,9 @@ export function walletLiveMode(): boolean {
   return deploymentProfile().walletLiveMode;
 }
 
-export function persistenceStore(): "file" | "memory" {
+export function persistenceStore(): "file" | "memory" | "sqlite" {
   const raw = process.env.OBLIVION_STORE?.trim();
-  if (raw === "file" || raw === "memory") return raw;
+  if (raw === "file" || raw === "memory" || raw === "sqlite") return raw;
   return deploymentProfile().persistenceStore;
 }
 
