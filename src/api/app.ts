@@ -5,6 +5,7 @@ import { sanitizeForLog } from "../domain/safeLogging.js";
 import { createAppStore, storePersistPath } from "../storage/createStore.js";
 import { scheduleStorePersist } from "../storage/fileStore.js";
 import { seedPartnersFromEnv } from "../domain/seedPartners.js";
+import { processDueRechecks } from "../domain/recheck.js";
 import { processDueWebhookRetries, WEBHOOK_RETRY_ENABLED } from "../domain/webhooks.js";
 import { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError, toHttpError } from "./errors.js";
@@ -183,11 +184,15 @@ export function createApp(options: AppOptions = {}) {
     WEBHOOK_RETRY_ENABLED &&
     process.env.OBLIVION_WEBHOOK_SCHEDULER !== "false" &&
     process.env.NODE_ENV !== "test";
-  const webhookRetryTimer = webhookSchedulerEnabled
-    ? setInterval(() => {
-        void processDueWebhookRetries(store);
-      }, webhookRetryIntervalMs)
-    : undefined;
+  const maintenanceSchedulerEnabled =
+    process.env.OBLIVION_MAINTENANCE_SCHEDULER !== "false" && process.env.NODE_ENV !== "test";
+  const webhookRetryTimer =
+    webhookSchedulerEnabled || maintenanceSchedulerEnabled
+      ? setInterval(() => {
+          if (webhookSchedulerEnabled) void processDueWebhookRetries(store);
+          if (maintenanceSchedulerEnabled) void processDueRechecks(store);
+        }, webhookRetryIntervalMs)
+      : undefined;
   if (webhookRetryTimer && typeof webhookRetryTimer.unref === "function") {
     webhookRetryTimer.unref();
   }

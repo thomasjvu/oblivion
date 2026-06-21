@@ -64,9 +64,25 @@ paths:
               properties:
                 presetId:
                   type: string
-                  enum: [people-search-cleanup, breach-exposure]
+                  enum:
+                    - people-search-cleanup
+                    - breach-exposure
+                    - search-result-suppression
+                    - california-drop
+                    - gdpr-erasure
       responses:
         "201": { description: Plan started }
+  /v1/cases/{caseId}/recheck:
+    post:
+      summary: Trigger due follow-up rechecks for a case
+      tags: [Workflow]
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Due rechecks triggered }
   /v1/cases/{caseId}/discover:
     post:
       summary: Discover exposure candidates

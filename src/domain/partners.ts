@@ -92,6 +92,14 @@ export function safeEqual(left: string, right: string): boolean {
 
 export function partnerPresetAllowlist(): Set<string> {
   const raw = process.env.OBLIVION_PARTNER_PRESETS?.trim();
-  if (!raw) return new Set(["people-search-cleanup", "breach-exposure"]);
+  if (!raw) {
+    return new Set([
+      "people-search-cleanup",
+      "breach-exposure",
+      "search-result-suppression",
+      "california-drop",
+      "gdpr-erasure"
+    ]);
+  }
   return new Set(raw.split(",").map((item) => item.trim()).filter(Boolean));
 }

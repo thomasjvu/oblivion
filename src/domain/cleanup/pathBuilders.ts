@@ -84,6 +84,7 @@ export function createPlanFollowUp(caseId: string, presetId: PresetId): FollowUp
   return {
     id: `followup_${crypto.randomUUID()}`,
     caseId,
+    status: "pending",
     dueDate: followUpDate(presetId === "california-drop" ? 90 : presetId === "content-takedown" ? 7 : 14),
     expectedResponseWindow:
       presetId === "california-drop"
@@ -111,6 +112,7 @@ export function createBrokerFollowUps(
     followUps.push({
       id: `followup_${crypto.randomUUID()}`,
       caseId,
+      status: "pending",
       brokerId: exposure.brokerId,
       brokerLabel: exposure.brokerLabel ?? catalog?.brokerLabel,
       exposureId: exposure.id,

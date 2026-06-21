@@ -179,6 +179,8 @@ export interface SourceCheck {
   operatorVersion: string;
 }
 
+export type FollowUpStatus = "pending" | "triggered" | "completed";
+
 export interface FollowUp {
   id: string;
   caseId: string;
@@ -188,6 +190,8 @@ export interface FollowUp {
   brokerId?: string;
   brokerLabel?: string;
   exposureId?: string;
+  status?: FollowUpStatus;
+  lastTriggeredAt?: string;
 }
 
 export type ConnectorStatus = "planned" | "blocked" | "ready" | "submitted" | "recorded" | "failed";

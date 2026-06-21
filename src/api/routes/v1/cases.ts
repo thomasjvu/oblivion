@@ -22,6 +22,7 @@ import { redactedActionForExport } from "../../../domain/exportPrivacy.js";
 import { buildPartnerCaseStatus, buildPartnerRiskSummary } from "../../../domain/partnerStatus.js";
 import { withPartnerCase } from "../../handlers/caseRouteAdapters.js";
 import { buildStatus } from "../../../domain/status.js";
+import { runCaseRecheck } from "../../../domain/recheck.js";
 import { emitCaseWebhook } from "../../../domain/webhooks.js";
 import { HttpError } from "../../errors.js";
 import { readJson, sendJson } from "../../http.js";
@@ -217,6 +218,16 @@ export async function handleV1CaseRoutes(
       pending: status.pendingFindings,
       confirmed: status.confirmedFindings
     });
+    return true;
+  }
+
+  const recheckMatch = pathname.match(/^\/v1\/cases\/([^/]+)\/recheck$/);
+  if (method === "POST" && recheckMatch) {
+    meterPartnerUsage(store, partner, "recheck", recheckMatch[1]);
+    const result = await withPartnerCase(partner, store, recheckMatch[1], async (caseRecord) => {
+      return runCaseRecheck(store, caseRecord.id);
+    });
+    sendJson(response, 200, result);
     return true;
   }
 

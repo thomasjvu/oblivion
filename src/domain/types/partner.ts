@@ -49,7 +49,7 @@ export interface PartnerWebhookInboxEntry {
   receivedAt: string;
 }
 
-export type PartnerMeterKind = "case" | "discover" | "execute" | "ai";
+export type PartnerMeterKind = "case" | "discover" | "execute" | "ai" | "recheck";
 
 export interface PartnerUsageEntry {
   id: string;

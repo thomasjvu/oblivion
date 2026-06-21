@@ -6,7 +6,8 @@ export const PARTNER_METER_RATES: Record<PartnerMeterKind, number> = {
   case: Number(process.env.OBLIVION_PARTNER_RATE_CASE || "10"),
   discover: Number(process.env.OBLIVION_PARTNER_RATE_DISCOVER || "5"),
   execute: Number(process.env.OBLIVION_PARTNER_RATE_EXECUTE || "15"),
-  ai: Number(process.env.OBLIVION_PARTNER_RATE_AI || "2")
+  ai: Number(process.env.OBLIVION_PARTNER_RATE_AI || "2"),
+  recheck: Number(process.env.OBLIVION_PARTNER_RATE_RECHECK || "1")
 };
 
 export function partnerBillingView(partner: PartnerRecord) {

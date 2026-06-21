@@ -32,12 +32,15 @@ test("parseSandboxPartnerKeysFromEnv sets sandbox environment", async () => {
   else delete process.env.OBLIVION_PARTNER_SANDBOX_KEYS;
 });
 
-test("partnerPresetAllowlist defaults to people-search and breach", () => {
+test("partnerPresetAllowlist defaults to core partner-safe presets", () => {
   const previous = process.env.OBLIVION_PARTNER_PRESETS;
   delete process.env.OBLIVION_PARTNER_PRESETS;
   const allowlist = partnerPresetAllowlist();
   assert.ok(allowlist.has("people-search-cleanup"));
   assert.ok(allowlist.has("breach-exposure"));
-  assert.ok(!allowlist.has("gdpr-erasure"));
+  assert.ok(allowlist.has("search-result-suppression"));
+  assert.ok(allowlist.has("california-drop"));
+  assert.ok(allowlist.has("gdpr-erasure"));
+  assert.ok(!allowlist.has("high-risk-safety"));
   if (previous) process.env.OBLIVION_PARTNER_PRESETS = previous;
 });

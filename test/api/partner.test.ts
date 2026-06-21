@@ -139,7 +139,8 @@ test("partner presets endpoint returns allowlisted catalog", async () => {
     const ids = presets.json.presets.map((preset: { id: string }) => preset.id);
     assert.ok(ids.includes("people-search-cleanup"));
     assert.ok(ids.includes("breach-exposure"));
-    assert.equal(ids.includes("gdpr-erasure"), false);
+    assert.ok(ids.includes("gdpr-erasure"));
+    assert.equal(ids.includes("high-risk-safety"), false);
   } finally {
     server.close();
   }
@@ -156,7 +157,7 @@ test("partner preset allowlist blocks unsupported presets", async () => {
     const caseId = created.json.case.id as string;
     const blocked = await partnerFetch(base, `/v1/cases/${caseId}/preset`, {
       method: "POST",
-      body: { presetId: "gdpr-erasure" },
+      body: { presetId: "high-risk-safety" },
       expectedStatus: 422
     });
     assert.equal(blocked.json.error, "preset-not-available-for-partners");
