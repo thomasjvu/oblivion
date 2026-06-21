@@ -105,5 +105,6 @@ export async function processDueRechecks(store: MemoryStore): Promise<number> {
   for (const followUp of due) {
     await triggerRecheckForFollowUp(store, followUp);
   }
+  if (due.length > 0) store.markDirty();
   return due.length;
 }

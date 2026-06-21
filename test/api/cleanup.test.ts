@@ -99,6 +99,17 @@ test("HIBP password range connector sends only the SHA-1 prefix", async () => {
     assert.equal(requestedUrl, "https://api.pwnedpasswords.com/range/ABC12");
     assert.deepEqual(result.transmitted, ["hashPrefix"]);
     assert.deepEqual(result.neverTransmit, ["password"]);
+
+    await post(
+      base,
+      "/api/connectors/hibp/password-range",
+      {
+        caseId: created.caseId,
+        hashPrefix: "abcde",
+        approvalId: passwordApproval.id
+      },
+      403
+    );
   } finally {
     globalThis.fetch = originalFetch;
     server.close();

@@ -62,6 +62,7 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
     const result = buildHibpPasswordRangeConnectorResult(caseRecord.id, body.hashPrefix, range);
     recordSourceCheck(store, caseRecord.id, "hibp-password-range");
     store.connectorResults.set(result.id, result);
+    approval.status = "used";
     sendJson(response, 200, { result, transmitted: ["hashPrefix"], neverTransmit: ["password"] });
     return true;
   }

@@ -44,3 +44,22 @@ test("partner run-until-blocked stops when approvals are required", async () => 
     server.close();
   }
 });
+
+test("partner run-until-blocked rejects excessive maxIterations", async () => {
+  const { server, base } = await startPartnerServer();
+  try {
+    const created = await partnerFetch(base, "/v1/cases", {
+      method: "POST",
+      body: { jurisdiction: "US", authorityBasis: "self", externalRef: "agent_cap" },
+      expectedStatus: 201
+    });
+    const caseId = created.json.case.id as string;
+    await partnerFetch(base, `/v1/cases/${caseId}/run-until-blocked`, {
+      method: "POST",
+      body: { maxIterations: 999 },
+      expectedStatus: 422
+    });
+  } finally {
+    server.close();
+  }
+});

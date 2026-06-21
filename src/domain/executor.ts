@@ -51,20 +51,24 @@ export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlow
   if (input.approval.status === "used") {
     throw new DomainError("approval-not-executable", 409);
   }
-  if (input.action.executionStatus === "executing") {
-    throw new DomainError("action-already-executing", 409);
+  if (input.action.executionStatus !== "ready") {
+    if (input.action.executionStatus === "executing") {
+      throw new DomainError("action-already-executing", 409);
+    }
+    if (input.action.executionStatus === "executed" || input.action.executionStatus === "recorded") {
+      throw new DomainError("action-already-executed", 409);
+    }
+    throw new DomainError("action-not-ready", 409);
   }
-  if (input.action.executionStatus === "executed" || input.action.executionStatus === "recorded") {
-    throw new DomainError("action-already-executed", 409);
-  }
+  input.action.executionStatus = "executing";
   const decision = canExecuteWithApproval(input.approval);
   if (!decision.allowed) {
+    input.action.executionStatus = "ready";
     if (input.blockActionOnDeny) {
       input.action.executionStatus = "blocked";
     }
     throw new DomainError("execution-blocked", 403, { reasons: decision.reasons });
   }
-  input.action.executionStatus = "executing";
   try {
     const executed = await executeApprovedAction({
       store: input.store,

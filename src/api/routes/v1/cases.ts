@@ -14,7 +14,12 @@ import {
 import { deleteCaseRecord } from "../../handlers/caseLifecycle.js";
 import { buildAgentPlanView } from "../../../domain/cleanup.js";
 import { createCaseRecord } from "../../../domain/cases.js";
-import { findPartnerCaseByExternalRef, runPartnerAgentUntilBlocked } from "../../../domain/partnerAgent.js";
+import {
+  findPartnerCaseByExternalRef,
+  parsePartnerMaxIterations,
+  runPartnerAgentUntilBlocked
+} from "../../../domain/partnerAgent.js";
+import { DomainError } from "../../../domain/errors.js";
 import { buildPartnerCaseExport, recordPartnerDataAccess } from "../../../domain/partnerAudit.js";
 import { meterPartnerUsage } from "../../../domain/partnerBilling.js";
 import { partnerPresetAllowlist } from "../../../domain/partners.js";
@@ -147,11 +152,20 @@ export async function handleV1CaseRoutes(
     const caseRecord = store.getCaseOrThrow(runUntilMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
     const body = await readJson<{ maxIterations?: number }>(request);
+    let maxIterations: number;
+    try {
+      maxIterations = parsePartnerMaxIterations(body.maxIterations);
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw new HttpError(error.statusCode, error.code, error.details);
+      }
+      throw error;
+    }
     const result = await runPartnerAgentUntilBlocked({
       store,
       caseRecord,
       trustCenterConfig: loadTrustCenterConfig,
-      maxIterations: body.maxIterations
+      maxIterations
     });
     sendJson(response, 200, result);
     return true;

@@ -20,6 +20,7 @@ export function recordPartnerDataAccess(
     at: new Date().toISOString()
   };
   store.partnerDataAccess.set(event.id, event);
+  store.markDirty();
   return event;
 }
 

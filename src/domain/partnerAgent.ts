@@ -1,9 +1,21 @@
 import type { TrustCenterConfig } from "./attestation.js";
+import { DomainError } from "./errors.js";
 import { runCleanupAgentStep } from "./agentRunner.js";
 import { buildStatus } from "./status.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import type { CaseRecord, CaseStatus } from "./types.js";
 import { emitCaseWebhook, notifyCasePendingApprovals } from "./webhooks.js";
+
+export const PARTNER_MAX_ITERATIONS_CAP = 50;
+export const PARTNER_DEFAULT_MAX_ITERATIONS = 12;
+
+export function parsePartnerMaxIterations(value?: number): number {
+  if (value === undefined) return PARTNER_DEFAULT_MAX_ITERATIONS;
+  if (!Number.isFinite(value) || value < 1 || value > PARTNER_MAX_ITERATIONS_CAP) {
+    throw new DomainError("max-iterations-out-of-range", 422);
+  }
+  return Math.floor(value);
+}
 
 export interface RunUntilBlockedResult {
   iterations: number;
@@ -19,7 +31,11 @@ export async function runPartnerAgentUntilBlocked(input: {
   maxIterations?: number;
   highAutonomy?: boolean;
 }): Promise<RunUntilBlockedResult> {
-  const maxIterations = input.maxIterations ?? 12;
+  const requested = input.maxIterations ?? PARTNER_DEFAULT_MAX_ITERATIONS;
+  const maxIterations = Math.min(
+    PARTNER_MAX_ITERATIONS_CAP,
+    Math.max(1, Math.floor(Number.isFinite(requested) ? requested : PARTNER_DEFAULT_MAX_ITERATIONS))
+  );
   let iterations = 0;
   let lastResult: Awaited<ReturnType<typeof runCleanupAgentStep>> | undefined;
 

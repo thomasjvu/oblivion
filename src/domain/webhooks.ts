@@ -1,15 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { DomainError } from "./errors.js";
-import { isSafeOutboundHttpsUrl } from "./safeOutboundUrl.js";
-
-function isPartnerInboxDeliveryUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return /\/v1\/partners\/[^/]+\/webhook-inbox$/.test(parsed.pathname);
-  } catch {
-    return false;
-  }
-}
+import { isPartnerInboxDeliveryUrl, isSafeOutboundHttpsUrl, safeOutboundFetch } from "./safeOutboundUrl.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { buildStatus } from "./status.js";
 import { sanitizeForLog } from "./safeLogging.js";
@@ -104,7 +95,7 @@ async function postSignedWebhook(
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = signWebhookPayload(secret, timestamp, body);
   try {
-    const response = await fetch(url, {
+    const response = await safeOutboundFetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -267,6 +258,7 @@ export async function processDueWebhookRetries(store: MemoryStore): Promise<numb
     await deliverWebhook(store, partner, delivery);
     processed += 1;
   }
+  if (processed > 0) store.markDirty();
   return processed;
 }
 

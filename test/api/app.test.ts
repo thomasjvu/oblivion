@@ -167,8 +167,8 @@ test("case lifecycle enforces approval before execution", async () => {
       sourceVerified: true
     }, 201);
 
-    const blocked = await post(base, `/api/actions/${proposed.action.id}/execute`, {}, 403);
-    assert.equal(blocked.error, "execution-blocked");
+    const blocked = await post(base, `/api/actions/${proposed.action.id}/execute`, {}, 409);
+    assert.equal(blocked.error, "action-not-ready");
 
     await post(
       base,

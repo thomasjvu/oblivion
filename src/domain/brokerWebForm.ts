@@ -1,3 +1,5 @@
+import { safeOutboundFetch } from "./safeOutboundUrl.js";
+
 const FORM_RE = /<form\b[^>]*>/gi;
 const INPUT_NAME_RE = /<input\b[^>]*\bname=["']([^"']+)["'][^>]*>/gi;
 const CAPTCHA_RE = /captcha|recaptcha|hcaptcha|turnstile/i;
@@ -15,10 +17,9 @@ export interface BrokerFormProbe {
 
 export async function probeBrokerOptOutForm(url: string): Promise<BrokerFormProbe> {
   try {
-    const response = await fetch(url, {
+    const response = await safeOutboundFetch(url, {
       method: "GET",
-      headers: { "user-agent": "oblivion-privacy-agent/1.0 (+https://oblivion.phantasy.bot)" },
-      redirect: "follow"
+      headers: { "user-agent": "oblivion-privacy-agent/1.0 (+https://oblivion.phantasy.bot)" }
     });
     const html = await response.text();
     const forms = [...html.matchAll(FORM_RE)];

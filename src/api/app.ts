@@ -195,8 +195,19 @@ export function createApp(options: AppOptions = {}) {
   const webhookRetryTimer =
     webhookSchedulerEnabled || maintenanceSchedulerEnabled
       ? setInterval(() => {
-          if (webhookSchedulerEnabled) void processDueWebhookRetries(store);
-          if (maintenanceSchedulerEnabled) void processDueRechecks(store);
+          void (async () => {
+            let mutated = false;
+            if (webhookSchedulerEnabled) {
+              mutated = (await processDueWebhookRetries(store)) > 0 || mutated;
+            }
+            if (maintenanceSchedulerEnabled) {
+              mutated = (await processDueRechecks(store)) > 0 || mutated;
+            }
+            if (mutated && persistPath) {
+              store.markDirty();
+              scheduleStorePersist(store, persistPath);
+            }
+          })();
         }, webhookRetryIntervalMs)
       : undefined;
   if (webhookRetryTimer && typeof webhookRetryTimer.unref === "function") {

@@ -45,6 +45,51 @@ function seedApproval(caseId: string): { approval: Approval; action: ActionReque
   return { approval, action };
 }
 
+test("executeApprovedActionFlow allows only one concurrent execute", async () => {
+  const original = process.env.OBLIVION_EXECUTOR_MODE;
+  process.env.OBLIVION_EXECUTOR_MODE = "record-only";
+  const store = new MemoryStore();
+  const now = new Date().toISOString();
+  const caseRecord: CaseRecord = {
+    id: "case_exec_race",
+    jurisdiction: "US",
+    authorityBasis: "self",
+    riskLevel: "standard",
+    retentionDays: 30,
+    encryptedVaultPointer: "vault_exec_race",
+    createdAt: now,
+    updatedAt: now
+  };
+  store.cases.set(caseRecord.id, caseRecord);
+  const { approval, action } = seedApproval(caseRecord.id);
+  store.approvals.set(approval.id, approval);
+  store.actions.set(action.id, action);
+  try {
+    const results = await Promise.allSettled([
+      executeApprovedActionFlow({ store, action, approval, trustCenterConfig: trustConfig }),
+      executeApprovedActionFlow({ store, action, approval, trustCenterConfig: trustConfig })
+    ]);
+    const fulfilled = results.filter((item) => item.status === "fulfilled");
+    const rejected = results.filter((item) => item.status === "rejected");
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 1);
+    const failure = rejected[0];
+    assert.equal(failure?.status, "rejected");
+    if (failure?.status === "rejected") {
+      const error = failure.reason;
+      assert.ok(error instanceof DomainError);
+      assert.ok(
+        error.code === "action-already-executing" ||
+          error.code === "action-already-executed" ||
+          error.code === "approval-not-executable"
+      );
+    }
+  } finally {
+    if (original === undefined) delete process.env.OBLIVION_EXECUTOR_MODE;
+    else process.env.OBLIVION_EXECUTOR_MODE = original;
+  }
+});
+
 test("executeApprovedActionFlow rejects second execute after success", async () => {
   const original = process.env.OBLIVION_EXECUTOR_MODE;
   process.env.OBLIVION_EXECUTOR_MODE = "record-only";
