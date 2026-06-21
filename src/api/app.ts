@@ -6,7 +6,11 @@ import { createAppStore, storePersistPath } from "../storage/createStore.js";
 import { scheduleStorePersist } from "../storage/fileStore.js";
 import { seedPartnersFromEnv } from "../domain/seedPartners.js";
 import { processDueRechecks } from "../domain/recheck.js";
-import { processDueWebhookRetries, WEBHOOK_RETRY_ENABLED } from "../domain/webhooks.js";
+import {
+  pruneStaleWebhookDeliveries,
+  processDueWebhookRetries,
+  WEBHOOK_RETRY_ENABLED
+} from "../domain/webhooks.js";
 import { MemoryStore } from "../storage/memoryStore.js";
 import { HttpError, toHttpError } from "./errors.js";
 import { bindRequestOrigin, clearRequestOrigin, securityHeaders, sendJson } from "./http.js";
@@ -202,6 +206,7 @@ export function createApp(options: AppOptions = {}) {
             }
             if (maintenanceSchedulerEnabled) {
               mutated = (await processDueRechecks(store)) > 0 || mutated;
+              mutated = pruneStaleWebhookDeliveries(store) > 0 || mutated;
             }
             if (mutated && persistPath) {
               store.markDirty();

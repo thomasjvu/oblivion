@@ -17,6 +17,9 @@ import type {
 export const WEBHOOK_MAX_RETRIES = Number(process.env.OBLIVION_WEBHOOK_MAX_RETRIES || "5");
 export const WEBHOOK_RETRY_BASE_MS = Number(process.env.OBLIVION_WEBHOOK_RETRY_BASE_MS || "60000");
 export const WEBHOOK_RETRY_ENABLED = process.env.OBLIVION_WEBHOOK_RETRY_ENABLED !== "false";
+export const WEBHOOK_DELIVERY_RETENTION_DAYS = Number(
+  process.env.OBLIVION_WEBHOOK_DELIVERY_RETENTION_DAYS || "30"
+);
 
 export function signWebhookPayload(secret: string, timestamp: string, body: string): string {
   return createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
@@ -262,6 +265,33 @@ export async function processDueWebhookRetries(store: MemoryStore): Promise<numb
   return processed;
 }
 
+export function pruneStaleWebhookDeliveries(store: MemoryStore): number {
+  const retentionDays = Number(
+    process.env.OBLIVION_WEBHOOK_DELIVERY_RETENTION_DAYS || String(WEBHOOK_DELIVERY_RETENTION_DAYS)
+  );
+  if (!Number.isFinite(retentionDays) || retentionDays <= 0) return 0;
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  let pruned = 0;
+  for (const [id, delivery] of store.webhookDeliveries) {
+    const createdAt = Date.parse(delivery.createdAt);
+    if (!Number.isFinite(createdAt) || createdAt > cutoff) continue;
+    if (delivery.status === "pending") continue;
+    if (
+      delivery.status === "failed" &&
+      delivery.nextRetryAt &&
+      Date.parse(delivery.nextRetryAt) > now &&
+      (delivery.attemptCount || 0) < WEBHOOK_MAX_RETRIES
+    ) {
+      continue;
+    }
+    store.webhookDeliveries.delete(id);
+    pruned += 1;
+  }
+  if (pruned > 0) store.markDirty();
+  return pruned;
+}
+
 export function partnerForCase(store: MemoryStore, caseId: string): PartnerRecord | undefined {
   const caseRecord = store.cases.get(caseId);
   if (!caseRecord?.partnerId) return undefined;
@@ -334,6 +364,8 @@ export async function emitApprovalPendingWebhook(
     actionType: string;
   }
 ): Promise<void> {
+  const stored = store.approvals.get(approval.id);
+  if (stored?.pendingWebhookEmittedAt) return;
   await emitCaseWebhook(store, caseId, "approval.pending", {
     approvalId: approval.id,
     destination: approval.destination,
@@ -341,17 +373,16 @@ export async function emitApprovalPendingWebhook(
     expiresAt: approval.expiresAt,
     actionType: approval.actionType
   });
+  if (stored) {
+    stored.pendingWebhookEmittedAt = new Date().toISOString();
+    store.approvals.set(stored.id, stored);
+    store.markDirty();
+  }
 }
 
 export async function notifyCasePendingApprovals(store: MemoryStore, caseId: string): Promise<void> {
   const status = buildStatus(store, caseId);
   for (const approval of status.approvalsNeeded) {
-    await emitCaseWebhook(store, caseId, "approval.pending", {
-      approvalId: approval.id,
-      destination: approval.destination,
-      dataToDisclose: approval.dataToDisclose,
-      expiresAt: approval.expiresAt,
-      actionType: approval.actionType
-    });
+    await emitApprovalPendingWebhook(store, caseId, approval);
   }
 }

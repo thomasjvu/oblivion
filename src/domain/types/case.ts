@@ -151,6 +151,8 @@ export interface Approval {
   createdAt: string;
   approvedAt?: string;
   userConfirmation?: string;
+  /** Set when an approval.pending partner/callback webhook was emitted (dedup on agent steps). */
+  pendingWebhookEmittedAt?: string;
 }
 
 export interface ActionRequest {

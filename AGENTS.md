@@ -12,7 +12,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - Record-only is the default executor in development; production profile enables live connectors (override with `OBLIVION_EXECUTOR_MODE`). See `deploymentEnv.ts`, `agentRunner.ts`, `executor.ts`.
 - Attestation is not optional theater: `buildAttestationProof` checks pinned digests, compose hash, fresh Intel TDX quote via Phala, `verifierResult`.
 - Presets and plans are the source of truth for workflow (`CLEANUP_PRESETS` metadata in `cleanup.ts`; `advanceAgentPlan`). Client may mirror for UX but server decides.
-- `MemoryStore` + `OblivionRepository` (storage/) is the persistence seam. Default dev/prod profiles persist to `data/oblivion.json` via `createPersistentStore` (`src/storage/createStore.ts`); override with `OBLIVION_STORE_PATH` or `OBLIVION_STORE=memory` for ephemeral tests. All case data purge happens in `purgeCaseData` on delete.
+- `MemoryStore` + `OblivionRepository` (storage/) is the persistence seam. Default dev/prod profiles persist to `data/oblivion.json` via `createPersistentStore` (`src/storage/createStore.ts`); override with `OBLIVION_STORE_PATH` or `OBLIVION_STORE=memory` for ephemeral tests. All case data purge happens in `purgeCaseData` on delete. Scheduler mutations (webhook retries, rechecks, delivery pruning) must call `store.markDirty()` and `scheduleStorePersist` in `app.ts`.
 - Hackathon/demo adapters (`hackathon.ts`) stay behind the same policy/approval/redaction/attestation gates. `/api/hackathon/*` is gated by `HACKATHON_MODE=true`.
 
 ## Project Layout (key files only)
@@ -80,9 +80,9 @@ Always run `npm run verify` before considering a change complete.
 - Redaction: `redactText`, `redactIdentifier`, `sanitizeForLog`
 - Trust: `buildAttestationProof`, `assertSensitiveExecutionAllowed`
 
-## Current Status (as of deslop pass)
+## Current Status (as of pass-5 + deferred pass)
 
-- 163+ unit/integration tests cover auth, policy, cleanup workflow, partner API, trust/purge/HIBP helpers, and package SDKs; 4 Playwright E2E specs (desktop + mobile).
+- 225+ unit/integration tests cover auth, policy, cleanup workflow, partner API, trust/purge/HIBP helpers, webhook dedup/retention, and package SDKs; 4 Playwright E2E specs (desktop + mobile).
 - `app.ts` thin dispatcher; `consumer.ts` and `v1.ts` dispatch to `routes/consumer/*` and `routes/v1/*`; `integrations/` split under consumer.
 - Shared handlers: `caseHandlers.ts`, `caseLifecycle.ts`, `agentRun.ts`; payments in `domain/payments/`; timeline in `agentTimeline.ts`; `hackathon.ts` is hackathon-only (no re-export hub).
 - HIBP logic unified in `domain/connectors/hibp.ts`; trust privacy in `domain/trustPrivacy.ts`; credit settlement in `domain/payments/settlement.ts`.
