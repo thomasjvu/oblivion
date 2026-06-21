@@ -35,6 +35,7 @@ interface HibpEmailBody {
 interface HibpPasswordRangeBody {
   caseId: string;
   hashPrefix: string;
+  approvalId?: string;
 }
 
 interface GoogleRemovalPlanBody {
@@ -48,6 +49,12 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
   if (method === "POST" && url.pathname === "/api/connectors/hibp/password-range") {
     const body = await readJson<HibpPasswordRangeBody>(request);
     const caseRecord = getCaseWithAccess(context.request, store, body.caseId);
+    const approval = body.approvalId ? store.approvals.get(body.approvalId) : null;
+    if (!approval || approval.caseId !== caseRecord.id || approval.actionType !== "pwned-password-range-check") {
+      throw new HttpError(403, "hibp-password-range-approval-required");
+    }
+    const decision = canExecuteWithApproval(approval);
+    if (!decision.allowed) throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
     if (!/^[A-Fa-f0-9]{5}$/.test(body.hashPrefix)) {
       throw new HttpError(422, "sha1-hash-prefix-required");
     }

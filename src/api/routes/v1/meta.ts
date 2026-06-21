@@ -27,7 +27,8 @@ export async function handleV1MetaRoutes(
     const timestamp = String(request.headers["x-oblivion-timestamp"] ?? "");
     const signature = String(request.headers["x-oblivion-signature"] ?? "");
     const event = String(request.headers["x-oblivion-event"] ?? "case.created") as PartnerWebhookEvent;
-    const secret = partner.webhookSecret ?? partner.id;
+    const secret = partner.webhookSecret;
+    if (!secret || secret === partner.id) throw new HttpError(503, "webhook-secret-missing");
     const signatureValid = verifyWebhookSignature(secret, timestamp, rawBody, signature);
     if (!signatureValid) throw new HttpError(401, "webhook-signature-invalid");
     let payload: Record<string, unknown> = {};

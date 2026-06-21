@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { DomainError } from "../errors.js";
 import { followUpDate } from "../deadlines.js";
 import { walletKeyFromAddress } from "../credits.js";
@@ -69,6 +70,7 @@ export function createPaymentSession(input: {
     walletKey,
     walletAddress: input.walletAddress,
     smartAccountAddress: input.smartAccountAddress,
+    oneShotWebhookToken: randomBytes(32).toString("hex"),
     createdAt: now,
     updatedAt: now
   };

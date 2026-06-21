@@ -34,6 +34,7 @@ export function autoActivateCaseForSubscriptionWallet(
   walletAddress: string
 ): CaseRecord | null {
   if (caseRecord.partnerId || isCaseActivated(store, caseRecord.id)) return caseRecord;
+  if (caseRecord.linkedWalletAddress?.toLowerCase() !== walletAddress.toLowerCase()) return null;
   const walletKey = walletKeyFromAddress(walletAddress);
   if (!subscriptionActiveForWalletKey(store, walletKey)) return null;
   const updated: CaseRecord = {
@@ -68,6 +69,7 @@ export function markCaseActivated(
     ...caseRecord,
     activatedAt: caseRecord.activatedAt ?? new Date().toISOString(),
     activatedWalletKey: walletKey ?? caseRecord.activatedWalletKey,
+    linkedWalletAddress: session.walletAddress ?? caseRecord.linkedWalletAddress,
     updatedAt: new Date().toISOString()
   };
   store.cases.set(caseId, updated);

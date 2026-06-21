@@ -30,6 +30,10 @@ export function createCaseRecord(body: CreateCaseInput): { caseRecord: CaseRecor
   if (!body.authorityBasis) {
     throw new DomainError("authority-basis-required", 422);
   }
+  const callbackUrl = body.callbackUrl?.trim();
+  if (callbackUrl && !callbackUrl.startsWith("https://")) {
+    throw new DomainError("callback-url-https-required", 422);
+  }
   const now = new Date().toISOString();
   const id = `case_${crypto.randomUUID()}`;
   const accessToken = body.partnerId ? undefined : generateCaseAccessToken();
@@ -46,7 +50,7 @@ export function createCaseRecord(body: CreateCaseInput): { caseRecord: CaseRecor
     accessTokenHash: accessToken ? hashCaseAccessToken(accessToken) : undefined,
     partnerId: body.partnerId,
     externalRef: body.externalRef?.trim() || undefined,
-    callbackUrl: body.callbackUrl?.trim() || undefined,
+    callbackUrl: callbackUrl || undefined,
     createdAt: now,
     updatedAt: now
   };

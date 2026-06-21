@@ -92,7 +92,7 @@ export function sendJson(response: ServerResponse, statusCode: number, body: unk
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store"
   });
-  response.end(JSON.stringify(body, null, 2));
+  response.end(JSON.stringify(body));
 }
 
 export function sendText(

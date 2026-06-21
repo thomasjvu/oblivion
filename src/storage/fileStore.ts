@@ -52,6 +52,7 @@ interface PersistedStoreSnapshot {
   webhookDeliveries?: PartnerWebhookDelivery[];
   partnerWebhookInbox?: PartnerWebhookInboxEntry[];
   tombstones: Array<[string, string]>;
+  discoveryPreviewUsage?: Array<[string, { day: string; count: number }]>;
 }
 
 function entries<T extends { id: string }>(items: T[]): Array<[string, T]> {
@@ -87,6 +88,7 @@ export function loadFileStore(path: string): MemoryStore {
     snapshot.webhookDeliveries?.forEach((item) => store.webhookDeliveries.set(item.id, item));
     snapshot.partnerWebhookInbox?.forEach((item) => store.partnerWebhookInbox.set(item.id, item));
     snapshot.tombstones?.forEach(([id, value]) => store.tombstones.set(id, value));
+    snapshot.discoveryPreviewUsage?.forEach(([key, value]) => store.discoveryPreviewUsage.set(key, value));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
@@ -118,7 +120,8 @@ export function snapshotStore(store: MemoryStore): PersistedStoreSnapshot {
     partnerDataAccess: [...store.partnerDataAccess.values()],
     webhookDeliveries: [...store.webhookDeliveries.values()],
     partnerWebhookInbox: [...store.partnerWebhookInbox.values()],
-    tombstones: [...store.tombstones.entries()]
+    tombstones: [...store.tombstones.entries()],
+    discoveryPreviewUsage: [...store.discoveryPreviewUsage.entries()]
   };
 }
 
@@ -136,7 +139,7 @@ export function persistStore(store: MemoryStore, path: string): void {
   const dir = dirname(path);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.${path.split("/").pop() ?? "oblivion"}.tmp-${process.pid}`);
-  writeFileSync(tempPath, JSON.stringify(snapshotStore(store), null, 2), "utf8");
+  writeFileSync(tempPath, JSON.stringify(snapshotStore(store)), "utf8");
   renameSync(tempPath, path);
 }
 

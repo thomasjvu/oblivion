@@ -31,10 +31,52 @@ export function linkCaseToWallet(
   const updated: CaseRecord = {
     ...caseRecord,
     activatedWalletKey: walletKey,
+    linkedWalletAddress: walletAddress,
     updatedAt: new Date().toISOString()
   };
   store.cases.set(caseRecord.id, updated);
   return updated;
+}
+
+export function authorizedWalletAddresses(store: MemoryStore, caseRecord: CaseRecord): string[] {
+  const addresses = new Set<string>();
+  for (const session of store.paymentSessionsForCase(caseRecord.id)) {
+    if (session.walletAddress?.startsWith("0x")) {
+      addresses.add(session.walletAddress.toLowerCase());
+    }
+  }
+  if (caseRecord.linkedWalletAddress?.startsWith("0x")) {
+    addresses.add(caseRecord.linkedWalletAddress.toLowerCase());
+  }
+  return [...addresses];
+}
+
+export function requireBillingWalletAddress(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  requested?: string
+): string {
+  const authorized = authorizedWalletAddresses(store, caseRecord);
+  if (authorized.length === 0) {
+    throw new DomainError("wallet-link-required", 422, {
+      message: "Link a wallet or complete payment before spending credits on this case."
+    });
+  }
+  if (requested?.startsWith("0x")) {
+    if (!authorized.includes(requested.toLowerCase())) {
+      throw new DomainError("wallet-not-authorized-for-case", 403);
+    }
+    return requested;
+  }
+  const session = store
+    .paymentSessionsForCase(caseRecord.id)
+    .filter((item) => item.walletAddress?.startsWith("0x"))
+    .at(-1);
+  const fallback = session?.walletAddress ?? caseRecord.linkedWalletAddress;
+  if (!fallback?.startsWith("0x")) {
+    throw new DomainError("wallet-address-required", 422);
+  }
+  return fallback;
 }
 
 export function casesForWallet(store: MemoryStore, walletAddress: string): WalletCaseSummary[] {

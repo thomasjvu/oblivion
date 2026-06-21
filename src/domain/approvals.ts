@@ -3,7 +3,10 @@ import { defaultActionTypeForPreset, defaultDestinationForPreset, getPreset, pre
 import { deadlineBasisFor, followUpDate } from "./deadlines.js";
 import { buildExecuteHandoff } from "./executeHandoff.js";
 import { hostFromDestination, resolveHostAbuseContact } from "./platformAbuse.js";
+import { connectorIdForAction } from "./connectorRuntime.js";
+import { ACTION_POLICY_MATRIX } from "./policyMatrix.js";
 import { evaluateProposedAction } from "./policy.js";
+import { sourceVerificationFor } from "./sourceVerification.js";
 import { buildDraftText, templateForAction } from "./templates.js";
 import type {
   ActionRequest,
@@ -16,7 +19,7 @@ import type {
   Jurisdiction,
   PresetId
 } from "./types.js";
-import { HttpError } from "../api/errors.js";
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 
 export interface ProposedActionInput {
@@ -78,6 +81,11 @@ export function proposeApprovedAction(input: {
   caseRecord: CaseRecord;
   body: ProposedActionInput;
 }): { approval: Approval; action: ActionRequest } {
+  const policySpec = ACTION_POLICY_MATRIX[input.body.actionType];
+  const connectorId = connectorIdForAction(input.body.actionType);
+  const sourceVerified = policySpec.requiresSourceVerification
+    ? Boolean(sourceVerificationFor(connectorId))
+    : true;
   const policy = evaluateProposedAction({
     authorityBasis: input.caseRecord.authorityBasis,
     actionType: input.body.actionType,
@@ -86,10 +94,10 @@ export function proposeApprovedAction(input: {
     identifiers: input.body.identifiers,
     dataToDisclose: input.body.dataToDisclose,
     plaintextPreview: input.body.plaintextPreview,
-    sourceVerified: input.body.sourceVerified,
+    sourceVerified,
     hasApproval: false
   });
-  if (!policy.allowed) throw new HttpError(422, "policy-blocked", { reasons: policy.reasons });
+  if (!policy.allowed) throw new DomainError("policy-blocked", 422, { reasons: policy.reasons });
   const approval = createApproval(input.caseRecord.id, input.body);
   const action = createActionRequest(input.caseRecord.jurisdiction, approval.id, input.body);
   input.store.approvals.set(approval.id, approval);

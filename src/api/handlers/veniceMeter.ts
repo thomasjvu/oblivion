@@ -9,10 +9,29 @@ import {
 import { X402_PRODUCTS } from "../../domain/payments/catalog.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "../../domain/partnerBilling.js";
 import type { ActionType, CaseRecord, VeniceAnalysisKind } from "../../domain/types.js";
+import { creditsBypassEnabled } from "../../domain/credits.js";
+import { DomainError } from "../../domain/errors.js";
 import { isVeniceConfigured, runVeniceAgentReply, runVeniceAnalysis } from "../../domain/venice.js";
+import { requireBillingWalletAddress } from "../../domain/walletCases.js";
 import { x402PublicConfig } from "../../domain/x402.js";
 import type { MemoryStore } from "../../storage/memoryStore.js";
 import { HttpError } from "../errors.js";
+
+function billingWalletOrThrow(
+  store: MemoryStore,
+  caseRecord: CaseRecord,
+  requested?: string
+): string {
+  try {
+    if (creditsBypassEnabled() && requested && isEvmAddress(requested)) return requested;
+    return requireBillingWalletAddress(store, caseRecord, requested);
+  } catch (error) {
+    if (error instanceof DomainError) {
+      throw new HttpError(error.statusCode, error.code, error.details);
+    }
+    throw error;
+  }
+}
 
 type VeniceMeterKind = "chat" | "analysis";
 
@@ -44,21 +63,22 @@ async function meterVeniceCall(
   if (caseRecord.partnerId) {
     assertPartnerAiBudget(store, caseRecord.id);
   } else {
-    if (!isEvmAddress(input.walletAddress)) throw new HttpError(422, "wallet-address-required");
+    const billingWallet = billingWalletOrThrow(store, caseRecord, input.walletAddress);
     try {
-      const entitlement = assertAiBudget(store, input.walletAddress, budgetKind);
+      const entitlement = assertAiBudget(store, billingWallet, budgetKind);
       maxTokens = maxTokensForEntitlement(entitlement);
     } catch (error) {
       const err = error as Error & { statusCode?: number; code?: string };
       if (err.statusCode === 402) {
         throw new HttpError(402, err.code || "credits-insufficient", {
           products: X402_PRODUCTS,
-          credits: resolveCreditsView(store, input.walletAddress!),
+          credits: resolveCreditsView(store, billingWallet),
           config: x402PublicConfig()
         });
       }
       throw error;
     }
+    input.walletAddress = billingWallet;
   }
 
   let tokensUsed: number;

@@ -1,5 +1,8 @@
 import { createApp } from "./api/app.js";
+import { assertProductionSafety } from "./domain/deploymentEnv.js";
 import { disablePlaintextLogs } from "./domain/integrations.js";
+
+assertProductionSafety();
 
 const port = Number(process.env.PORT ?? 8080);
 const { server } = createApp();

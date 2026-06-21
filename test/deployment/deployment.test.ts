@@ -8,11 +8,12 @@ test("Dockerfile runs the Node app on port 8080 without plaintext build secrets"
   assert.match(dockerfile, /FROM node:22-bookworm-slim@sha256:[0-9a-f]{64} AS build/);
   assert.match(dockerfile, /FROM node:22-bookworm-slim@sha256:[0-9a-f]{64}\n\nWORKDIR/);
   assert.match(dockerfile, /npm run build:client/);
+  assert.match(dockerfile, /npm run build:server/);
   assert.match(dockerfile, /ENV PORT=8080/);
   assert.match(dockerfile, /OBLIVION_DISABLE_PLAINTEXT_LOGS=true/);
   assert.match(dockerfile, /EXPOSE 8080/);
   assert.match(dockerfile, /HEALTHCHECK/);
-  assert.match(dockerfile, /CMD \["node", "--import", "tsx", "src\/server\.ts"\]/);
+  assert.match(dockerfile, /CMD \["node", "dist\/server\.js"\]/);
   assert.match(dockerfile, /COPY spec \.\/spec/);
   assert.doesNotMatch(dockerfile, /HIBP_API_KEY|VENICE_API_KEY|ONESHOT_API_KEY/);
 });

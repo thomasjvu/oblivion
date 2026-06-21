@@ -27,7 +27,8 @@ import {
   assertCaseActivated,
   autoActivateCaseForSubscriptionWallet
 } from "../../../domain/caseActivation.js";
-import { walletAddressForCase } from "../../../domain/walletCases.js";
+import { requireBillingWalletAddress } from "../../../domain/walletCases.js";
+import { DomainError } from "../../../domain/errors.js";
 import { createCaseRecord, publicCaseView } from "../../../domain/cases.js";
 import { emitApprovalPendingWebhook } from "../../../domain/webhooks.js";
 import type { AutonomyMode, PresetId } from "../../../domain/types.js";
@@ -163,9 +164,19 @@ export async function handleConsumerCaseRoutes(
           if (activated) Object.assign(caseRecord, activated);
         }
         assertCaseActivated(store, caseRecord);
-        const walletAddress = isEvmAddress(body.walletAddress)
-          ? body.walletAddress
-          : walletAddressForCase(store, caseRecord.id);
+        let walletAddress: string | undefined;
+        try {
+          walletAddress = creditsBypassEnabled()
+            ? body.walletAddress?.startsWith("0x")
+              ? body.walletAddress
+              : undefined
+            : requireBillingWalletAddress(store, caseRecord, body.walletAddress);
+        } catch (error) {
+          if (error instanceof DomainError) {
+            throw new HttpError(error.statusCode, error.code, error.details);
+          }
+          throw error;
+        }
         if (!walletAddress && !creditsBypassEnabled()) {
           throw new HttpError(422, "wallet-address-required");
         }

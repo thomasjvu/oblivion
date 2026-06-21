@@ -1,7 +1,7 @@
 import 'iconify-icon';
 import { addCollection } from 'iconify-icon';
-import { icons as pixelarticonsCollection } from '@iconify-json/pixelarticons';
-import { icons as pixelCollection } from '@iconify-json/pixel';
+import pixelarticonsCollection from './icon-collections/pixelarticons.json' with { type: 'json' };
+import pixelCollection from './icon-collections/pixel.json' with { type: 'json' };
 
 addCollection(pixelarticonsCollection);
 addCollection(pixelCollection);

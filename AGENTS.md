@@ -12,7 +12,7 @@ This file is the primary reference for AI coding agents and human maintainers wo
 - Record-only is the default executor in development; production profile enables live connectors (override with `OBLIVION_EXECUTOR_MODE`). See `deploymentEnv.ts`, `agentRunner.ts`, `executor.ts`.
 - Attestation is not optional theater: `buildAttestationProof` checks pinned digests, compose hash, fresh Intel TDX quote via Phala, `verifierResult`.
 - Presets and plans are the source of truth for workflow (`CLEANUP_PRESETS` metadata in `cleanup.ts`; `advanceAgentPlan`). Client may mirror for UX but server decides.
-- `MemoryStore` + `OblivionRepository` (storage/) is the current persistence seam. All case data purge happens in `purgeCaseData` on delete.
+- `MemoryStore` + `OblivionRepository` (storage/) is the persistence seam. Default dev/prod profiles persist to `data/oblivion.json` via `createPersistentStore` (`src/storage/createStore.ts`); override with `OBLIVION_STORE_PATH` or `OBLIVION_STORE=memory` for ephemeral tests. All case data purge happens in `purgeCaseData` on delete.
 - Hackathon/demo adapters (`hackathon.ts`) stay behind the same policy/approval/redaction/attestation gates. `/api/hackathon/*` is gated by `HACKATHON_MODE=true`.
 
 ## Project Layout (key files only)

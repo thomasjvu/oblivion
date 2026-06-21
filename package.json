@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Personal information removal without giving away your personal information — consumer app and partner API.",
   "scripts": {
-    "build:client": "esbuild public/src/main.js --bundle --format=esm --splitting --outdir=public --entry-names=app --chunk-names=chunk-[hash] --packages=bundle --loader:.ts=ts",
+    "build:icons": "node scripts/subset-icon-collections.mjs",
+    "build:client": "npm run build:icons && esbuild public/src/main.js --bundle --format=esm --splitting --minify --outdir=public --entry-names=app --chunk-names=chunk-[hash] --packages=bundle --loader:.ts=ts --loader:.json=json",
+    "build:server": "tsc -p tsconfig.build.json",
     "build:vault-sdk": "npm run build --prefix packages/vault-sdk",
     "publish:partner-packages": "npm run build:vault-sdk && npm publish --prefix packages/vault-sdk && npm publish --prefix packages/partner-sdk",
     "build:fonts": "cp node_modules/geist/dist/fonts/geist-pixel/GeistPixel-Square.woff2 public/fonts/GeistPixel-Square.woff2",
@@ -15,12 +17,13 @@
     "e2e": "playwright test",
     "e2e:people-search": "playwright test test/e2e/people-search-findings.spec.ts --project=desktop",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run version:sync && npm run build:client && npm run build:vault-sdk && npm run build:fonts && npm test && npm run typecheck && npm run design:lint",
+    "lint": "eslint src test scripts",
+    "openapi:verify": "node scripts/verify-openapi.mjs",
+    "verify": "npm run version:sync && npm run build:client && npm run build:server && npm run build:vault-sdk && npm run build:fonts && npm test && npm run typecheck && npm run lint && npm run openapi:verify && npm run design:lint",
     "docs:dev": "npm run dev --prefix docs",
     "docs:build": "npm run build --prefix docs",
     "docs:verify": "npm run release:check --prefix docs",
     "version:sync": "tsx scripts/sync-app-version.ts",
-
     "design:lint": "designmd lint DESIGN.md",
     "docker:build": "docker build -t ghcr.io/thomasjvu/oblivion:local .",
     "docker:build:remote": "bash scripts/build-on-spectre.sh",
@@ -59,10 +62,14 @@
     "tsx": "4.22.4"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.1",
     "@google/design.md": "0.2.0",
     "@playwright/test": "1.60.0",
     "@types/node": "25.9.1",
     "esbuild": "0.28.0",
-    "typescript": "6.0.3"
+    "eslint": "9.39.1",
+    "globals": "16.5.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.46.4"
   }
 }

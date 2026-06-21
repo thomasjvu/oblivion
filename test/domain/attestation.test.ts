@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   buildAttestationProof,
+  clearAttestationCacheForTests,
   extractComposeHash,
   quoteToHex,
   validateImageDigests
@@ -118,6 +119,7 @@ test("fails when hardware quote verification fails", async () => {
 });
 
 test("passes when live attestation and compose hash match", async () => {
+  clearAttestationCacheForTests();
   const originalFetch = globalThis.fetch;
   const appCompose = JSON.stringify({ docker_compose_file: "services:\n  oblivion:\n    image: x@sha256:y" });
   const expectedComposeHash = createHash("sha256").update(appCompose).digest("hex");

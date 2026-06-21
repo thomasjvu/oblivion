@@ -1,11 +1,13 @@
 import { createTimelineEvent } from "../agentTimeline.js";
 import { markCaseActivated } from "../caseActivation.js";
+import { creditsBypassEnabled } from "../credits.js";
 import {
   MONITOR_MONTHLY_CREDITS,
   resolveCreditsView,
   settleCreditsForProduct,
   STARTER_PACK_CREDITS
 } from "../credits.js";
+import { walletKeyFromAddress } from "../credits.js";
 import { markSessionPaid } from "../x402.js";
 import type { CaseRecord, PaymentMode, PaymentSession } from "../types.js";
 import type { MemoryStore } from "../../storage/memoryStore.js";
@@ -29,10 +31,21 @@ export function settleCreditProduct(
   if (!session || session.caseId !== caseRecord.id || session.mode !== input.expectedMode) {
     return null;
   }
+  if (!input.settlementTransaction && !creditsBypassEnabled()) {
+    return null;
+  }
+  const billingWallet = session.walletAddress ?? input.walletAddress;
+  if (
+    session.walletAddress &&
+    input.walletAddress &&
+    walletKeyFromAddress(session.walletAddress) !== walletKeyFromAddress(input.walletAddress)
+  ) {
+    return null;
+  }
   const paid = markSessionPaid(session, input.settlementTransaction);
   store.paymentSessions.set(paid.id, paid);
   markCaseActivated(store, caseRecord.id, paid);
-  const credits = settleCreditsForProduct(store, input.walletAddress, input.expectedMode, caseRecord.id);
+  const credits = settleCreditsForProduct(store, billingWallet, input.expectedMode, caseRecord.id);
   const timeline = createTimelineEvent(
     caseRecord.id,
     "x402",

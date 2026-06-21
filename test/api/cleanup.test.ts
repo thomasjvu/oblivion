@@ -70,6 +70,7 @@ test("HIBP password range connector sends only the SHA-1 prefix", async () => {
 
   try {
     const created = await createCaseWithIntake(base, "US", "standard", store);
+    activateTestCase(store, created.caseId);
     globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
       const target = String(url);
       if (target.startsWith("https://api.pwnedpasswords.com/range/")) {
@@ -79,9 +80,20 @@ test("HIBP password range connector sends only the SHA-1 prefix", async () => {
       return originalFetch(url, init);
     }) as typeof fetch;
 
+    await post(base, `/api/cases/${created.caseId}/preset`, { presetId: "breach-exposure" }, 201);
+    await runUntilApproval(base, created.caseId);
+    const current = await get(base, `/api/cases/${created.caseId}`);
+    const passwordApproval = current.status.approvalsNeeded.find(
+      (item: { actionType: string }) => item.actionType === "pwned-password-range-check"
+    );
+    assert.ok(passwordApproval);
+    await post(base, `/api/approvals/${passwordApproval.id}/approve`, {
+      userConfirmation: "I approve this exact action"
+    });
     const result = await post(base, "/api/connectors/hibp/password-range", {
       caseId: created.caseId,
-      hashPrefix: "abc12"
+      hashPrefix: "abc12",
+      approvalId: passwordApproval.id
     });
 
     assert.equal(requestedUrl, "https://api.pwnedpasswords.com/range/ABC12");

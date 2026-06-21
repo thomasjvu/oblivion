@@ -18,6 +18,7 @@ import { findPartnerCaseByExternalRef, runPartnerAgentUntilBlocked } from "../..
 import { buildPartnerCaseExport, recordPartnerDataAccess } from "../../../domain/partnerAudit.js";
 import { meterPartnerUsage } from "../../../domain/partnerBilling.js";
 import { partnerPresetAllowlist } from "../../../domain/partners.js";
+import { redactedActionForExport } from "../../../domain/exportPrivacy.js";
 import { buildPartnerCaseStatus, buildPartnerRiskSummary } from "../../../domain/partnerStatus.js";
 import { withPartnerCase } from "../../handlers/caseRouteAdapters.js";
 import { buildStatus } from "../../../domain/status.js";
@@ -259,7 +260,7 @@ export async function handleV1CaseRoutes(
     sendJson(response, 200, {
       pending: approvals.filter((approval) => approval.status === "pending"),
       history: approvals.filter((approval) => approval.status !== "pending"),
-      actions: store.actionsForCase(caseRecord.id)
+      actions: store.actionsForCase(caseRecord.id).map(redactedActionForExport)
     });
     return true;
   }
@@ -304,7 +305,9 @@ export async function handleV1CaseRoutes(
   if (method === "GET" && actionsMatch) {
     const caseRecord = store.getCaseOrThrow(actionsMatch[1]);
     assertPartnerOwnsCase(partner, caseRecord);
-    sendJson(response, 200, { actions: store.actionsForCase(caseRecord.id) });
+    sendJson(response, 200, {
+      actions: store.actionsForCase(caseRecord.id).map(redactedActionForExport)
+    });
     return true;
   }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import type { Server } from "node:http";
 import { createApp } from "../../src/api/app.js";
+import { MemoryStore } from "../../src/storage/memoryStore.js";
 import { hashPartnerApiKey } from "../../src/domain/partners.js";
 import type { PartnerRecord } from "../../src/domain/types.js";
 
@@ -54,7 +55,7 @@ export async function partnerFetch(
 export async function startPartnerServer(
   options: { id?: string; key?: string; name?: string; balanceCredits?: number } = {}
 ): Promise<{ server: Server; store: ReturnType<typeof createApp>["store"]; base: string }> {
-  const { server, store } = createApp();
+  const { server, store } = createApp({ store: new MemoryStore() });
   seedTestPartner(store, options);
   server.listen(0);
   await once(server, "listening");

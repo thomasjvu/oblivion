@@ -167,6 +167,9 @@ export async function handleApprove(store: MemoryStore, approvalId: string, body
   if (!body.userConfirmation || body.userConfirmation.length < MIN_USER_CONFIRMATION_LENGTH) {
     throw new HttpError(422, "user-confirmation-required");
   }
+  if (new Date(approval.expiresAt).getTime() <= Date.now()) {
+    throw new HttpError(422, "approval-expired");
+  }
   approval.status = "approved";
   approval.approvedAt = new Date().toISOString();
   approval.userConfirmation = redactText(body.userConfirmation);

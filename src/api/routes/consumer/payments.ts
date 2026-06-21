@@ -9,7 +9,7 @@ import {
   settleX402Payment,
   x402PublicConfig
 } from "../../../domain/x402.js";
-import { creditRates, resolveCreditsView } from "../../../domain/credits.js";
+import { creditRates, creditsBypassEnabled, resolveCreditsView } from "../../../domain/credits.js";
 import { isX402Configured } from "../../../domain/integrations.js";
 import type { PaymentMode } from "../../../domain/types.js";
 import { getCaseWithAccess } from "../../auth.js";
@@ -115,35 +115,42 @@ export async function handleConsumerPaymentRoutes(
         return true;
       }
     }
-    const session = findCreditSession(store, caseRecord, expectedMode, body.paymentSessionId);
-    if (!session || session.caseId !== caseRecord.id || session.mode !== expectedMode) {
-      throw new HttpError(402, "x402-payment-required", {
-        products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
-        config: x402PublicConfig(),
-        rates: creditRates()
+    if (creditsBypassEnabled()) {
+      const session = findCreditSession(store, caseRecord, expectedMode, body.paymentSessionId);
+      if (!session || session.caseId !== caseRecord.id || session.mode !== expectedMode) {
+        throw new HttpError(402, "x402-payment-required", {
+          products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+          config: x402PublicConfig(),
+          rates: creditRates()
+        });
+      }
+      const settled = settleCreditProduct(store, caseRecord, {
+        walletAddress: body.walletAddress,
+        expectedMode,
+        paymentSessionId: session.id
       });
-    }
-    const settled = settleCreditProduct(store, caseRecord, {
-      walletAddress: body.walletAddress,
-      expectedMode,
-      paymentSessionId: session.id
-    });
-    if (!settled) {
-      throw new HttpError(402, "x402-payment-required", {
-        products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
-        config: x402PublicConfig(),
-        rates: creditRates()
+      if (!settled) {
+        throw new HttpError(402, "x402-payment-required", {
+          products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+          config: x402PublicConfig(),
+          rates: creditRates()
+        });
+      }
+      sendJson(response, 200, {
+        entitlement: "credits-settled",
+        session: settled.session,
+        credits: settled.credits,
+        balanceCredits: settled.balanceCredits,
+        nextRequired: "metered-apis-require-credits",
+        timeline: settled.timeline
       });
+      return true;
     }
-    sendJson(response, 200, {
-      entitlement: "credits-settled",
-      session: settled.session,
-      credits: settled.credits,
-      balanceCredits: settled.balanceCredits,
-      nextRequired: "metered-apis-require-credits",
-      timeline: settled.timeline
+    throw new HttpError(402, "x402-payment-required", {
+      products: X402_PRODUCTS.filter((product) => product.mode === expectedMode),
+      config: x402PublicConfig(),
+      rates: creditRates()
     });
-    return true;
   }
 
   return false;

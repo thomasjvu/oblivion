@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { HttpError } from "../../src/api/errors.js";
+import { DomainError } from "../../src/domain/errors.js";
 import {
   advanceAgentPlan,
   buildAgentPlanView,
@@ -194,7 +194,8 @@ test("runCleanupAgentStep throws preset-required when no agent plan exists", asy
         caseRecord,
         trustCenterConfig
       }),
-    (error: unknown) => error instanceof HttpError && error.statusCode === 409 && error.message === "preset-required"
+    (error: unknown) =>
+      error instanceof DomainError && error.statusCode === 409 && error.code === "preset-required"
   );
 });
 

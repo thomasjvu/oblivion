@@ -4,7 +4,7 @@ import type { Server } from "node:http";
 import { createApp } from "../../src/api/app.js";
 import { activateCaseForTest } from "../../src/domain/caseActivation.js";
 import type { Jurisdiction, RiskLevel } from "../../src/domain/types.js";
-import type { MemoryStore } from "../../src/storage/memoryStore.js";
+import { MemoryStore } from "../../src/storage/memoryStore.js";
 
 const caseTokens = new Map<string, string>();
 const approvalCases = new Map<string, string>();
@@ -67,7 +67,7 @@ export function clearCaseToken(caseId: string) {
 }
 
 export async function startTestServer(): Promise<{ server: Server; base: string; store: MemoryStore }> {
-  const { server, store } = createApp();
+  const { server, store } = createApp({ store: new MemoryStore() });
   server.listen(0);
   await once(server, "listening");
   const address = server.address();

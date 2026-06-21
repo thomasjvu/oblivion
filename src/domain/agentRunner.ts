@@ -23,7 +23,7 @@ import { createTimelineEvent } from "./agentTimeline.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { isVeniceConfigured, runVeniceAnalysis } from "./venice.js";
 import type { AgentPlan, CaseRecord, ConnectorResult, Exposure } from "./types.js";
-import { HttpError } from "../api/errors.js";
+import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { buildExecuteHandoffFromStore, createPresetApprovals } from "./approvals.js";
 import {
@@ -39,7 +39,7 @@ export async function runCleanupAgentStep(input: {
   highAutonomy?: boolean;
 }) {
   const plan = input.store.agentPlanForCase(input.caseRecord.id);
-  if (!plan) throw new HttpError(409, "preset-required", { next: buildAgentNextStep(input.store, input.caseRecord.id) });
+  if (!plan) throw new DomainError("preset-required", 409, { next: buildAgentNextStep(input.store, input.caseRecord.id) });
   const before = buildAgentNextStep(input.store, input.caseRecord.id);
   const stepBefore = plan.currentStep;
   const artifacts: unknown[] = [];
@@ -212,7 +212,7 @@ export async function runCleanupAgentStep(input: {
     const action = input.store.actionsForCase(input.caseRecord.id).find((item) => item.executionStatus === "ready");
     if (action) {
       const approval = input.store.approvals.get(action.approvalId);
-      if (!approval) throw new HttpError(409, "approval-missing");
+      if (!approval) throw new DomainError("approval-missing", 409);
       const executed = await executeApprovedActionFlow({
         store: input.store,
         action,

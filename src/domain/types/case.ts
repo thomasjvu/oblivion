@@ -87,6 +87,7 @@ export interface CaseRecord {
   callbackUrl?: string;
   activatedAt?: string;
   activatedWalletKey?: string;
+  linkedWalletAddress?: string;
 }
 
 export interface RedactedScope {

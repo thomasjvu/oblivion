@@ -170,6 +170,13 @@ test("case lifecycle enforces approval before execution", async () => {
     const blocked = await post(base, `/api/actions/${proposed.action.id}/execute`, {}, 403);
     assert.equal(blocked.error, "execution-blocked");
 
+    await post(
+      base,
+      `/api/approvals/${proposed.approval.id}/approve`,
+      { userConfirmation: "short" },
+      422
+    );
+
     await post(base, `/api/approvals/${proposed.approval.id}/approve`, {
       userConfirmation: "I approve this exact action"
     });

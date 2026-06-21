@@ -1,3 +1,5 @@
+import { isOneShotConfigured } from "./integrations.js";
+
 export type DeploymentEnvironment = "development" | "production";
 
 export interface DeploymentProfile {
@@ -60,6 +62,27 @@ export function deploymentEnvironment(): DeploymentEnvironment {
 
 export function deploymentProfile(env = deploymentEnvironment()): DeploymentProfile {
   return PROFILES[env];
+}
+
+export function assertProductionSafety(): void {
+  if (deploymentEnvironment() !== "production") return;
+  const bypassFlags = [
+    process.env.OBLIVION_CREDITS_BYPASS === "true" ? "OBLIVION_CREDITS_BYPASS" : null,
+    process.env.OBLIVION_AI_BYPASS_PAYMENT === "true" ? "OBLIVION_AI_BYPASS_PAYMENT" : null,
+    process.env.HACKATHON_MODE === "true" ? "HACKATHON_MODE" : null
+  ].filter(Boolean);
+  if (bypassFlags.length > 0) {
+    throw new Error(
+      `Production deployment cannot start with payment bypass flags enabled: ${bypassFlags.join(", ")}`
+    );
+  }
+  if (isOneShotConfigured()) {
+    const webhookSecret =
+      process.env.ONESHOT_WEBHOOK_SECRET?.trim() || process.env.ONESHOT_API_KEY?.trim();
+    if (!webhookSecret) {
+      throw new Error("Production deployment requires ONESHOT_WEBHOOK_SECRET or ONESHOT_API_KEY when 1Shot is configured");
+    }
+  }
 }
 
 export function walletChainId(): number {

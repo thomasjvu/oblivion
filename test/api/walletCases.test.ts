@@ -93,6 +93,12 @@ test("subscription wallet auto-activates new cases", async () => {
       }
     });
 
+    await post(
+      base,
+      "/api/wallet/cases/link",
+      { caseId, walletAddress: WALLET },
+      200
+    );
     const preset = await fetch(`${base}/api/cases/${caseId}/preset`, {
       method: "POST",
       headers: {

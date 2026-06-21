@@ -5,7 +5,7 @@ import { canExecuteWithApproval } from "./policy.js";
 import type { ActionRequest, Approval, ConnectorResult } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
-import { HttpError } from "../api/errors.js";
+import { DomainError } from "./errors.js";
 
 export interface ExecuteActionInput {
   store: MemoryStore;
@@ -53,7 +53,7 @@ export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlow
     if (input.blockActionOnDeny) {
       input.action.executionStatus = "blocked";
     }
-    throw new HttpError(403, "execution-blocked", { reasons: decision.reasons });
+    throw new DomainError("execution-blocked", 403, { reasons: decision.reasons });
   }
   const executed = await executeApprovedAction({
     store: input.store,

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { clearCaseToken, encryptedBlob, get, post, startTestServer } from "../helpers/http.js";
 import { partnerFetch, seedTestPartner } from "../helpers/partner.js";
 import { createApp } from "../../src/api/app.js";
+import { MemoryStore } from "../../src/storage/memoryStore.js";
 import { once } from "node:events";
 
 test("missing case access token returns 401", async () => {
@@ -41,7 +42,7 @@ test("wrong case access token returns 401", async () => {
 });
 
 test("partner case on consumer /api returns 403", async () => {
-  const { server, store } = createApp();
+  const { server, store } = createApp({ store: new MemoryStore() });
   seedTestPartner(store, { id: "authpartner", key: "obl_auth_partner_key" });
   server.listen(0);
   await once(server, "listening");

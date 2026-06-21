@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { HttpError } from "../../src/api/errors.js";
+import { DomainError } from "../../src/domain/errors.js";
 import { proposeApprovedAction } from "../../src/domain/approvals.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 import type { CaseRecord } from "../../src/domain/types.js";
@@ -61,29 +61,26 @@ test("proposeApprovedAction rejects policy-blocked disclosure", () => {
           sourceVerified: true
         }
       }),
-    (error: unknown) => error instanceof HttpError && error.statusCode === 422
+    (error: unknown) => error instanceof DomainError && error.statusCode === 422 && error.code === "policy-blocked"
   );
   assert.equal(store.approvalsForCase(caseRecord.id).length, 0);
 });
 
-test("proposeApprovedAction requires source verification for broker opt-out", () => {
+test("proposeApprovedAction ignores client sourceVerified and uses server registry", () => {
   const store = new MemoryStore();
   const caseRecord = seedCase(store);
-  assert.throws(
-    () =>
-      proposeApprovedAction({
-        store,
-        caseRecord,
-        body: {
-          caseId: caseRecord.id,
-          actionType: "broker-opt-out",
-          destination: "Example Broker",
-          purpose: "Remove profile",
-          identifiers: ["email"],
-          dataToDisclose: ["email"],
-          sourceVerified: false
-        }
-      }),
-    (error: unknown) => error instanceof HttpError && error.statusCode === 422
-  );
+  const result = proposeApprovedAction({
+    store,
+    caseRecord,
+    body: {
+      caseId: caseRecord.id,
+      actionType: "broker-opt-out",
+      destination: "Example Broker",
+      purpose: "Remove profile",
+      identifiers: ["email"],
+      dataToDisclose: ["email"],
+      sourceVerified: false
+    }
+  });
+  assert.equal(result.approval.actionType, "broker-opt-out");
 });

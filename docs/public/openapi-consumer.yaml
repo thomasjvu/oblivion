@@ -20,14 +20,15 @@ paths:
               properties:
                 jurisdiction: { type: string, enum: [US, EU, UK] }
                 authorityBasis: { type: string }
-                riskLevel: { type: string, enum: [low, medium, high] }
+                riskLevel: { type: string, enum: [standard, high-risk-safety] }
       responses:
         '201': { description: Case created }
     get:
       summary: List consumer cases
       tags: [Cases]
       responses:
-        '200': { description: Case list }
+        '401':
+          description: Case list is not available on the consumer API (per-case bearer token required)
   /api/cases/{caseId}/intake:
     post:
       summary: Submit encrypted intake

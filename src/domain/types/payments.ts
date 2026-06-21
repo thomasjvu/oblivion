@@ -51,6 +51,7 @@ export interface PaymentSession {
   walletAddress?: string;
   smartAccountAddress?: string;
   relayerTaskId?: string;
+  oneShotWebhookToken?: string;
   createdAt: string;
   updatedAt: string;
 }

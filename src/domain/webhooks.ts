@@ -4,6 +4,7 @@ import type { MemoryStore } from "../storage/memoryStore.js";
 import { buildStatus } from "./status.js";
 import { sanitizeForLog } from "./safeLogging.js";
 import type {
+  CaseRecord,
   FollowUp,
   IdentifierCategory,
   PartnerRecord,
@@ -81,17 +82,16 @@ export function scheduleNextRetry(attemptCount: number): string | undefined {
   return new Date(Date.now() + delayMs).toISOString();
 }
 
-async function postWebhook(
-  partner: PartnerRecord,
+async function postSignedWebhook(
+  url: string,
+  secret: string,
   event: PartnerWebhookEvent,
   body: string
 ): Promise<{ ok: boolean; status?: number; error?: string }> {
-  if (!partner.webhookUrl) return { ok: false, error: "webhook-url-missing" };
   const timestamp = Math.floor(Date.now() / 1000).toString();
-  const secret = partner.webhookSecret ?? partner.id;
   const signature = signWebhookPayload(secret, timestamp, body);
   try {
-    const response = await fetch(partner.webhookUrl, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -106,6 +106,45 @@ async function postWebhook(
   } catch (error) {
     return { ok: false, error: String(sanitizeForLog(error)) };
   }
+}
+
+async function postWebhook(
+  partner: PartnerRecord,
+  event: PartnerWebhookEvent,
+  body: string
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+  if (!partner.webhookUrl) return { ok: false, error: "webhook-url-missing" };
+  const secret = partner.webhookSecret;
+  if (!secret || secret === partner.id) {
+    return { ok: false, error: "webhook-secret-missing" };
+  }
+  return postSignedWebhook(partner.webhookUrl, secret, event, body);
+}
+
+export async function dispatchCaseCallbackWebhook(
+  caseRecord: CaseRecord,
+  partner: PartnerRecord | undefined,
+  event: PartnerWebhookEvent,
+  payload: Record<string, unknown>
+): Promise<{ ok: boolean; status?: number; error?: string } | undefined> {
+  const callbackUrl = caseRecord.callbackUrl?.trim();
+  if (!callbackUrl?.startsWith("https://")) return undefined;
+  const partnerWebhookUrl = partner?.webhookUrl?.trim();
+  if (partnerWebhookUrl && callbackUrl === partnerWebhookUrl) return undefined;
+  const secret = partner?.webhookSecret;
+  if (!secret || secret === partner?.id) {
+    return { ok: false, error: "webhook-secret-missing" };
+  }
+  const createdAt = new Date().toISOString();
+  const body = JSON.stringify({
+    event,
+    caseId: caseRecord.id,
+    partnerId: caseRecord.partnerId,
+    externalRef: caseRecord.externalRef,
+    createdAt,
+    data: payload
+  });
+  return postSignedWebhook(callbackUrl, secret, event, body);
 }
 
 async function deliverWebhook(
@@ -230,9 +269,14 @@ export async function emitCaseWebhook(
   event: PartnerWebhookEvent,
   payload: Record<string, unknown>
 ): Promise<void> {
+  const caseRecord = store.cases.get(caseId);
+  if (!caseRecord) return;
   const partner = partnerForCase(store, caseId);
-  if (!partner) return;
-  await dispatchPartnerWebhook(store, partner, event, { caseId, ...payload });
+  const fullPayload = { caseId, ...payload };
+  if (partner) {
+    await dispatchPartnerWebhook(store, partner, event, fullPayload);
+  }
+  await dispatchCaseCallbackWebhook(caseRecord, partner, event, fullPayload);
 }
 
 export async function emitRecheckScheduledWebhooks(

@@ -2,7 +2,15 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { createTimelineEvent } from "../../../../domain/agentTimeline.js";
 import { isOneShotConfigured, oneShotWebhookDestinationUrl } from "../../../../domain/integrations.js";
 import { callOneShotRpc, relayOneShotForCase } from "../../../../domain/oneshot.js";
-import { relayerEventFromOneShotWebhook, type OneShotWebhookPayload } from "../../../../domain/oneshotWebhook.js";
+import { assertOneShotRpcMethodAllowed } from "../../../../domain/oneshotRpc.js";
+import {
+  relayerEventFromOneShotWebhook,
+  type OneShotWebhookPayload
+} from "../../../../domain/oneshotWebhook.js";
+import {
+  resolveOneShotWebhookSession,
+  verifyOneShotWebhookSignature
+} from "../../../../domain/oneshotWebhookAuth.js";
 import { getCaseWithAccess } from "../../../auth.js";
 import { HttpError } from "../../../errors.js";
 import { readJson, sendJson } from "../../../http.js";
@@ -22,8 +30,12 @@ export async function handleIntegrationOneShotRoutes(
     const sessionId = url.searchParams.get("sessionId") ?? undefined;
     if (!caseId) throw new HttpError(422, "case-id-required");
     getCaseWithAccess(request, store, caseId);
+    const session = sessionId ? store.paymentSessions.get(sessionId) : undefined;
+    if (sessionId && (!session || session.caseId !== caseId)) {
+      throw new HttpError(404, "payment-session-not-found");
+    }
     sendJson(response, 200, {
-      destinationUrl: oneShotWebhookDestinationUrl(caseId, sessionId)
+      destinationUrl: oneShotWebhookDestinationUrl(caseId, sessionId, session?.oneShotWebhookToken)
     });
     return true;
   }
@@ -32,8 +44,15 @@ export async function handleIntegrationOneShotRoutes(
     if (!isOneShotConfigured()) {
       throw new HttpError(503, "oneshot-not-configured");
     }
-    const body = await readJson<{ method: string; params?: unknown }>(request);
+    const body = await readJson<{ caseId: string; method: string; params?: unknown }>(request);
+    if (!body.caseId) throw new HttpError(422, "case-id-required");
     if (!body.method) throw new HttpError(422, "oneshot-method-required");
+    getCaseWithAccess(request, store, body.caseId);
+    try {
+      assertOneShotRpcMethodAllowed(body.method);
+    } catch {
+      throw new HttpError(403, "oneshot-rpc-method-not-allowed");
+    }
     const result = await callOneShotRpc(body.method, body.params);
     sendJson(response, 200, { result });
     return true;
@@ -47,7 +66,13 @@ export async function handleIntegrationOneShotRoutes(
     }
     const body = await readJson<RelayerBody>(request);
     const caseRecord = getCaseWithAccess(request, store, body.caseId);
-    const relay = await relayOneShotForCase(body);
+    const session = body.sessionId ? store.paymentSessions.get(body.sessionId) : undefined;
+    const destinationUrl =
+      body.destinationUrl ||
+      (body.sessionId
+        ? oneShotWebhookDestinationUrl(body.caseId, body.sessionId, session?.oneShotWebhookToken)
+        : undefined);
+    const relay = await relayOneShotForCase({ ...body, destinationUrl });
     relay.events.forEach((event) => store.relayerEvents.set(event.id, event));
     if (relay.taskId && body.sessionId) {
       const session = store.paymentSessions.get(body.sessionId);
@@ -73,9 +98,15 @@ export async function handleIntegrationOneShotRoutes(
   if (method === "POST" && url.pathname === "/api/1shot/webhook") {
     const caseId = url.searchParams.get("caseId");
     const sessionId = url.searchParams.get("sessionId") ?? undefined;
+    const token = url.searchParams.get("token") ?? undefined;
     if (!caseId) throw new HttpError(422, "case-id-required");
-    const caseRecord = getCaseWithAccess(request, store, caseId);
+    const session = resolveOneShotWebhookSession(store, caseId, sessionId, token);
+    if (!session) throw new HttpError(401, "oneshot-webhook-unauthorized");
+    const caseRecord = store.getCaseOrThrow(caseId);
     const body = await readJson<OneShotWebhookPayload>(request);
+    if (!verifyOneShotWebhookSignature(body.signature)) {
+      throw new HttpError(401, "oneshot-webhook-signature-invalid");
+    }
     const event = relayerEventFromOneShotWebhook({
       caseId: caseRecord.id,
       sessionId,

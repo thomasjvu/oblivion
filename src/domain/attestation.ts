@@ -24,6 +24,16 @@ export interface BuildAttestationOptions {
 
 type AttestationSource = "dstack" | "http" | "static";
 
+let cachedLiveProof: { key: string; proof: AttestationProof; expiresAtMs: number } | null = null;
+
+function attestationCacheKey(config: TrustCenterConfig): string {
+  return `${config.expectedComposeHash}:${config.sourceCommit}:${config.deploymentVersion}`;
+}
+
+export function clearAttestationCacheForTests(): void {
+  cachedLiveProof = null;
+}
+
 interface LiveEvidence {
   report: unknown;
   fetchedAt: string;
@@ -39,6 +49,13 @@ export async function buildAttestationProof(
   options: BuildAttestationOptions = {}
 ): Promise<AttestationProof> {
   const now = options.now ?? new Date();
+  const maxAgeMs = (config.maxAttestationAgeSeconds ?? 600) * 1000;
+  if (options.fetchLive && cachedLiveProof) {
+    const cacheValid =
+      cachedLiveProof.key === attestationCacheKey(config) &&
+      cachedLiveProof.expiresAtMs > now.getTime();
+    if (cacheValid) return cachedLiveProof.proof;
+  }
   const errors: string[] = [];
   const digestErrors = validateImageDigests(config.imageDigests);
   errors.push(...digestErrors);
@@ -76,7 +93,7 @@ export async function buildAttestationProof(
           ? "fail"
           : "not-configured";
 
-  return {
+  const proof: AttestationProof = {
     deploymentVersion: config.deploymentVersion,
     sourceCommit: config.sourceCommit,
     expectedComposeHash: config.expectedComposeHash,
@@ -92,6 +109,14 @@ export async function buildAttestationProof(
     trustSummary: summarizeTrust(verifierResult),
     verificationErrors: [...new Set(errors)]
   };
+  if (options.fetchLive) {
+    cachedLiveProof = {
+      key: attestationCacheKey(config),
+      proof,
+      expiresAtMs: now.getTime() + maxAgeMs
+    };
+  }
+  return proof;
 }
 
 export function validateImageDigests(imageDigests: string[]): string[] {

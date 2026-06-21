@@ -100,7 +100,11 @@ export function oblivionPublicApiUrl(): string {
   return envString("OBLIVION_PUBLIC_API_URL").replace(/\/$/, "");
 }
 
-export function oneShotWebhookDestinationUrl(caseId: string, sessionId?: string): string {
+export function oneShotWebhookDestinationUrl(
+  caseId: string,
+  sessionId?: string,
+  webhookToken?: string
+): string {
   const base = oblivionPublicApiUrl();
   if (!base) {
     throw new DomainError("oblivion-public-api-url-required", 503, {
@@ -109,6 +113,7 @@ export function oneShotWebhookDestinationUrl(caseId: string, sessionId?: string)
   }
   const params = new URLSearchParams({ caseId });
   if (sessionId) params.set("sessionId", sessionId);
+  if (webhookToken) params.set("token", webhookToken);
   return `${base}/api/1shot/webhook?${params.toString()}`;
 }
 

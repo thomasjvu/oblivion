@@ -6,6 +6,7 @@ import { createApp } from "../../src/api/app.js";
 import { createCaseRecord } from "../../src/domain/cases.js";
 import { hashPartnerApiKey } from "../../src/domain/partners.js";
 import type { Approval, PartnerRecord } from "../../src/domain/types.js";
+import { MemoryStore } from "../../src/storage/memoryStore.js";
 import { DEFAULT_TEST_KEY, partnerFetch, seedTestPartner } from "../helpers/partner.js";
 
 const OTHER_PARTNER_KEY = "obl_other_partner_secret";
@@ -15,7 +16,7 @@ async function startTwoPartnerServer(): Promise<{
   store: ReturnType<typeof createApp>["store"];
   base: string;
 }> {
-  const { server, store } = createApp();
+  const { server, store } = createApp({ store: new MemoryStore() });
   seedTestPartner(store, { id: "owner", key: DEFAULT_TEST_KEY });
   const now = new Date().toISOString();
   const other: PartnerRecord = {

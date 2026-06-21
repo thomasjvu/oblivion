@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PartnerWebhookEvent } from "../../../domain/types.js";
 import {
@@ -25,7 +26,12 @@ export async function handleV1WebhookRoutes(
     const body = await readJson<WebhookBody>(request);
     if (!body.url?.startsWith("https://")) throw new HttpError(422, "webhook-url-https-required");
     partner.webhookUrl = body.url.trim();
-    partner.webhookSecret = body.secret?.trim() || partner.webhookSecret || partner.id;
+    const requestedSecret = body.secret?.trim();
+    if (requestedSecret) {
+      partner.webhookSecret = requestedSecret;
+    } else if (!partner.webhookSecret || partner.webhookSecret === partner.id) {
+      partner.webhookSecret = randomBytes(32).toString("hex");
+    }
     if (Array.isArray(body.events) && body.events.length > 0) {
       partner.webhookEvents = body.events as typeof partner.webhookEvents;
     }
@@ -81,7 +87,9 @@ export async function handleV1WebhookRoutes(
   if (method === "POST" && pathname === "/v1/webhooks/register-inbox") {
     const apiBase = apiBaseFromRequest(request);
     partner.webhookUrl = partnerWebhookInboxUrl(partner.id, apiBase);
-    partner.webhookSecret = partner.webhookSecret ?? partner.id;
+    if (!partner.webhookSecret || partner.webhookSecret === partner.id) {
+      partner.webhookSecret = randomBytes(32).toString("hex");
+    }
     partner.updatedAt = new Date().toISOString();
     store.partners.set(partner.id, partner);
     sendJson(response, 200, {
