@@ -77,6 +77,37 @@ test("settleCreditProduct rejects unpaid session without bypass", () => {
   }
 });
 
+test("settleCreditProduct is idempotent when session already paid", () => {
+  const originalBypass = process.env.OBLIVION_CREDITS_BYPASS;
+  delete process.env.OBLIVION_CREDITS_BYPASS;
+  try {
+    const store = new MemoryStore();
+    const caseRecord = seedCase(store);
+    const session = seedSession(caseRecord.id);
+    store.paymentSessions.set(session.id, session);
+    const first = settleCreditProduct(store, caseRecord, {
+      walletAddress: session.walletAddress!,
+      expectedMode: "one-off",
+      paymentSessionId: session.id,
+      settlementTransaction: "0xabc123"
+    });
+    assert.ok(first);
+    const ledgerAfterFirst = store.creditLedger.size;
+    const second = settleCreditProduct(store, caseRecord, {
+      walletAddress: session.walletAddress!,
+      expectedMode: "one-off",
+      paymentSessionId: session.id,
+      settlementTransaction: "0xabc123"
+    });
+    assert.ok(second);
+    assert.equal(store.creditLedger.size, ledgerAfterFirst);
+    assert.equal(second?.balanceCredits, first?.balanceCredits);
+  } finally {
+    if (originalBypass === undefined) delete process.env.OBLIVION_CREDITS_BYPASS;
+    else process.env.OBLIVION_CREDITS_BYPASS = originalBypass;
+  }
+});
+
 test("settleCreditProduct accepts settlement transaction", () => {
   const originalBypass = process.env.OBLIVION_CREDITS_BYPASS;
   delete process.env.OBLIVION_CREDITS_BYPASS;

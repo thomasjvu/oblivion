@@ -184,6 +184,13 @@ test("case lifecycle enforces approval before execution", async () => {
     const executed = await post(base, `/api/actions/${proposed.action.id}/execute`, {});
     assert.equal(executed.action.executionStatus, "recorded");
 
+    const reapprove = await fetch(`${base}/api/approvals/${proposed.approval.id}/approve`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${created.accessToken}` },
+      body: JSON.stringify({ userConfirmation: "I approve this exact action again" })
+    });
+    assert.equal(reapprove.status, 409);
+
     const exported = await post(base, "/api/export", { caseId });
     assert.equal(exported.case.encryptedIntake.ciphertext, encryptedIntake.ciphertext);
     assert.doesNotMatch(JSON.stringify(exported), /person@example\.com/);

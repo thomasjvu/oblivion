@@ -1,10 +1,16 @@
 # Plan 015: Recheck follow-up automation (design spike)
 
-## Status: SPIKE — not implemented
+## Status: PARTIAL — route, scheduler, and webhooks shipped; discovery loop open (plan 032)
 
-## Problem
+## Shipped (commit 10d15ae)
 
-Follow-ups are scheduled (`pathBuilders.ts`, `agentRunner.ts`) and `recheckOverdue` is computed (`partnerStatus.ts`), but no job or route re-runs discovery when `dueDate` passes.
+- `POST /v1/cases/:id/recheck` (`src/api/routes/v1/cases.ts`)
+- `processDueRechecks` on maintenance scheduler (`src/api/app.ts`)
+- `FollowUp.status` + `triggerRecheckForFollowUp` (`src/domain/recheck.ts`)
+
+## Remaining
+
+Follow-ups are scheduled (`pathBuilders.ts`, `agentRunner.ts`) and `recheckOverdue` is computed (`partnerStatus.ts`), but recheck does not yet re-run discovery when `dueDate` passes — see plan 032.
 
 ## Proposed direction
 

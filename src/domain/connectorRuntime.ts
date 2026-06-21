@@ -21,6 +21,7 @@ import { assertSensitiveExecutionAllowed } from "./runtimeGuard.js";
 import { sourceVerificationFor } from "./sourceVerification.js";
 import { buildDraftText } from "./templates.js";
 import { brokerWebFormAutomationEnabled, probeBrokerOptOutForm } from "./brokerWebForm.js";
+import { assertSafeOutboundHttpsUrl } from "./safeOutboundUrl.js";
 import { probeOfficialUrl } from "./urlProbe.js";
 import {
   assertCreditsForEmailRelay,
@@ -302,6 +303,11 @@ async function runPlatformAbuseLive(input: LiveConnectorInput, connectorId: stri
   const contact = resolveHostAbuseContact(input.action.destination, infringingUrl);
   if (!contact) {
     return handoffResult(input, connectorId, "Live platform abuse report requires a resolvable host destination.");
+  }
+  try {
+    assertSafeOutboundHttpsUrl(infringingUrl);
+  } catch {
+    return handoffResult(input, connectorId, "Live platform abuse report blocked unsafe infringing URL.");
   }
   const probe = await probeOfficialUrl(infringingUrl);
   const hostReachable = probe.reachable

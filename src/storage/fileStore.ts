@@ -128,6 +128,7 @@ export function snapshotStore(store: MemoryStore): PersistedStoreSnapshot {
 let saveTimer: NodeJS.Timeout | null = null;
 
 export function scheduleStorePersist(store: MemoryStore, path: string): void {
+  if (!store.isDirty()) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = null;
@@ -136,11 +137,13 @@ export function scheduleStorePersist(store: MemoryStore, path: string): void {
 }
 
 export function persistStore(store: MemoryStore, path: string): void {
+  if (!store.isDirty()) return;
   const dir = dirname(path);
   mkdirSync(dir, { recursive: true });
   const tempPath = join(dir, `.${path.split("/").pop() ?? "oblivion"}.tmp-${process.pid}`);
   writeFileSync(tempPath, JSON.stringify(snapshotStore(store)), "utf8");
   renameSync(tempPath, path);
+  store.clearDirty();
 }
 
 export function createPersistentStore(path: string): MemoryStore {

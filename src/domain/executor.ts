@@ -48,6 +48,15 @@ export interface ExecuteApprovedActionFlowInput {
 }
 
 export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlowInput): Promise<ExecuteActionResult> {
+  if (input.approval.status === "used") {
+    throw new DomainError("approval-not-executable", 409);
+  }
+  if (input.action.executionStatus === "executing") {
+    throw new DomainError("action-already-executing", 409);
+  }
+  if (input.action.executionStatus === "executed" || input.action.executionStatus === "recorded") {
+    throw new DomainError("action-already-executed", 409);
+  }
   const decision = canExecuteWithApproval(input.approval);
   if (!decision.allowed) {
     if (input.blockActionOnDeny) {
@@ -55,20 +64,28 @@ export async function executeApprovedActionFlow(input: ExecuteApprovedActionFlow
     }
     throw new DomainError("execution-blocked", 403, { reasons: decision.reasons });
   }
-  const executed = await executeApprovedAction({
-    store: input.store,
-    action: input.action,
-    approval: input.approval,
-    trustCenterConfig: input.trustCenterConfig,
-    walletAddress: input.walletAddress,
-    operatorEmailRelay: input.operatorEmailRelay,
-    handoff: input.handoff
-  });
-  input.action.executionStatus = resolveExecutionStatusAfterExecute(executed);
-  input.action.executedAt = new Date().toISOString();
-  input.action.executionRecord = executed.executionRecord;
-  input.approval.status = "used";
-  return executed;
+  input.action.executionStatus = "executing";
+  try {
+    const executed = await executeApprovedAction({
+      store: input.store,
+      action: input.action,
+      approval: input.approval,
+      trustCenterConfig: input.trustCenterConfig,
+      walletAddress: input.walletAddress,
+      operatorEmailRelay: input.operatorEmailRelay,
+      handoff: input.handoff
+    });
+    input.action.executionStatus = resolveExecutionStatusAfterExecute(executed);
+    input.action.executedAt = new Date().toISOString();
+    input.action.executionRecord = executed.executionRecord;
+    input.approval.status = "used";
+    return executed;
+  } catch (error) {
+    if (input.action.executionStatus === "executing") {
+      input.action.executionStatus = "ready";
+    }
+    throw error;
+  }
 }
 
 export async function executeApprovedAction(input: ExecuteActionInput): Promise<ExecuteActionResult> {

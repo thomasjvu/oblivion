@@ -8,6 +8,8 @@ import {
   retryFailedWebhookDeliveries,
   retryWebhookDelivery
 } from "../../../domain/webhooks.js";
+import { assertSafeOutboundHttpsUrl } from "../../../domain/safeOutboundUrl.js";
+import { DomainError } from "../../../domain/errors.js";
 import { HttpError } from "../../errors.js";
 import { readJson, sendJson } from "../../http.js";
 import { apiBaseFromRequest, type V1PartnerContext, type WebhookBody } from "./context.js";
@@ -25,6 +27,14 @@ export async function handleV1WebhookRoutes(
   if (method === "POST" && pathname === "/v1/webhooks") {
     const body = await readJson<WebhookBody>(request);
     if (!body.url?.startsWith("https://")) throw new HttpError(422, "webhook-url-https-required");
+    try {
+      assertSafeOutboundHttpsUrl(body.url.trim());
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw new HttpError(error.statusCode, error.code, error.details);
+      }
+      throw error;
+    }
     partner.webhookUrl = body.url.trim();
     const requestedSecret = body.secret?.trim();
     if (requestedSecret) {

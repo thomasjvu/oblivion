@@ -47,9 +47,9 @@ export function createApp(options: AppOptions = {}) {
 
   async function handler(request: IncomingMessage, response: ServerResponse): Promise<void> {
     bindRequestOrigin(typeof request.headers.origin === "string" ? request.headers.origin : undefined);
+    const url = new URL(request.url ?? "/", "http://localhost");
+    const method = request.method ?? "GET";
     try {
-      const url = new URL(request.url ?? "/", "http://localhost");
-      const method = request.method ?? "GET";
 
       if (
         method === "OPTIONS" &&
@@ -174,6 +174,12 @@ export function createApp(options: AppOptions = {}) {
         details: sanitizeForLog(httpError.details)
       });
     } finally {
+      const mutatesStore =
+        method !== "GET" &&
+        method !== "HEAD" &&
+        method !== "OPTIONS" &&
+        (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/"));
+      if (mutatesStore) store.markDirty();
       if (persistPath) scheduleStorePersist(store, persistPath);
       clearRequestOrigin();
     }

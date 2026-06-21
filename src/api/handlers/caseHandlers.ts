@@ -15,6 +15,8 @@ import {
   discoveryReadinessMessage
 } from "../../domain/exposureDiscovery.js";
 import { MIN_USER_CONFIRMATION_LENGTH } from "../../domain/constants.js";
+import { DomainError } from "../../domain/errors.js";
+import { assertSafeOutboundHttpsUrl } from "../../domain/safeOutboundUrl.js";
 import { buildStatus } from "../../domain/status.js";
 import { redactText } from "../../domain/redaction.js";
 import { executeApprovedActionFlow } from "../../domain/executor.js";
@@ -164,16 +166,28 @@ export function handleFindingDecision(
 export async function handleApprove(store: MemoryStore, approvalId: string, body: ApproveBody) {
   const approval = store.approvals.get(approvalId);
   if (!approval) throw new HttpError(404, "approval-not-found");
+  if (approval.status !== "pending") {
+    throw new HttpError(409, "approval-not-pending");
+  }
   if (!body.userConfirmation || body.userConfirmation.length < MIN_USER_CONFIRMATION_LENGTH) {
     throw new HttpError(422, "user-confirmation-required");
   }
   if (new Date(approval.expiresAt).getTime() <= Date.now()) {
     throw new HttpError(422, "approval-expired");
   }
+  const linkedAction = store.actionsForCase(approval.caseId).find((action) => action.approvalId === approval.id);
+  if (
+    linkedAction &&
+    (linkedAction.executionStatus === "executed" ||
+      linkedAction.executionStatus === "recorded" ||
+      linkedAction.executionStatus === "executing")
+  ) {
+    throw new HttpError(409, "approval-not-pending");
+  }
   approval.status = "approved";
   approval.approvedAt = new Date().toISOString();
   approval.userConfirmation = redactText(body.userConfirmation);
-  for (const action of store.actions.values()) {
+  for (const action of store.actionsForCase(approval.caseId)) {
     if (action.approvalId === approval.id) action.executionStatus = "ready";
   }
   await emitCaseWebhook(store, approval.caseId, "approval.approved", { approvalId: approval.id });
@@ -191,6 +205,16 @@ export async function handleExecute(
   const approval = store.approvals.get(action.approvalId);
   if (!approval) throw new HttpError(409, "approval-missing");
   const caseRecord = store.getCaseOrThrow(action.caseId);
+  if (body.sourceUrl?.trim()) {
+    try {
+      assertSafeOutboundHttpsUrl(body.sourceUrl.trim());
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw new HttpError(error.statusCode, error.code, error.details);
+      }
+      throw error;
+    }
+  }
   const executed = await executeApprovedActionFlow({
     store,
     action,

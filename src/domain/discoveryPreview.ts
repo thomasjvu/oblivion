@@ -18,14 +18,24 @@ import {
   fetchWebSearchCandidates,
   type DiscoveryCandidate
 } from "./exposureDiscovery.js";
-import { redactText } from "./redaction.js";
+import { deploymentEnvironment } from "./deploymentEnv.js";
+import { detectForbiddenSecrets, redactText } from "./redaction.js";
 import type { RedactedScope } from "./types.js";
 import { walletKeyFromAddress } from "./credits.js";
 
+const PRODUCTION_PREVIEW_DAILY_LIMIT = 5;
+
 export function previewDailyLimit(): number {
-  const raw = Number(process.env.OBLIVION_PREVIEW_DAILY_LIMIT ?? "0");
-  if (!Number.isFinite(raw) || raw <= 0) return 0;
-  return Math.min(Math.floor(raw), 20);
+  const envRaw = process.env.OBLIVION_PREVIEW_DAILY_LIMIT;
+  if (envRaw !== undefined && envRaw.trim() !== "") {
+    const configured = Number(envRaw);
+    if (!Number.isFinite(configured) || configured <= 0) return 0;
+    return Math.min(Math.floor(configured), 20);
+  }
+  if (deploymentEnvironment() === "production") {
+    return PRODUCTION_PREVIEW_DAILY_LIMIT;
+  }
+  return 0;
 }
 
 export function previewQuotaEnabled(): boolean {
@@ -142,10 +152,14 @@ export async function runDiscoveryPreview(input: {
     throw new DomainError("person-label-required", 422);
   }
 
+  const personLabel = redactText(input.personLabel.trim());
+  if (detectForbiddenSecrets(personLabel).length > 0) {
+    throw new DomainError("person-label-forbidden", 422);
+  }
   const sweepScope = {
-    personLabel: input.personLabel.trim(),
-    aliases: input.aliases,
-    regionLabel: input.regionLabel
+    personLabel,
+    aliases: (input.aliases ?? []).map((item) => redactText(item.trim())).filter(Boolean),
+    regionLabel: input.regionLabel?.trim() ? redactText(input.regionLabel.trim()) : undefined
   };
   const queries = buildBrokerSweepQueries(sweepScope, {
     limit: input.sweepLimit ?? previewBrokerSweepLimit(),

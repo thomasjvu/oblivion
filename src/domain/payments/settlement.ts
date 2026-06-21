@@ -42,6 +42,14 @@ export function settleCreditProduct(
   ) {
     return null;
   }
+  if (session.status === "paid") {
+    const credits = resolveCreditsView(store, input.walletAddress);
+    return {
+      session,
+      credits,
+      balanceCredits: credits.balanceCredits
+    };
+  }
   const paid = markSessionPaid(session, input.settlementTransaction);
   store.paymentSessions.set(paid.id, paid);
   markCaseActivated(store, caseRecord.id, paid);

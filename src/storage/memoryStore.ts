@@ -27,6 +27,8 @@ import type {
 import type { OblivionRepository } from "./repository.js";
 
 export class MemoryStore implements OblivionRepository {
+  private dirty = false;
+
   readonly cases = new Map<string, CaseRecord>();
   readonly approvals = new Map<string, Approval>();
   readonly actions = new Map<string, ActionRequest>();
@@ -123,5 +125,17 @@ export class MemoryStore implements OblivionRepository {
     return [...this.connectorResults.values()]
       .filter((result) => result.caseId === caseId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  markDirty(): void {
+    this.dirty = true;
+  }
+
+  isDirty(): boolean {
+    return this.dirty;
+  }
+
+  clearDirty(): void {
+    this.dirty = false;
   }
 }

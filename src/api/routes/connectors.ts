@@ -89,6 +89,7 @@ export async function handleConnectorRoutes(context: ConnectorRouteContext): Pro
     const result = buildHibpEmailConnectorResult(caseRecord.id, hibpResponse);
     recordSourceCheck(store, caseRecord.id, "hibp-email");
     store.connectorResults.set(result.id, result);
+    approval.status = "used";
     sendJson(response, 200, { result });
     return true;
   }

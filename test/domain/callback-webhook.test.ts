@@ -53,6 +53,51 @@ test("dispatchCaseCallbackWebhook posts signed payload to case callback URL", as
   }
 });
 
+test("dispatchCaseCallbackWebhook blocks unsafe callback hosts", async () => {
+  const originalFetch = globalThis.fetch;
+  let called = false;
+  globalThis.fetch = (async () => {
+    called = true;
+    return new Response("ok", { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const now = new Date().toISOString();
+    const partner: PartnerRecord = {
+      id: "partner_blocked",
+      name: "Blocked Partner",
+      apiKeyHash: "hash",
+      environment: "production",
+      balanceCredits: 100,
+      webhookSecret: "c".repeat(64),
+      webhookEvents: ["case.created"],
+      createdAt: now,
+      updatedAt: now
+    };
+    const caseRecord: CaseRecord = {
+      id: "case_blocked",
+      jurisdiction: "US",
+      authorityBasis: "self",
+      riskLevel: "standard",
+      retentionDays: 30,
+      encryptedVaultPointer: "vault_blocked",
+      partnerId: partner.id,
+      callbackUrl: "https://127.0.0.1/callback",
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const result = await dispatchCaseCallbackWebhook(caseRecord, partner, "case.created", {
+      caseId: caseRecord.id
+    });
+    assert.equal(called, false);
+    assert.equal(result?.ok, false);
+    assert.equal(result?.error, "outbound-url-blocked");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("dispatchCaseCallbackWebhook skips when callback matches partner webhook URL", async () => {
   const originalFetch = globalThis.fetch;
   let called = false;

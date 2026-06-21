@@ -15,7 +15,7 @@ services:
       - PHALA_ATTESTATION_URL=https://${DSTACK_APP_ID}.${DSTACK_GATEWAY_DOMAIN}/tcbinfo
       - OBLIVION_PUBLIC_API_URL=https://3a522af6627d93bb480ba7bd39d375a1535aefa8-8080.dstack-pha-prod5.phala.network
       - OBLIVION_CORS_ORIGIN=https://oblivion.phantasy.bot
-      - OBLIVION_PREVIEW_DAILY_LIMIT=0
+      - OBLIVION_PREVIEW_DAILY_LIMIT=5
       - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
       - VENICE_API_KEY=${VENICE_API_KEY:-}
       - VENICE_MODEL=${VENICE_MODEL:-}

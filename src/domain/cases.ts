@@ -1,5 +1,6 @@
 import { generateCaseAccessToken, hashCaseAccessToken } from "./caseAccess.js";
 import { DomainError } from "./errors.js";
+import { assertSafeOutboundHttpsUrl } from "./safeOutboundUrl.js";
 import { redactText } from "./redaction.js";
 import type {
   AuthorityBasis,
@@ -31,8 +32,11 @@ export function createCaseRecord(body: CreateCaseInput): { caseRecord: CaseRecor
     throw new DomainError("authority-basis-required", 422);
   }
   const callbackUrl = body.callbackUrl?.trim();
-  if (callbackUrl && !callbackUrl.startsWith("https://")) {
-    throw new DomainError("callback-url-https-required", 422);
+  if (callbackUrl) {
+    if (!callbackUrl.startsWith("https://")) {
+      throw new DomainError("callback-url-https-required", 422);
+    }
+    assertSafeOutboundHttpsUrl(callbackUrl);
   }
   const now = new Date().toISOString();
   const id = `case_${crypto.randomUUID()}`;

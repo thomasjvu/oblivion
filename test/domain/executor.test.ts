@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeApprovedAction } from "../../src/domain/executor.js";
+import { executeApprovedAction, executeApprovedActionFlow } from "../../src/domain/executor.js";
+import { DomainError } from "../../src/domain/errors.js";
 import type { ActionRequest, Approval, CaseRecord } from "../../src/domain/types.js";
 import type { TrustCenterConfig } from "../../src/domain/attestation.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
@@ -43,6 +44,50 @@ function seedApproval(caseId: string): { approval: Approval; action: ActionReque
   };
   return { approval, action };
 }
+
+test("executeApprovedActionFlow rejects second execute after success", async () => {
+  const original = process.env.OBLIVION_EXECUTOR_MODE;
+  process.env.OBLIVION_EXECUTOR_MODE = "record-only";
+  const store = new MemoryStore();
+  const now = new Date().toISOString();
+  const caseRecord: CaseRecord = {
+    id: "case_exec_flow",
+    jurisdiction: "US",
+    authorityBasis: "self",
+    riskLevel: "standard",
+    retentionDays: 30,
+    encryptedVaultPointer: "vault_exec_flow",
+    createdAt: now,
+    updatedAt: now
+  };
+  store.cases.set(caseRecord.id, caseRecord);
+  const { approval, action } = seedApproval(caseRecord.id);
+  store.approvals.set(approval.id, approval);
+  store.actions.set(action.id, action);
+  try {
+    await executeApprovedActionFlow({
+      store,
+      action,
+      approval,
+      trustCenterConfig: trustConfig
+    });
+    await assert.rejects(
+      () =>
+        executeApprovedActionFlow({
+          store,
+          action,
+          approval,
+          trustCenterConfig: trustConfig
+        }),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        (error.code === "approval-not-executable" || error.code === "action-already-executed")
+    );
+  } finally {
+    if (original === undefined) delete process.env.OBLIVION_EXECUTOR_MODE;
+    else process.env.OBLIVION_EXECUTOR_MODE = original;
+  }
+});
 
 test("executeApprovedAction records broker opt-out in record-only mode", async () => {
   const original = process.env.OBLIVION_EXECUTOR_MODE;

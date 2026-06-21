@@ -51,6 +51,7 @@ export type ExecutionStatus =
   | "draft"
   | "awaiting-approval"
   | "ready"
+  | "executing"
   | "recorded"
   | "executed"
   | "blocked"

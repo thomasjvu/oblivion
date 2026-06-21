@@ -13,7 +13,7 @@ import {
 } from "../../../../domain/oneshotWebhookAuth.js";
 import { getCaseWithAccess } from "../../../auth.js";
 import { HttpError } from "../../../errors.js";
-import { readJson, sendJson } from "../../../http.js";
+import { readJson, readRawBody, sendJson } from "../../../http.js";
 import { type ConsumerContext, type RelayerBody } from "../context.js";
 
 export async function handleIntegrationOneShotRoutes(
@@ -103,8 +103,9 @@ export async function handleIntegrationOneShotRoutes(
     const session = resolveOneShotWebhookSession(store, caseId, sessionId, token);
     if (!session) throw new HttpError(401, "oneshot-webhook-unauthorized");
     const caseRecord = store.getCaseOrThrow(caseId);
-    const body = await readJson<OneShotWebhookPayload>(request);
-    if (!verifyOneShotWebhookSignature(body.signature)) {
+    const rawBody = await readRawBody(request);
+    const body = rawBody.trim() ? (JSON.parse(rawBody) as OneShotWebhookPayload) : ({} as OneShotWebhookPayload);
+    if (!verifyOneShotWebhookSignature(rawBody, body.signature)) {
       throw new HttpError(401, "oneshot-webhook-signature-invalid");
     }
     const event = relayerEventFromOneShotWebhook({

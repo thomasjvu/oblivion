@@ -20,13 +20,15 @@ export function resolveOneShotWebhookSession(
   return session;
 }
 
-export function verifyOneShotWebhookSignature(payloadSignature: string | undefined): boolean {
+export function verifyOneShotWebhookSignature(rawBody: string, payloadSignature: string | undefined): boolean {
   const secret = process.env.ONESHOT_WEBHOOK_SECRET?.trim() || process.env.ONESHOT_API_KEY?.trim();
   if (!secret) {
     return deploymentEnvironment() !== "production" || !isOneShotConfigured();
   }
   if (!payloadSignature) return false;
-  const left = Buffer.from(secret);
+  const expected = signOneShotWebhookProbe(rawBody);
+  if (!expected) return false;
+  const left = Buffer.from(expected);
   const right = Buffer.from(payloadSignature);
   if (left.length !== right.length) return false;
   return timingSafeEqual(left, right);

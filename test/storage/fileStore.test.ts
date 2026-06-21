@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadFileStore, persistStore } from "../../src/storage/fileStore.js";
+import { loadFileStore, persistStore, scheduleStorePersist } from "../../src/storage/fileStore.js";
 import { MemoryStore } from "../../src/storage/memoryStore.js";
 import type { CaseRecord } from "../../src/domain/types.js";
 
@@ -24,7 +24,9 @@ test("file store persists and reloads case records", () => {
       updatedAt: now
     };
     store.cases.set(caseRecord.id, caseRecord);
+    store.markDirty();
     persistStore(store, path);
+    assert.equal(store.isDirty(), false);
     const raw = readFileSync(path, "utf8");
     assert.doesNotThrow(() => JSON.parse(raw));
     const reloaded = loadFileStore(path);
@@ -32,4 +34,10 @@ test("file store persists and reloads case records", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("scheduleStorePersist skips when store is not dirty", () => {
+  const store = new MemoryStore();
+  assert.doesNotThrow(() => scheduleStorePersist(store, "/tmp/unused-oblivion.json"));
+  assert.equal(store.isDirty(), false);
 });
