@@ -15,16 +15,18 @@ const PIXELARTICONS = [
 const PIXEL = ["bars-solid", "plus-solid", "x"];
 
 function subsetCollection(packageName, names) {
-  const source = JSON.parse(
-    readFileSync(join(root, "node_modules", packageName, "icons.json"), "utf8")
-  );
+  const packageDir = join(root, "node_modules", packageName);
+  const source = JSON.parse(readFileSync(join(packageDir, "icons.json"), "utf8"));
+  const info = JSON.parse(readFileSync(join(packageDir, "info.json"), "utf8"));
   const icons = {};
   for (const name of names) {
     const icon = source.icons[name];
     if (!icon) throw new Error(`Missing icon ${packageName}/${name}`);
     icons[name] = icon;
   }
-  return { prefix: source.prefix, icons };
+  const width = info.width ?? info.height ?? 24;
+  const height = info.height ?? info.width ?? 24;
+  return { prefix: source.prefix, width, height, icons };
 }
 
 mkdirSync(outDir, { recursive: true });

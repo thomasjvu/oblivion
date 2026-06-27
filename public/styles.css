@@ -81,6 +81,7 @@ iconify-icon {
   flex-shrink: 0;
   line-height: 1;
   vertical-align: unset;
+  overflow: visible;
 }
 
 iconify-icon svg {
@@ -96,11 +97,8 @@ iconify-icon svg rect,
 iconify-icon svg polygon,
 iconify-icon svg polyline,
 iconify-icon svg line {
-  stroke: currentColor;
-  stroke-width: 1.75px;
-  stroke-linejoin: round;
-  stroke-linecap: square;
-  paint-order: stroke fill;
+  fill: currentColor;
+  stroke: none;
 }
 
 h1,
@@ -160,25 +158,21 @@ a.landing-help-link {
 
 button iconify-icon,
 a[data-icon] iconify-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.125rem;
+  height: 1.125rem;
   align-self: center;
+  flex-shrink: 0;
 }
 
 button.icon-only iconify-icon,
 a.icon-only iconify-icon {
-  width: 1.625rem;
-  height: 1.625rem;
+  width: 1rem;
+  height: 1rem;
+  max-width: calc(100% - 2px);
+  max-height: calc(100% - 2px);
 }
 
-button iconify-icon svg path,
-button iconify-icon svg circle,
-button iconify-icon svg rect,
-button iconify-icon svg polygon,
-button iconify-icon svg polyline,
-button iconify-icon svg line {
-  stroke-width: 2px;
-}
+
 
 .panel-header h3[data-icon],
 summary[data-icon],
@@ -256,8 +250,9 @@ button.active:not(:disabled) {
 }
 
 .icon-only {
-  padding: 8px;
-  min-width: 36px;
+  padding: 6px;
+  min-width: 32px;
+  min-height: 32px;
 }
 
 .icon-only .btn-label {
@@ -775,8 +770,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 }
 
 .workspace-footer .site-footer-link iconify-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .site-footer-legal {
@@ -808,8 +803,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 }
 
 .site-footer-external-link iconify-icon {
-  width: 0.82rem;
-  height: 0.82rem;
+  width: 0.9rem;
+  height: 0.9rem;
   flex-shrink: 0;
   opacity: 0.9;
 }
@@ -846,8 +841,8 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
 }
 
 .site-footer-link iconify-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
 .site-footer-link:hover,
@@ -1976,14 +1971,7 @@ button.skill-install-tab {
   height: 2.75rem;
 }
 
-.proof-icon-host iconify-icon svg path,
-.proof-icon-host iconify-icon svg circle,
-.proof-icon-host iconify-icon svg rect,
-.proof-icon-host iconify-icon svg polygon,
-.proof-icon-host iconify-icon svg polyline,
-.proof-icon-host iconify-icon svg line {
-  stroke-width: 2.25px;
-}
+
 
 .trust-strip-icons .chip {
   display: inline-flex;
@@ -2363,14 +2351,7 @@ summary {
   align-self: center;
 }
 
-.tab iconify-icon svg path,
-.tab iconify-icon svg circle,
-.tab iconify-icon svg rect,
-.tab iconify-icon svg polygon,
-.tab iconify-icon svg polyline,
-.tab iconify-icon svg line {
-  stroke-width: 2px;
-}
+
 
 .tab .tab-label {
   letter-spacing: 0.06em;
@@ -4254,14 +4235,7 @@ a.pricing-plan-cta:focus-visible {
   align-self: center;
 }
 
-.agent-dock iconify-icon svg path,
-.agent-dock iconify-icon svg circle,
-.agent-dock iconify-icon svg rect,
-.agent-dock iconify-icon svg polygon,
-.agent-dock iconify-icon svg polyline,
-.agent-dock iconify-icon svg line {
-  stroke-width: 2px;
-}
+
 
 .chip iconify-icon,
 .pill iconify-icon {
@@ -5477,7 +5451,13 @@ pre {
   border-bottom-color: var(--gb-3);
   color: var(--gb-3);
 }
-button.compact, .compact { min-height: 32px; padding: 6px 10px; font-size: 0.72rem; }
+button.compact, .compact { min-height: 34px; padding: 6px 10px; font-size: 0.72rem; }
+
+button.compact:not(.icon-only) iconify-icon,
+a.compact:not(.icon-only) iconify-icon {
+  width: 1rem;
+  height: 1rem;
+}
 .onboarding-wallet-bar {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 10px 0; margin-top: 12px; border-top: 1px solid var(--line);
