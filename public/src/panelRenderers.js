@@ -116,6 +116,13 @@ export function bindPanelRenderers(deps) {
       return "";
     }
   }
+
+  function formatProductPrice(product) {
+    if (product.mode === "subscription") {
+      return `$${product.amountUsd} ${product.token}/mo`;
+    }
+    return `$${product.amountUsd} ${product.token}`;
+  }
   
   function renderCases() {
     const list = $("#case-list");
@@ -426,6 +433,24 @@ export function bindPanelRenderers(deps) {
     });
   }
   
+  function titleForAction(action) {
+    return {
+      "select-preset": "Choose cleanup preset",
+      "collect-minimum-identifiers": "Collect minimum identifiers",
+      "verify-trust": "Verify runtime trust",
+      "discover-candidates": "Discover exposure candidates",
+      "confirm-matches": "Confirm matches",
+      "verify-removal-path": "Verify removal path",
+      "draft-actions": "Draft actions",
+      "request-approval": "Approval required",
+      "execute-approved-action": "Execute approved action",
+      "await-confirmation": "Await confirmation",
+      "schedule-recheck": "Schedule recheck",
+      "escalate-if-needed": "Escalate if needed",
+      complete: "Cleanup cycle complete"
+    }[action] || action || "Choose cleanup preset";
+  }
+
   function shortStepTitle(title) {
     return {
       "Choose cleanup preset": "Choose preset",

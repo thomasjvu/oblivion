@@ -95,11 +95,17 @@ export function bindCaseActions(deps) {
     send.setAttribute("aria-disabled", hasText ? "false" : "true");
   }
 
-  function updateLandingSendState() {
+  function landingInputValue() {
     const input = $("#landing-input");
+    if (!input) return "";
+    const raw = input.dataset.privacyRealValue ?? input.value;
+    return String(raw).trim();
+  }
+
+  function updateLandingSendState() {
     const send = $("#landing-send");
-    if (!input || !send) return;
-    const hasText = Boolean(input.value.trim());
+    if (!send) return;
+    const hasText = Boolean(landingInputValue());
     send.disabled = !hasText;
     send.classList.toggle("send-ready", hasText);
     send.setAttribute("aria-disabled", hasText ? "false" : "true");

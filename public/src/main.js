@@ -139,8 +139,6 @@ const PRIVACY_FILTER_INPUT_IDS = [
   "simple-urls",
   "agent-intake",
   "intake",
-  "landing-input",
-  "landing-location",
   "findings-paste-input",
   "purpose",
   "destination"
@@ -609,7 +607,7 @@ const casesDeps = {
   closeDeleteCaseModal
 };
 
-if (typeof window !== "undefined") {
+if (typeof document !== "undefined") {
   window.__oblivionLoadCase = (caseId, options = {}) => loadCaseFlow(state, caseId, options, casesDeps);
 }
 

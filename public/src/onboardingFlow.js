@@ -66,6 +66,8 @@ export function bindOnboardingFlow(deps) {
 
   function setupLocationCombobox({ input, menu, toggle, field, options = LANDING_LOCATION_OPTIONS, onEnter }) {
     if (!input || !menu) return;
+    if (field?.dataset.comboboxWired === "1") return;
+    if (field) field.dataset.comboboxWired = "1";
 
     const renderOptions = (filter = "") => {
       const needle = filter.trim().toLowerCase();
@@ -121,6 +123,7 @@ export function bindOnboardingFlow(deps) {
       if (!option) return;
       input.value = option.dataset.value || "";
       closeMenu();
+      deps.updateLandingSendState?.();
     });
 
     input.addEventListener("keydown", (event) => {

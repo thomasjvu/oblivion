@@ -1217,16 +1217,19 @@ button#sidebar-new-case.sidebar-new-case-btn:focus-visible {
   min-height: min(56vh, 480px);
   align-items: stretch;
   border-top: 0;
+  overflow: visible;
 }
 
 .landing-hero-minimal .cinematic-hero {
   flex: 1;
   min-height: min(56vh, 480px);
   align-items: center;
+  overflow: visible;
 }
 
 .landing-hero-minimal .landing-copy {
   padding: clamp(12px, 2.5vw, 24px) var(--landing-pad) clamp(20px, 3vw, 36px);
+  overflow: visible;
 }
 
 .landing-skill {
@@ -1628,6 +1631,7 @@ button.skill-install-tab {
   margin-top: 0;
   width: var(--landing-content-max);
   max-width: 100%;
+  overflow: visible;
 }
 
 .landing-trust-line {
@@ -1749,6 +1753,11 @@ button.skill-install-tab {
   position: relative;
   display: flex;
   min-width: 0;
+  z-index: 1;
+}
+
+.location-combobox-field.open {
+  z-index: 40;
 }
 
 .location-combobox-input {
