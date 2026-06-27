@@ -52,7 +52,7 @@
   "dependencies": {
     "@iconify-json/pixel": "1.2.2",
     "@iconify-json/pixelarticons": "1.2.6",
-    "@noble/hashes": "1.8.0",
+    "@noble/hashes": "2.2.0",
     "@phala/dstack-sdk": "0.5.8",
     "@phantasy/vn-tts": "0.1.0",
     "@x402/core": "2.14.0",
