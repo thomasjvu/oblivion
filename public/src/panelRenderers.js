@@ -568,7 +568,7 @@ export function bindPanelRenderers(deps) {
   function renderHackathonChecklist() {
     const target = $("#hackathon-checklist");
     if (!target) return;
-    if (!isHackathonMode()) {
+    if (!isHackathonModeForState(state)) {
       target.innerHTML = "";
       target.hidden = true;
       return;

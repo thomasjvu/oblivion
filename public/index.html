@@ -42,13 +42,15 @@
  ░▒▓██████▓▒░░▒▓███████▓▒░░▒▓████████▓▒░▒▓█▓▒░  ░▒▓██▓▒░  ░▒▓█▓▒░░▒▓██████▓▒░░▒▓█▓▒░░▒▓█▓▒░</pre>
               <div class="landing-chat" id="landing-chat">
                 <div class="landing-composer" role="group" aria-label="Check listings">
-                  <input id="landing-input" class="landing-composer-field landing-composer-name" data-testid="landing-input" placeholder="Your name" aria-label="Your name" autocomplete="name" />
-                  <div class="landing-composer-location location-combobox-field" id="landing-location-field">
-                    <input id="landing-location" class="landing-composer-field location-combobox-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
-                    <button type="button" class="location-combobox-toggle icon-only" id="landing-location-toggle" data-testid="landing-location-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="landing-location-menu"><span class="visually-hidden">Locations</span></button>
-                    <ul class="location-combobox-menu" id="landing-location-menu" data-testid="landing-location-menu" role="listbox" hidden></ul>
+                  <div class="landing-composer-fields">
+                    <input id="landing-input" class="landing-composer-field landing-composer-name" data-testid="landing-input" placeholder="Your name" aria-label="Your name" autocomplete="name" />
+                    <div class="landing-composer-location location-combobox-field" id="landing-location-field">
+                      <input id="landing-location" class="landing-composer-field location-combobox-input" data-testid="landing-location" placeholder="City" aria-label="City or country (optional)" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="landing-location-menu" />
+                      <button type="button" class="location-combobox-toggle icon-only" id="landing-location-toggle" data-testid="landing-location-toggle" data-icon="chevron-down" aria-label="Choose city or country" aria-expanded="false" aria-controls="landing-location-menu"><span class="visually-hidden">Locations</span></button>
+                      <ul class="location-combobox-menu" id="landing-location-menu" data-testid="landing-location-menu" role="listbox" hidden></ul>
+                    </div>
                   </div>
-                  <button type="button" id="landing-send" class="landing-composer-send icon-only" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check</span></button>
+                  <button type="button" id="landing-send" class="landing-composer-send" data-icon="arrow-right" data-testid="landing-send" aria-label="Check listings" disabled><span class="btn-label">Check listings</span></button>
                 </div>
                 <p class="landing-trust-line" id="landing-trust-line" data-testid="landing-trust-line" aria-label="Privacy guarantees">E2EE <span aria-hidden="true">·</span> TEE-SECURE <span aria-hidden="true">·</span> 100% Private</p>
               </div>
@@ -202,7 +204,7 @@
                     </div>
                   </label>
                 </div>
-                <button type="button" class="secondary compact onboarding-preview-action" id="onboarding-check-listings" data-testid="onboarding-check-listings" data-icon="search">Check listings</button>
+                <button type="button" class="secondary onboarding-preview-action" id="onboarding-check-listings" data-testid="onboarding-check-listings" data-icon="search">Check listings</button>
                 <section class="pre-search-panel" id="pre-search-panel" data-testid="pre-search-panel" hidden aria-live="polite">
                   <p class="muted small pre-search-status" id="pre-search-status"></p>
                   <ul class="pre-search-results" id="pre-search-results"></ul>

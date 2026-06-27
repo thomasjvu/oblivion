@@ -1682,12 +1682,18 @@ button.skill-install-tab {
   --landing-composer-gap: 5px;
   --landing-composer-send: 34px;
   --landing-composer-height: 40px;
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+.landing-composer-fields {
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
   gap: var(--landing-composer-gap);
-  margin-top: 0;
-  width: 100%;
   min-width: 0;
 }
 
@@ -1843,26 +1849,33 @@ button.skill-install-tab {
   background: transparent;
 }
 
-.landing-composer-send.icon-only {
-  padding: 0;
-  min-width: var(--landing-composer-send);
-}
-
 .landing-composer-send {
-  flex: 0 0 var(--landing-composer-send);
-  width: var(--landing-composer-send);
-  min-width: var(--landing-composer-send);
-  min-height: var(--landing-composer-height);
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
   background: var(--gb-0);
   color: var(--gb-3);
   border: 2px solid var(--gb-2);
   box-shadow: 2px 2px 0 var(--gb-1);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.landing-composer-send .btn-label {
+  line-height: 1;
 }
 
 .landing-composer-send iconify-icon {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
 }
 
 .landing-composer-send.send-ready:hover,
@@ -2624,8 +2637,18 @@ summary {
 }
 
 .onboarding-preview-action {
-  justify-self: start;
+  width: 100%;
+  min-height: 44px;
   margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status-ellipsis-active {
+  font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 560px) {

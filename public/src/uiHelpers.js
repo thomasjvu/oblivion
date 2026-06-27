@@ -32,6 +32,31 @@ export function chipClass(value) {
   return pillClass(value).replace("pill", "chip");
 }
 
+const animatedStatusTimers = new WeakMap();
+const ELLIPSIS_FRAMES = ["…", "", ".", "..", "..."];
+
+export function setAnimatedStatus(el, baseText, active) {
+  if (!el) return;
+  const existing = animatedStatusTimers.get(el);
+  if (existing) {
+    clearInterval(existing);
+    animatedStatusTimers.delete(el);
+  }
+  if (!active) {
+    el.classList.remove("status-ellipsis-active");
+    if (baseText) el.textContent = baseText;
+    return;
+  }
+  el.classList.add("status-ellipsis-active");
+  let frame = 0;
+  const tick = () => {
+    el.textContent = `${baseText}${ELLIPSIS_FRAMES[frame % ELLIPSIS_FRAMES.length]}`;
+    frame += 1;
+  };
+  tick();
+  animatedStatusTimers.set(el, setInterval(tick, 450));
+}
+
 export function yesNo(value) {
   if (value === true) return "yes";
   if (value === false) return "no";

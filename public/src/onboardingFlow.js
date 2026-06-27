@@ -1,6 +1,7 @@
 import { PANELS } from "./renderScheduler.js";
 import { isHackathonMode as isHackathonModeForState } from "./refresh.js";
 import { setButtonLabel } from "./icons.js";
+import { setAnimatedStatus } from "./uiHelpers.js";
 
 export const LANDING_LOCATION_OPTIONS = [
   "United States",
@@ -294,6 +295,31 @@ export function bindOnboardingFlow(deps) {
     }
   }
 
+  function fieldValue(id) {
+    const el = typeof id === "string" ? $(id) : id;
+    if (!el || !("value" in el)) return "";
+    const raw = el.dataset.privacyRealValue ?? el.value;
+    return String(raw).trim();
+  }
+
+  function setFieldValue(id, value) {
+    const el = $(`#${id}`);
+    if (!el || !("value" in el)) return;
+    el.value = value;
+    if (el.dataset.privacyRealValue !== undefined) {
+      el.dataset.privacyRealValue = value;
+    }
+  }
+
+  function clearIntakeFields() {
+    ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
+      const field = $(`#${id}`);
+      if (!field) return;
+      field.value = "";
+      delete field.dataset.privacyRealValue;
+    });
+  }
+
   function resetPreSearchUi() {
     state.preSearchReady = false;
     const panel = $("#pre-search-panel");
@@ -301,7 +327,7 @@ export function bindOnboardingFlow(deps) {
     const preStatus = $("#pre-search-status");
     if (panel) panel.hidden = true;
     if (list) list.innerHTML = "";
-    if (preStatus) preStatus.textContent = "";
+    setAnimatedStatus(preStatus, "", false);
     const btn = $("#start-cleanup");
     if (btn) setButtonLabel(btn, "Start cleanup");
   }
@@ -326,7 +352,7 @@ export function bindOnboardingFlow(deps) {
       .join("");
   }
 
-  function openNewCaseFlow() {
+  function openNewCaseFlow(options = {}) {
     state.appOpen = true;
     state.dockOpen = true;
     state.dockPinned = true;
@@ -351,10 +377,10 @@ export function bindOnboardingFlow(deps) {
     state.onboardingPreviewReady = false;
     state.onboardingPreviewBusy = false;
     localStorage.removeItem("oblivion.currentCaseId");
-    ["simple-name", "simple-alias", "simple-region", "simple-urls"].forEach((id) => {
-      const field = $(`#${id}`);
-      if (field) field.value = "";
-    });
+    clearIntakeFields();
+    const seed = options.intake;
+    if (seed?.name) setFieldValue("simple-name", seed.name);
+    if (seed?.region) setFieldValue("simple-region", seed.region);
     const statusEl = $("#simple-start-status");
     if (statusEl) statusEl.textContent = "";
     focusIntake();
@@ -362,16 +388,14 @@ export function bindOnboardingFlow(deps) {
   }
 
   async function startFromLanding() {
-    const text = $("#landing-input")?.value?.trim();
-    const region = $("#landing-location")?.value?.trim();
+    const text = fieldValue("#landing-input");
+    const region = fieldValue("#landing-location");
     if (!text) {
       pulseFocusField($("#landing-input"));
       deps.updateLandingSendState();
       return;
     }
-    openNewCaseFlow();
-    if ($("#simple-name")) $("#simple-name").value = text;
-    if (region && $("#simple-region")) $("#simple-region").value = region;
+    openNewCaseFlow({ intake: { name: text, region } });
     syncJurisdictionFromRegionLabel(region);
     const parsed = parseIntakeForCase(text);
     const presetId = onboardingPresetId();
@@ -450,7 +474,7 @@ export function bindOnboardingFlow(deps) {
     const landingSend = $("#landing-send");
     const list = $("#pre-search-results");
     state.onboardingPreviewBusy = true;
-    if (preStatus) preStatus.textContent = "Checking people-search brokers…";
+    setAnimatedStatus(preStatus, "Checking people-search brokers", true);
     if (list) list.innerHTML = "";
     $("#pre-search-panel")?.removeAttribute("hidden");
     if (btn) btn.disabled = true;
@@ -469,6 +493,7 @@ export function bindOnboardingFlow(deps) {
           walletAddress: state.walletAddress || undefined
         }
       });
+      setAnimatedStatus(preStatus, "", false);
       deps.addChat("agent", "Scanning broker indexes and ranking likely matches…");
       deps.render(PANELS.agentChat);
       const quotaNote =
@@ -493,15 +518,16 @@ export function bindOnboardingFlow(deps) {
       deps.render();
       $("#onboarding-intake-full")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     } catch (error) {
-      if (preStatus) {
-        preStatus.textContent = error?.message || "Preview unavailable. Try again.";
-      }
+      setAnimatedStatus(preStatus, error?.message || "Preview unavailable. Try again.", false);
       deps.addChat("agent", error?.message || "Preview unavailable. Try again.");
       deps.render(PANELS.agentChat);
       deps.write(error);
     } finally {
       state.onboardingPreviewBusy = false;
       if (btn) btn.disabled = false;
+      if (preStatus?.classList.contains("status-ellipsis-active")) {
+        setAnimatedStatus(preStatus, "", false);
+      }
       deps.updateLandingSendState();
       deps.render(PANELS.onboardingSteps);
     }
