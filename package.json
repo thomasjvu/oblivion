@@ -56,7 +56,7 @@
     "@phala/dstack-sdk": "0.5.8",
     "@phantasy/vn-tts": "0.1.0",
     "@x402/core": "2.14.0",
-    "@x402/evm": "2.14.0",
+    "@x402/evm": "2.17.0",
     "iconify-icon": "3.0.2",
     "tsx": "4.22.4"
   },
