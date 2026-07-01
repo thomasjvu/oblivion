@@ -124,6 +124,25 @@ paths:
           in: path
           required: true
           schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pastedUrls:
+                  type: array
+                  items: { type: string }
+                searchLabels:
+                  type: object
+                  properties:
+                    personLabel: { type: string }
+                    aliases:
+                      type: array
+                      items: { type: string }
+                    regionLabel: { type: string }
+                walletAddress:
+                  type: string
       responses:
         '200': { description: Discovery results }
   /api/cases/{caseId}/findings/{findingId}/confirm:

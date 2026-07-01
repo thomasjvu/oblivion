@@ -41,6 +41,11 @@ test("findings discover confirm and reject advance match review", async () => {
       `/api/cases/${caseId}/findings/discover`,
       {
         walletAddress: TEST_WALLET,
+        searchLabels: {
+          personLabel: "John Smith",
+          aliases: ["J. Smith"],
+          regionLabel: "New York, NY"
+        },
         pastedUrls: [
           "https://www.fastbackgroundcheck.com/people/john-smith/id/f-example123",
           "https://rocketreach.co/john-smith-email_example",
@@ -50,6 +55,7 @@ test("findings discover confirm and reject advance match review", async () => {
       201
     );
     assert.ok(discovered.discovered.length >= 2);
+    assert.equal(discovered.discoveryPlan?.searchMode, "ephemeral");
 
     const list = await get(base, `/api/cases/${caseId}/findings`);
     assert.ok(list.pendingFindings.length >= 2);

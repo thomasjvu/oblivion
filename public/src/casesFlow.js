@@ -122,7 +122,13 @@ export async function createCase(state, options, deps) {
   if (!state.vaultKey) state.vaultKey = await Vault.createVaultKey();
   const encryptedIntake = await Vault.encryptPayload(
     state.vaultKey,
-    { notes: intakeText, contactEmail: state.contactEmail || undefined },
+    {
+      legalName: parsed.personLabel,
+      cityState: parsed.region || undefined,
+      aliases: parsed.aliases ?? [],
+      notes: intakeText,
+      contactEmail: state.contactEmail || undefined
+    },
     caseId
   );
   const intake = await deps.request(`/api/cases/${caseId}/intake`, {
@@ -133,8 +139,17 @@ export async function createCase(state, options, deps) {
     }
   });
   state.currentCaseId = caseId;
-  state.currentStatus = intake.status;
-  state.cases.unshift({ ...intake.case, status: intake.status });
+  localStorage.setItem("oblivion.currentCaseId", caseId);
+  state.currentStatus = intake.status ?? state.currentStatus;
+  if (!state.currentStatus?.activated) {
+    await deps.syncCurrentCaseStatus();
+  }
+  state.cases.unshift({ ...intake.case, status: state.currentStatus });
+  saveLocalCases(state, deps.tokenDeps);
+  const previewUrlsHandoff = [...new Set([...(options.pastedUrls ?? []), ...(options.previewUrls ?? state.onboardingPreviewUrls ?? [])])];
+  if (previewUrlsHandoff.length) {
+    localStorage.setItem(`oblivion.discoveryUrls.${caseId}`, JSON.stringify(previewUrlsHandoff));
+  }
   deps.syncPaymentPlanFromForm();
   try {
     await deps.ensureCasePayment({ quiet: false, statusEl: deps.$("#onboarding-payment-status") });
@@ -165,14 +180,26 @@ export async function createCase(state, options, deps) {
   deps.addChat("user", parsed.personLabel || intakeText);
   if (options.autoStartRoute) {
     await deps.startPreset({ quiet: true });
-    if (options.pastedUrls?.length) {
+    const previewUrls = options.previewUrls ?? state.onboardingPreviewUrls ?? [];
+    const pastedUrls = [...new Set([...(options.pastedUrls ?? []), ...previewUrls])];
+    const searchLabels = parsed.personLabel
+      ? {
+          personLabel: parsed.personLabel,
+          aliases: parsed.aliases ?? [],
+          regionLabel: parsed.region || undefined
+        }
+      : undefined;
+    if (pastedUrls.length) {
       if (deps.$("#findings-paste-input")) {
-        deps.$("#findings-paste-input").value = options.pastedUrls.join("\n");
+        deps.$("#findings-paste-input").value = pastedUrls.join("\n");
       }
-      localStorage.setItem(`oblivion.discoveryUrls.${caseId}`, JSON.stringify(options.pastedUrls));
-      await deps.maybeAutoDiscoverFindings({ force: true, quiet: true }).catch(() => {});
-      await deps.syncCurrentCaseStatus();
+      localStorage.setItem(`oblivion.discoveryUrls.${caseId}`, JSON.stringify(pastedUrls));
     }
+    const discoverOpts = { force: true, quiet: true, searchLabels };
+    if (pastedUrls.length) discoverOpts.pastedUrls = pastedUrls;
+    await deps.maybeAutoDiscoverFindings(discoverOpts).catch(() => {});
+    await deps.syncCurrentCaseStatus();
+    state.onboardingPreviewUrls = [];
     state.autopilotBusy = true;
     deps.render();
     await deps.agentAutopilot({ silentUser: true }).catch(() => {});

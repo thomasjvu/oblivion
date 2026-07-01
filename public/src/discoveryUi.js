@@ -1,4 +1,5 @@
 import { setButtonLabel } from './icons.js';
+import { searchLabelsForDiscover } from './discoverySearchLabels.js';
 
 export function bindDiscoveryUi(deps) {
   const {
@@ -23,6 +24,8 @@ export function bindDiscoveryUi(deps) {
   function discoveryUrlHints() {
     const fromPaste = pastedUrlsFromFindingsInputFn();
     if (fromPaste.length) return fromPaste;
+    const fromPreview = (state.onboardingPreviewUrls || []).filter(Boolean);
+    if (fromPreview.length) return fromPreview;
     const fromSimple = ($("#simple-urls")?.value || "")
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -61,8 +64,8 @@ export function bindDiscoveryUi(deps) {
     const blocked = state.agentNext?.blockedReasons || state.agentPlan?.blockedReasons || [];
     if (step !== "discover-candidates" && !blocked.includes("discovery-needed")) return false;
     const pending = state.currentStatus?.pendingFindings?.length ?? 0;
-    const total = state.currentStatus?.findings?.length ?? 0;
-    return pending === 0 && total === 0;
+    const confirmed = state.currentStatus?.confirmedFindings?.length ?? 0;
+    return pending === 0 && confirmed === 0;
   }
   
   function renderDiscoveryPlan() {
@@ -132,11 +135,20 @@ export function bindDiscoveryUi(deps) {
     }
   
     if (statusEl) {
+      const searchNote =
+        plan.searchMode === "ephemeral"
+          ? " Using your name from this device for this search only."
+          : plan.searchMode === "redacted" && plan.summary?.includes("redacted label")
+            ? " Using stored redacted initials — add name in the form for better matches."
+            : "";
+      const readinessNote = !discoverySearchReady()
+        ? " Automated web search is off on the server — profile URL patterns and pasted links still work."
+        : "";
       statusEl.textContent = state.discoveryBusy
         ? "Running broker sweep and web search…"
         : !plan.canAutoDiscover
-          ? "Add profile URLs below, then tap Discover listings."
-          : "";
+          ? `Add profile URLs below, then tap Discover listings.${readinessNote}`
+          : `${searchNote}${readinessNote}`.trim();
     }
   }
   
@@ -172,9 +184,17 @@ export function bindDiscoveryUi(deps) {
     if (!options.force && (!peopleSearchPresetActive() || !needsExposureDiscovery())) {
       return { ran: false, reason: "not-needed" };
     }
-    const pastedUrls = discoveryUrlHints();
+    const pastedUrls =
+      options.pastedUrls === undefined ? discoveryUrlHints() : options.pastedUrls;
     const searchReady = discoverySearchReady();
-    if (!pastedUrls.length && !searchReady) {
+    const searchLabels = options.searchLabels ?? (await searchLabelsForDiscover(state, $));
+    const profileSlugReady = Boolean(searchLabels?.personLabel);
+    if (
+      !options.force &&
+      !pastedUrls.length &&
+      !searchReady &&
+      !profileSlugReady
+    ) {
       if (!options.quiet) {
         openFindingsPastePanel();
         addChat("agent", "Automated search is off — paste profile URLs in the review panel, then tap Discover listings.");
@@ -188,6 +208,7 @@ export function bindDiscoveryUi(deps) {
         method: "POST",
         body: {
           pastedUrls,
+          searchLabels,
           walletAddress: state.walletAddress || undefined
         }
       });
@@ -222,7 +243,10 @@ export function bindDiscoveryUi(deps) {
     try {
       const discovery = await maybeAutoDiscoverFindings({ force: true, quiet: false });
       if (!discovery.ran && discovery.reason === "urls-needed") {
-        throw { error: "urls-required", message: "Paste at least one profile URL, or enable Brave search on the server." };
+        throw {
+          error: "urls-required",
+          message: "Enter your name on the form, paste a profile URL, or enable Brave search on the server."
+        };
       }
       if (discovery.ran && !discovery.discovered) {
         await syncCurrentCaseStatus();

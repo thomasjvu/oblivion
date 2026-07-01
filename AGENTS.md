@@ -82,7 +82,7 @@ Always run `npm run verify` before considering a change complete.
 
 ## Current Status (as of pass-5 + deferred pass)
 
-- 229+ unit/integration tests cover auth, policy, cleanup workflow, partner API, trust/purge/HIBP helpers, storage indexes/SQLite, webhook dedup/retention, and package SDKs; 4 Playwright E2E specs (desktop + mobile).
+- 247+ unit/integration tests cover auth, policy, cleanup workflow, partner API, discovery/searchLabels, trust/purge/HIBP helpers, storage indexes/SQLite, webhook dedup/retention, and package SDKs; 5 Playwright E2E specs (desktop + mobile).
 - `app.ts` thin dispatcher; `consumer.ts` and `v1.ts` dispatch to `routes/consumer/*` and `routes/v1/*`; `integrations/` split under consumer.
 - Shared handlers: `caseHandlers.ts`, `caseLifecycle.ts`, `agentRun.ts`; payments in `domain/payments/`; timeline in `agentTimeline.ts`; `hackathon.ts` is hackathon-only (no re-export hub).
 - HIBP logic unified in `domain/connectors/hibp.ts`; trust privacy in `domain/trustPrivacy.ts`; credit settlement in `domain/payments/settlement.ts`.

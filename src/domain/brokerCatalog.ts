@@ -197,8 +197,8 @@ export function brokerSweepQueryCap(options?: { preview?: boolean }): number {
     const raw = Number(process.env.OBLIVION_PREVIEW_SWEEP_QUERIES ?? "30");
     return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 60) : 30;
   }
-  const raw = Number(process.env.BROKER_SWEEP_QUERY_CAP ?? "50");
-  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 80) : 50;
+  const raw = Number(process.env.BROKER_SWEEP_QUERY_CAP ?? "24");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 80) : 24;
 }
 
 function orderedTier1Brokers(): BrokerCatalogEntry[] {
@@ -216,7 +216,22 @@ function brokerSweepQueryVariants(name: string, host: string, region?: string): 
   const slug = name.trim().replace(/\s+/g, "-");
   const variants = [`${name} site:${host}`, `${slug} site:${host}`];
   if (region?.trim()) {
-    variants.push(`${name} ${region.trim()} site:${host}`);
+    const regionTrim = region.trim();
+    variants.push(`${name} ${regionTrim} site:${host}`);
+    variants.push(`"${name}" "${regionTrim}" site:${host}`);
+    const commaParts = regionTrim.split(",").map((item) => item.trim()).filter(Boolean);
+    if (commaParts.length >= 2) {
+      const city = commaParts[0];
+      const statePart = commaParts[commaParts.length - 1];
+      variants.push(`${name} ${city} ${statePart} site:${host}`);
+      if (statePart.length === 2) {
+        variants.push(`${name} ${city} ${statePart.toUpperCase()} site:${host}`);
+      }
+    }
+    const stateOnly = regionTrim.split(/\s+/).pop();
+    if (stateOnly && stateOnly.length === 2) {
+      variants.push(`${name} ${stateOnly.toUpperCase()} site:${host}`);
+    }
   }
   return [...new Set(variants.map((item) => item.trim()).filter(Boolean))];
 }
@@ -229,10 +244,9 @@ export function buildBrokerSweepQueries(
   host: string;
   query: string;
 }> {
-  const parts = [scope?.personLabel, ...(scope?.aliases ?? [])]
-    .map((item) => item?.trim())
-    .filter(Boolean);
-  const name = parts.length ? parts.join(" ") : "";
+  const primary = scope?.personLabel?.trim() || "";
+  const aliasParts = (scope?.aliases ?? []).map((item) => item?.trim()).filter(Boolean);
+  const name = primary || (aliasParts.length ? aliasParts.join(" ") : "");
   if (!name) return [];
   const region = scope?.regionLabel?.trim();
   const brokerLimit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());

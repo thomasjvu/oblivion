@@ -25,7 +25,16 @@ import type { MemoryStore } from "../storage/memoryStore.js";
 import { assertPartnerAiBudget, meterPartnerAiTokens } from "./partnerBilling.js";
 import { discoveryCredits } from "./credits.js";
 import { veniceChatCompletion, isVeniceConfigured, veniceWebSearch } from "./venice.js";
+import { buildBrokerProfileUrlCandidates } from "./brokerProfileUrls.js";
+import { normalizeDiscoveryUrl } from "./discoveryUrl.js";
 import { isJunkDiscoveryUrl, scoreDiscoveryCandidate } from "./discoveryHeuristics.js";
+import {
+  discoverySearchMode,
+  discoverySearchNameLabel,
+  resolveBraveSearchScope,
+  resolveBrokerSweepScope,
+  type DiscoverySearchLabels
+} from "./discoverySearchLabels.js";
 
 export type { BrokerCatalogEntry };
 
@@ -43,26 +52,19 @@ export interface DiscoveryCandidate {
   sourceUrl: string;
   title?: string;
   snippet?: string;
-  origin: "pasted" | "brave-search" | "venice-search" | "broker-sweep";
+  origin: "pasted" | "brave-search" | "venice-search" | "broker-sweep" | "profile-slug";
   brokerId?: string;
 }
 
-export function normalizeDiscoveryUrl(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  try {
-    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const parsed = new URL(withProtocol);
-    if (!["http:", "https:"].includes(parsed.protocol)) return null;
-    parsed.hash = "";
-    return parsed.toString();
-  } catch {
-    return null;
-  }
-}
+export { normalizeDiscoveryUrl };
 
-export function buildBraveSearchQuery(scope: RedactedScope | undefined): string {
-  const parts = [scope?.personLabel, ...(scope?.aliases ?? []), ...(scope?.approvedIdentifierLabels ?? [])]
+export function buildBraveSearchQuery(
+  scope: RedactedScope | undefined,
+  searchLabels?: DiscoverySearchLabels
+): string {
+  const effective = resolveBraveSearchScope(scope, searchLabels);
+  const location = effective?.sensitiveConstraints?.[0] || effective?.approvedIdentifierLabels?.[0];
+  const parts = [effective?.personLabel, ...(effective?.aliases ?? []), location]
     .map((item) => item?.trim())
     .filter(Boolean);
   const base = parts.length ? parts.join(" ") : "people search profile";
@@ -160,7 +162,13 @@ export async function fetchBrokerSweepCandidates(
   options: { limit?: number; preview?: boolean; concurrency?: number } = {}
 ): Promise<{ candidates: DiscoveryCandidate[]; searchErrors: number }> {
   if (!isDiscoverySearchConfigured()) return { candidates: [], searchErrors: 0 };
-  const queries = buildBrokerSweepQueries(scope, { limit: options.limit, preview: options.preview });
+  const rawQueries = buildBrokerSweepQueries(scope, { limit: options.limit, preview: options.preview });
+  const seenQueries = new Set<string>();
+  const queries = rawQueries.filter((item) => {
+    if (seenQueries.has(item.query)) return false;
+    seenQueries.add(item.query);
+    return true;
+  });
   const collectHits = async (item: (typeof queries)[number]) => {
     const hits: DiscoveryCandidate[] = [];
     try {
@@ -227,6 +235,9 @@ async function scoreWithVenice(
       scope?.aliases?.length ? `aliases: ${scope.aliases.join(", ")}` : "",
       scope?.approvedIdentifierLabels?.length
         ? `labels: ${scope.approvedIdentifierLabels.join(", ")}`
+        : "",
+      scope?.sensitiveConstraints?.length
+        ? `locationHints: ${scope.sensitiveConstraints.join(", ")}`
         : ""
     ]
       .filter(Boolean)
@@ -336,6 +347,7 @@ export async function discoverExposureCandidates(input: {
   caseId: string;
   store?: MemoryStore;
   scope?: RedactedScope;
+  searchLabels?: DiscoverySearchLabels;
   pastedUrls?: string[];
   existingUrls?: string[];
   contentTakedown?: boolean;
@@ -343,6 +355,10 @@ export async function discoverExposureCandidates(input: {
 }): Promise<Exposure[]> {
   const seen = new Set<string>();
   const candidates: DiscoveryCandidate[] = [];
+  const scoringScope = resolveBraveSearchScope(input.scope, input.searchLabels);
+  const sweepScope = resolveBrokerSweepScope(input.scope, input.searchLabels);
+  const searchableName = discoverySearchNameLabel(input.scope, input.searchLabels);
+  const regionLabel = sweepScope?.regionLabel;
 
   for (const raw of input.pastedUrls ?? []) {
     const sourceUrl = normalizeDiscoveryUrl(raw);
@@ -352,10 +368,18 @@ export async function discoverExposureCandidates(input: {
     candidates.push({ sourceUrl, origin: "pasted", brokerId: broker?.brokerId });
   }
 
+  if (input.brokerSweep !== false && !input.contentTakedown && searchableName) {
+    for (const item of buildBrokerProfileUrlCandidates(searchableName, regionLabel)) {
+      if (seen.has(item.sourceUrl)) continue;
+      seen.add(item.sourceUrl);
+      candidates.push({ sourceUrl: item.sourceUrl, origin: "profile-slug", brokerId: item.brokerId });
+    }
+  }
+
   if (isDiscoverySearchConfigured()) {
     try {
       if (input.brokerSweep !== false && !input.contentTakedown) {
-        const { candidates: sweepResults } = await fetchBrokerSweepCandidates(input.scope, {
+        const { candidates: sweepResults } = await fetchBrokerSweepCandidates(sweepScope, {
           concurrency: discoverySearchConcurrency()
         });
         for (const item of sweepResults) {
@@ -364,7 +388,7 @@ export async function discoverExposureCandidates(input: {
           candidates.push(item);
         }
       }
-      const query = buildBraveSearchQuery(input.scope);
+      const query = buildBraveSearchQuery(input.scope, input.searchLabels);
       const braveResults = await fetchWebSearchCandidates(query);
       for (const item of braveResults) {
         if (seen.has(item.sourceUrl)) continue;
@@ -400,7 +424,7 @@ export async function discoverExposureCandidates(input: {
   }
   let veniceTokensUsed = 0;
   for (const candidate of batch) {
-    const scored = await scoreCandidate(candidate, input.scope, { veniceEnabled: veniceScoringEnabled });
+    const scored = await scoreCandidate(candidate, scoringScope, { veniceEnabled: veniceScoringEnabled });
     veniceTokensUsed += scored.tokensUsed;
     const broker = brokerForUrl(candidate.sourceUrl) ?? (candidate.brokerId ? brokerCatalogEntryById(candidate.brokerId) : undefined);
     exposures.push(exposureFromBroker(broker, candidate, scored, input.caseId, new Date().toISOString()));
@@ -453,19 +477,23 @@ export interface DiscoveryPlanMethod {
 
 export function describeDiscoveryPlan(input: {
   scope?: RedactedScope;
+  searchLabels?: DiscoverySearchLabels;
   pastedUrlCount?: number;
   brokerSweep?: boolean;
   contentTakedown?: boolean;
-}): { methods: DiscoveryPlanMethod[]; canAutoDiscover: boolean; summary: string } {
+}): { methods: DiscoveryPlanMethod[]; canAutoDiscover: boolean; summary: string; searchMode: "ephemeral" | "redacted" } {
   const searchReady = isDiscoverySearchConfigured();
   const veniceSearchReady = isVeniceSearchConfigured();
   const braveDirectReady = isBraveSearchConfigured();
   const veniceReady = isVeniceConfigured();
   const pastedCount = input.pastedUrlCount ?? 0;
   const brokerSweepEnabled =
-    input.brokerSweep !== false && !input.contentTakedown && searchReady;
+    input.brokerSweep !== false && !input.contentTakedown && (searchReady || Boolean(discoverySearchNameLabel(input.scope, input.searchLabels)));
   const searchProviderLabel = discoverySearchProviderLabel();
-  const name = input.scope?.personLabel?.trim() || "";
+  const searchMode = discoverySearchMode(input.scope, input.searchLabels);
+  const name = discoverySearchNameLabel(input.scope, input.searchLabels);
+  const regionLabel = resolveBrokerSweepScope(input.scope, input.searchLabels)?.regionLabel;
+  const sweepScope = resolveBrokerSweepScope(input.scope, input.searchLabels);
   const methods: DiscoveryPlanMethod[] = [];
 
   if (pastedCount > 0) {
@@ -478,14 +506,18 @@ export function describeDiscoveryPlan(input: {
   }
 
   if (brokerSweepEnabled && name) {
-    const sweepQueries = buildBrokerSweepQueries(input.scope);
+    const sweepQueries = buildBrokerSweepQueries(sweepScope);
+    const profileCandidates = buildBrokerProfileUrlCandidates(name, regionLabel, { limit: 12 }).length;
     const hosts = sweepQueries.map((item) => item.host);
     const preview = hosts.slice(0, 4).join(", ");
     const more = hosts.length > 4 ? ` +${hosts.length - 4} more` : "";
+    const regionNote = regionLabel ? ` in ${redactText(regionLabel)}` : "";
     methods.push({
       id: "broker-sweep",
       label: "Broker sweep",
-      detail: `Site-scoped ${searchProviderLabel} on ${sweepQueries.length} people-search brokers (${preview}${more}) for “${redactText(name)}”.`,
+      detail: searchReady
+        ? `Site-scoped ${searchProviderLabel} on ${sweepQueries.length} people-search brokers (${preview}${more}) for “${redactText(name)}”${regionNote}, plus ${profileCandidates} profile URL guess(es).`
+        : `Profile URL patterns for ${profileCandidates} broker guess(es) on “${redactText(name)}”${regionNote}.`,
       enabled: true
     });
   }
@@ -494,7 +526,7 @@ export function describeDiscoveryPlan(input: {
     methods.push({
       id: "web-search",
       label: "Web search",
-      detail: `Broader ${searchProviderLabel} query: ${buildBraveSearchQuery(input.scope)}`,
+      detail: `Broader ${searchProviderLabel} query: ${buildBraveSearchQuery(input.scope, input.searchLabels)}`,
       enabled: true
     });
   }
@@ -503,7 +535,7 @@ export function describeDiscoveryPlan(input: {
     methods.push({
       id: "web-search",
       label: "Content search",
-      detail: `${searchProviderLabel} query for takedown targets: ${buildBraveSearchQuery(input.scope)}`,
+      detail: `${searchProviderLabel} query for takedown targets: ${buildBraveSearchQuery(input.scope, input.searchLabels)}`,
       enabled: true
     });
   }
@@ -530,14 +562,23 @@ export function describeDiscoveryPlan(input: {
     });
   }
 
-  const canAutoDiscover = searchReady || pastedCount > 0;
+  const profileSlugReady = Boolean(name && brokerSweepEnabled);
+  const canAutoDiscover = searchReady || pastedCount > 0 || profileSlugReady;
   const creditNote =
-    brokerSweepEnabled && name ? ` Full broker sweep debits ${discoveryCredits()} wallet credits.` : "";
+    brokerSweepEnabled && name && searchReady ? ` Full broker sweep debits ${discoveryCredits()} wallet credits.` : "";
+  const labelNote =
+    searchMode === "ephemeral"
+      ? `Searching as “${redactText(name)}”${regionLabel ? ` in ${redactText(regionLabel)}` : ""} for this request only (not stored server-side).`
+      : name
+        ? `Searching as stored redacted label “${redactText(name)}”${regionLabel ? ` with location ${redactText(regionLabel)}` : ""}.`
+        : "Add your name to improve discovery.";
   const summary = canAutoDiscover
-    ? `Discover runs the steps below using only redacted case labels — never raw vault data.${creditNote}`
-    : "Paste at least one profile URL below, or enable Venice or Brave search on the server.";
+    ? `${labelNote}${creditNote}`
+    : searchReady
+      ? labelNote
+      : "Paste at least one profile URL below, or enable Venice or Brave search on the server.";
 
-  return { methods, canAutoDiscover, summary };
+  return { methods, canAutoDiscover, summary, searchMode };
 }
 
 export function discoveryReadinessMessage(): string {

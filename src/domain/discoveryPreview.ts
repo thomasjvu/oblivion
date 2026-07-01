@@ -12,6 +12,7 @@ import {
   scoreDiscoveryCandidate,
   type DiscoveryMatchScore
 } from "./discoveryHeuristics.js";
+import { buildBrokerProfileUrlCandidates } from "./brokerProfileUrls.js";
 import {
   buildBraveSearchQuery,
   fetchBrokerSweepCandidates,
@@ -142,11 +143,12 @@ export async function runDiscoveryPreview(input: {
   regionLabel?: string;
   sweepLimit?: number;
 }): Promise<{ candidates: DiscoveryPreviewCandidate[]; stats: DiscoveryPreviewStats }> {
+  const regionForScope = input.regionLabel?.trim() ? redactText(input.regionLabel.trim()) : undefined;
   const scope: RedactedScope = {
     personLabel: redactText(input.personLabel.trim() || "Unknown"),
     aliases: (input.aliases ?? []).map((item) => redactText(item.trim())).filter(Boolean),
-    approvedIdentifierLabels: input.regionLabel?.trim() ? [redactText(input.regionLabel.trim())] : [],
-    sensitiveConstraints: []
+    approvedIdentifierLabels: regionForScope ? [regionForScope] : [],
+    sensitiveConstraints: regionForScope ? [regionForScope] : []
   };
   if (!scope.personLabel || scope.personLabel === "Unknown") {
     throw new DomainError("person-label-required", 422);
@@ -170,6 +172,14 @@ export async function runDiscoveryPreview(input: {
   let sweepHits = 0;
   let searchErrors = 0;
 
+  for (const item of buildBrokerProfileUrlCandidates(personLabel, sweepScope.regionLabel, { limit: 24 })) {
+    addCandidate(seen, candidates, {
+      sourceUrl: item.sourceUrl,
+      origin: "profile-slug",
+      brokerId: item.brokerId
+    });
+  }
+
   const sweep = await fetchBrokerSweepCandidates(sweepScope, {
     limit: input.sweepLimit ?? previewBrokerSweepLimit(),
     preview: true,
@@ -182,7 +192,11 @@ export async function runDiscoveryPreview(input: {
 
   let broadSearchHits = 0;
   try {
-    const broadQuery = buildBraveSearchQuery(scope);
+    const broadQuery = buildBraveSearchQuery(scope, {
+      personLabel,
+      aliases: sweepScope.aliases,
+      regionLabel: sweepScope.regionLabel
+    });
     const broadResults = await fetchWebSearchCandidates(broadQuery);
     for (const result of broadResults) {
       const broker = brokerForUrl(result.sourceUrl);

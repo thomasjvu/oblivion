@@ -114,6 +114,15 @@ export async function preparePayment(state, mode, options, deps) {
 export async function ensureCasePayment(state, options, deps) {
   const mode = state.selectedPaymentMode || "one-off";
   const statusEl = options.statusEl || deps.$("#onboarding-payment-status");
+  if (caseIsActivated(state)) {
+    if (statusEl) {
+      deps.setInlineStatus(statusEl, "Credits active for this case.", {
+        baseClass: "muted small onboarding-payment-status",
+        variant: "success"
+      });
+    }
+    return { ok: true, mode, alreadyPaid: true };
+  }
   if (!state.walletAddress) {
     if (statusEl) {
       deps.setInlineStatus(statusEl, "Connect MetaMask to pay for this cleanup…", {

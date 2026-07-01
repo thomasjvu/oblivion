@@ -52,10 +52,14 @@ export class OblivionPartnerClient {
     });
   }
 
-  discover(caseId, pastedUrls) {
+  discover(caseId, options = {}) {
+    const body =
+      typeof options === "object" && options !== null && !Array.isArray(options)
+        ? options
+        : { pastedUrls: options };
     return this.request(`/v1/cases/${caseId}/discover`, {
       method: "POST",
-      body: { pastedUrls }
+      body
     });
   }
 

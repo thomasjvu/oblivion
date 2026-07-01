@@ -92,6 +92,23 @@ paths:
           in: path
           required: true
           schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pastedUrls:
+                  type: array
+                  items: { type: string }
+                searchLabels:
+                  type: object
+                  properties:
+                    personLabel: { type: string }
+                    aliases:
+                      type: array
+                      items: { type: string }
+                    regionLabel: { type: string }
       responses:
         "201": { description: Discovery complete }
   /v1/cases/{caseId}:

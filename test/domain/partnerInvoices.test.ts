@@ -27,10 +27,11 @@ test("closePartnerInvoicePeriod aggregates usage and is idempotent", () => {
   const partner = seedPartner(store);
   meterPartnerUsage(store, partner, "case");
   meterPartnerUsage(store, partner, "discover", "case_1");
-  const first = closePartnerInvoicePeriod(store, partner, "2026-06");
+  const period = new Date().toISOString().slice(0, 7);
+  const first = closePartnerInvoicePeriod(store, partner, period);
   assert.equal(first.totalCredits, 15);
   assert.equal(first.lineItems.length, 2);
-  const second = closePartnerInvoicePeriod(store, partner, "2026-06");
+  const second = closePartnerInvoicePeriod(store, partner, period);
   assert.equal(second.id, first.id);
   assert.equal(listPartnerInvoices(store, partner.id).length, 1);
 });

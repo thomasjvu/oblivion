@@ -376,6 +376,7 @@ export function bindOnboardingFlow(deps) {
     resetPreSearchUi();
     state.onboardingPreviewReady = false;
     state.onboardingPreviewBusy = false;
+    state.onboardingPreviewUrls = [];
     localStorage.removeItem("oblivion.currentCaseId");
     clearIntakeFields();
     const seed = options.intake;
@@ -514,6 +515,7 @@ export function bindOnboardingFlow(deps) {
         deps.render(PANELS.agentChat);
       }
       state.onboardingPreviewReady = true;
+      state.onboardingPreviewUrls = candidates.map((item) => item.sourceUrl).filter(Boolean);
       deps.addChat("agent", "Listings preview complete. Finish the form below and buy credits to start cleanup.");
       deps.render();
       $("#onboarding-intake-full")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -625,6 +627,7 @@ export function bindOnboardingFlow(deps) {
           },
           presetId: parsed.presetId,
           pastedUrls: parsed.pastedUrls,
+          previewUrls: state.onboardingPreviewUrls ?? [],
           autoStartRoute: true
         },
         deps.casesDeps

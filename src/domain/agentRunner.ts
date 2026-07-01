@@ -71,21 +71,27 @@ export async function runCleanupAgentStep(input: {
       input.store.agentTimeline.set(timeline.id, timeline);
       artifacts.push({ connector, timeline });
     } else {
-      const existingUrls = input.store.exposuresForCase(input.caseRecord.id).map((item) => item.sourceUrl);
-      const discovered = await discoverExposureCandidates({
-        caseId: input.caseRecord.id,
-        store: input.store,
-        scope: input.caseRecord.redactedScope,
-        existingUrls,
-        brokerSweep: presetUsesBrokerDiscovery(presetId),
-        contentTakedown: presetUsesContentDiscovery(presetId)
-      });
+      const existingExposures = input.store.exposuresForCase(input.caseRecord.id);
+      const existingUrls = existingExposures.map((item) => item.sourceUrl);
+      const hasReviewable = existingExposures.some(
+        (item) => item.matchStatus === "pending" || item.matchStatus === "confirmed"
+      );
+      const discovered = hasReviewable
+          ? []
+          : await discoverExposureCandidates({
+              caseId: input.caseRecord.id,
+              store: input.store,
+              scope: input.caseRecord.redactedScope,
+              existingUrls,
+              brokerSweep: presetUsesBrokerDiscovery(presetId),
+              contentTakedown: presetUsesContentDiscovery(presetId)
+            });
       for (const exposure of discovered) {
         input.store.exposures.set(exposure.id, exposure);
       }
       const connector = createScoutFindings(input.caseRecord.id, presetId);
       input.store.connectorResults.set(connector.id, connector);
-      if (presetId === "high-risk-safety" && discovered.length === 0) {
+      if (presetId === "high-risk-safety" && discovered.length === 0 && existingExposures.length === 0) {
         const guidance = exposureFromConnector(connector);
         input.store.exposures.set(guidance.id, {
           ...guidance,

@@ -42,6 +42,17 @@ test("preview broker sweep uses priority hosts and preview query cap", () => {
   assert.equal(queries[0].brokerId, "spokeo");
 });
 
+test("broker sweep query cap defaults to 24 for full discover", () => {
+  const previous = process.env.BROKER_SWEEP_QUERY_CAP;
+  delete process.env.BROKER_SWEEP_QUERY_CAP;
+  try {
+    assert.equal(brokerSweepQueryCap(), 24);
+  } finally {
+    if (previous === undefined) delete process.env.BROKER_SWEEP_QUERY_CAP;
+    else process.env.BROKER_SWEEP_QUERY_CAP = previous;
+  }
+});
+
 test("broker sweep queries include optional region label without strict quotes", () => {
   const queries = buildBrokerSweepQueries(
     { personLabel: "John Smith", regionLabel: "New York, NY" },

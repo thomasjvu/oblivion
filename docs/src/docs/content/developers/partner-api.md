@@ -42,6 +42,8 @@ Configure partner API keys when you deploy Oblivion ([README](https://github.com
 1. `POST /v1/cases` — jurisdiction, `externalRef`
 2. **Browser:** `@oblivion/vault-sdk` → encrypt intake → `POST /v1/cases/:id/intake`
 3. `POST /v1/cases/:id/preset` → `/discover` → `/run`
+
+`POST /v1/cases/:id/discover` accepts optional `searchLabels` (same shape as consumer discover): ephemeral full name + region for broker sweep. **Do not** put legal names in `redactedScope` — keep initials there; pass searchable labels only on discover requests from the user browser.
 4. Surface approval cards — user types confirmation (≥8 chars). **API key cannot approve.**
 
 Demo: `examples/partner-demo/index.html`

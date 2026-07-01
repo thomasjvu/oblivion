@@ -85,10 +85,16 @@ Users still import `caseId` + `accessToken` from a client-side **recovery kit** 
 
 | Route | Auth | Behavior |
 |-------|------|----------|
-| `POST /api/discovery/preview` | None | Heuristic broker sweep only; daily cap (default 3 previews per IP/wallet per day) |
+| `POST /api/discovery/preview` | None | Heuristic broker sweep only; daily cap (default 5 previews per IP/wallet per day in production; operator-configurable) |
 | `POST /api/cases/:id/findings/discover` | Bearer + activation | Venice-scored discovery; debits discovery credits (default 15) from wallet |
 
-Full discover accepts optional `walletAddress` in the body for subscription auto-activation and credit debit.
+Full discover accepts optional fields in the JSON body:
+
+- `walletAddress` — subscription auto-activation and credit debit
+- `pastedUrls` — profile URLs to import and score
+- `searchLabels` — ephemeral `{ personLabel, aliases?, regionLabel? }` for this request only (not stored on the case). Use full name + city here; keep `redactedScope.personLabel` as initials on intake.
+
+The response `discoveryPlan.searchMode` is `ephemeral` when `searchLabels` were used, or `redacted` when only stored scope labels apply.
 
 ---
 

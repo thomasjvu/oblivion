@@ -19,6 +19,10 @@ import { DomainError } from "../../domain/errors.js";
 import { assertSafeOutboundHttpsUrl } from "../../domain/safeOutboundUrl.js";
 import { buildStatus } from "../../domain/status.js";
 import { redactText } from "../../domain/redaction.js";
+import {
+  validateDiscoverySearchLabels,
+  type DiscoverySearchLabels
+} from "../../domain/discoverySearchLabels.js";
 import { executeApprovedActionFlow } from "../../domain/executor.js";
 import { emitCaseWebhook } from "../../domain/webhooks.js";
 import type {
@@ -44,6 +48,7 @@ export interface ApplyPresetBody {
 
 export interface DiscoverBody {
   pastedUrls?: string[];
+  searchLabels?: DiscoverySearchLabels;
 }
 
 export interface ApproveBody {
@@ -107,10 +112,12 @@ export async function handleCaseDiscover(
   const existingUrls = store.exposuresForCase(caseRecord.id).map((item) => item.sourceUrl);
   const brokerSweep = presetId ? presetUsesBrokerDiscovery(presetId) : true;
   const contentTakedown = presetId ? presetUsesContentDiscovery(presetId) : false;
+  const searchLabels = validateDiscoverySearchLabels(body.searchLabels);
   const discovered = await discoverExposureCandidates({
     caseId: caseRecord.id,
     store,
     scope: caseRecord.redactedScope,
+    searchLabels,
     pastedUrls: body.pastedUrls,
     existingUrls,
     brokerSweep,
@@ -129,6 +136,7 @@ export async function handleCaseDiscover(
     discovery: discoveryReadinessMessage(),
     discoveryPlan: describeDiscoveryPlan({
       scope: caseRecord.redactedScope,
+      searchLabels,
       pastedUrlCount: body.pastedUrls?.length ?? 0,
       brokerSweep,
       contentTakedown

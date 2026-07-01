@@ -125,6 +125,7 @@ const state = {
   preSearchReady: false,
   onboardingPreviewReady: false,
   onboardingPreviewBusy: false,
+  onboardingPreviewUrls: [],
   privacyFilterMode: localStorage.getItem("oblivion.privacyFilter") === "1",
   themeId: readStoredTheme(),
   agentVoiceEnabled: isAgentVoiceEnabled(),

@@ -147,6 +147,7 @@ Treat `caseId` + `accessToken` together as a capability credential. Do not log t
 - `POST /api/discovery/preview` accepts redacted labels only (no email/phone), does not create cases or store intake, and is rate-limited per IP/wallet.
 - Preview quota keys off socket `remoteAddress` by default. Set `OBLIVION_TRUST_PROXY=true` only when the app sits behind a reverse proxy that strips spoofed `X-Forwarded-For` and sets the header to the real client IP.
 - Full `POST /api/cases/:id/findings/discover` requires case activation and debits wallet discovery credits when broker sweep runs.
+- Optional `searchLabels` on consumer and partner discover routes are validated (`detectForbiddenSecrets`, `redactText`), used only for the outbound search request, and **never** persisted on `CaseRecord` or written to logs as a dedicated field. Third-party search (Brave/Venice) receives labels during the request — same disclosure class as preview.
 
 ## Partner API (B2B)
 

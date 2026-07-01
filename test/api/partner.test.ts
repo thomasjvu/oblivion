@@ -146,6 +146,61 @@ test("partner presets endpoint returns allowlisted catalog", async () => {
   }
 });
 
+test("partner discover accepts ephemeral searchLabels", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).includes("search.brave.com")) {
+      return new Response(JSON.stringify({ web: { results: [] } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+    return originalFetch(url, init);
+  };
+  const { server, base } = await startPartnerServer();
+  try {
+    const created = await partnerFetch(base, "/v1/cases", {
+      method: "POST",
+      body: { jurisdiction: "US", authorityBasis: "self", externalRef: "discover_labels" },
+      expectedStatus: 201
+    });
+    const caseId = created.json.case.id as string;
+    await partnerFetch(base, `/v1/cases/${caseId}/intake`, {
+      method: "POST",
+      body: {
+        encryptedIntake: encryptedBlob(caseId),
+        redactedScope: {
+          personLabel: "J.D.",
+          aliases: [],
+          approvedIdentifierLabels: ["city-state"],
+          sensitiveConstraints: ["Boston, MA"]
+        }
+      },
+      expectedStatus: 200
+    });
+    await partnerFetch(base, `/v1/cases/${caseId}/preset`, {
+      method: "POST",
+      body: { presetId: "people-search-cleanup" },
+      expectedStatus: 201
+    });
+    const discovered = await partnerFetch(base, `/v1/cases/${caseId}/discover`, {
+      method: "POST",
+      body: {
+        searchLabels: {
+          personLabel: "Jane Doe",
+          aliases: [],
+          regionLabel: "Boston, MA"
+        }
+      },
+      expectedStatus: 201
+    });
+    assert.equal(discovered.json.discoveryPlan?.searchMode, "ephemeral");
+  } finally {
+    server.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("partner preset allowlist blocks unsupported presets", async () => {
   const { server, base } = await startPartnerServer();
   try {

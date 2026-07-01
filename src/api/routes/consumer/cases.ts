@@ -156,7 +156,11 @@ export async function handleConsumerCaseRoutes(
 
   const findingsDiscoverMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/findings\/discover$/);
   if (method === "POST" && findingsDiscoverMatch) {
-    const body = await readJson<{ pastedUrls?: string[]; walletAddress?: string }>(request);
+    const body = await readJson<{
+      pastedUrls?: string[];
+      walletAddress?: string;
+      searchLabels?: { personLabel: string; aliases?: string[]; regionLabel?: string };
+    }>(request);
     try {
       const result = await withConsumerCase(request, store, findingsDiscoverMatch[1], async (caseRecord) => {
         if (isEvmAddress(body.walletAddress)) {

@@ -248,7 +248,10 @@ export async function handleV1CaseRoutes(
   const discoverMatch = pathname.match(/^\/v1\/cases\/([^/]+)\/discover$/);
   if (method === "POST" && discoverMatch) {
     meterPartnerUsage(store, partner, "discover", discoverMatch[1]);
-    const body = await readJson<{ pastedUrls?: string[] }>(request);
+    const body = await readJson<{
+      pastedUrls?: string[];
+      searchLabels?: { personLabel: string; aliases?: string[]; regionLabel?: string };
+    }>(request);
     const result = await withPartnerCase(partner, store, discoverMatch[1], async (caseRecord) => {
       const plan = store.agentPlanForCase(caseRecord.id);
       const { discovered, discovery, discoveryPlan } = await handleCaseDiscover(
