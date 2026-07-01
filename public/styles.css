@@ -525,6 +525,13 @@ button.app-sidebar-collapse iconify-icon {
   background: var(--gb-2);
 }
 
+.app-sidebar-nav .tab:disabled,
+.app-sidebar-nav .tab.tab-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .app-sidebar-nav .tab .tab-label {
   font-size: 0.84rem;
   letter-spacing: 0.01em;
@@ -2389,6 +2396,13 @@ summary {
   border-bottom-color: var(--gb-3);
 }
 
+.tab:disabled,
+.tab.tab-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .user-guide {
   margin: 0 0 16px;
   padding: 16px 0 18px;
@@ -2701,6 +2715,39 @@ summary {
   transform: translateY(0);
   transition: opacity 0.22s ease, transform 0.22s ease;
   word-break: break-word;
+}
+
+.pre-search-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pre-search-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pre-search-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pre-search-url {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pre-search-confidence {
+  font-variant-numeric: tabular-nums;
 }
 
 .pre-search-results a {

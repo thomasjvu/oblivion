@@ -26,11 +26,7 @@ import type { AgentPlan, CaseRecord, ConnectorResult, Exposure } from "./types.j
 import { DomainError } from "./errors.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 import { buildExecuteHandoffFromStore, createPresetApprovals } from "./approvals.js";
-import {
-  buildAgentNextStep,
-  buildHackathonStatusForCase,
-  buildStatus
-} from "./status.js";
+import { buildAgentNextStep, buildStatus } from "./status.js";
 
 export async function runCleanupAgentStep(input: {
   store: MemoryStore;
@@ -287,7 +283,6 @@ export function buildAgentRunResponse(store: MemoryStore, caseId: string, before
     artifacts,
     connectorResults: store.connectorResultsForCase(caseId),
     timeline: store.agentTimelineForCase(caseId),
-    status: buildHackathonStatusForCase(store, caseId),
     caseStatus: buildStatus(store, caseId)
   };
 }

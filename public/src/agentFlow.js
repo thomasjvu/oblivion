@@ -18,7 +18,7 @@ export async function runVenice(state, kind, deps) {
       actionType: state.actionType
     }
   });
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   state.tab = "settings";
   deps.render();
   deps.write(result);
@@ -30,7 +30,7 @@ export async function delegateAgents(state, deps) {
     method: "POST",
     body: { caseId: state.currentCaseId }
   });
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   state.tab = "settings";
   deps.render();
   deps.write(result);
@@ -46,8 +46,8 @@ export async function relayPayment(state, deps) {
     };
   }
   const session =
-    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid" && item.mode === "one-off") ||
-    [...(state.hackathon?.payments || [])].find((item) => item.status === "paid");
+    [...(state.agentContext?.payments || [])].find((item) => item.status === "paid" && item.mode === "one-off") ||
+    [...(state.agentContext?.payments || [])].find((item) => item.status === "paid");
   if (!session) {
     throw { error: "payment-required", message: "Settle x402 payment before relaying via 1Shot." };
   }
@@ -69,7 +69,7 @@ export async function relayPayment(state, deps) {
         "Provide a signed relayer_send7710Transaction bundle or an existing taskId. Poll again after submitting from the wallet flow."
     };
   }
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   state.tab = "settings";
   deps.addChat("agent", `1Shot relay: ${result.events?.at(-1)?.status || "submitted"}.`);
   deps.render();
@@ -134,7 +134,7 @@ export async function askAgent(state, deps) {
         }
       });
       deps.addChat("agent", result.reply || "No reply.");
-      await deps.refreshHackathon({ silent: true, scope: "agent" });
+      await deps.refreshCaseContext({ silent: true, scope: "agent" });
       deps.render();
       return;
     } catch (error) {
@@ -152,7 +152,7 @@ export async function askAgent(state, deps) {
       return;
     }
   }
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   const next = state.agentNext;
   deps.addChat("agent", next ? `${deps.shortStepTitle(next.title)}. ${next.message || ""}`.trim() : "Set VENICE_API_KEY on the server for live agent replies.");
   deps.render();
@@ -161,10 +161,10 @@ export async function askAgent(state, deps) {
 export async function agentRunNext(state, options, deps) {
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
   deps.assertCaseActivatedClient({ quiet: options.quiet });
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   if (state.agentNext?.action === "select-preset") {
     await deps.startPreset({ quiet: true });
-    await deps.refreshHackathon({ silent: true, scope: "agent" });
+    await deps.refreshCaseContext({ silent: true, scope: "agent" });
   }
   if (state.agentNext?.action === "request-approval" && state.currentStatus?.approvalsNeeded?.length > 0) {
     deps.addChat("agent", "Approval required. Review the card.");
@@ -174,7 +174,7 @@ export async function agentRunNext(state, options, deps) {
   }
   if (deps.peopleSearchPresetActive() && deps.needsExposureDiscovery()) {
     const discovery = await deps.maybeAutoDiscoverFindings({ quiet: true });
-    await deps.refreshHackathon({ silent: true, scope: "agent" });
+    await deps.refreshCaseContext({ silent: true, scope: "agent" });
     await deps.syncCurrentCaseStatus();
     if (discovery.reason === "urls-needed") {
       if (!options.quiet) {
@@ -231,7 +231,7 @@ export async function agentRunNext(state, options, deps) {
   if (result.plan) state.agentPlan = result.plan;
   if (result.connectorResults) state.connectorResults = result.connectorResults;
   await deps.refreshAgentPlan({ silent: true }).catch(() => {});
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   await deps.syncCurrentCaseStatus();
   if (!options.quiet) deps.addChat("agent", `${deps.shortStepTitle(result.ran.title)}. Next: ${deps.shortStepTitle(result.next.title)}.`);
   deps.render();
@@ -243,7 +243,7 @@ export async function agentAutopilot(state, options, deps) {
   deps.assertCaseActivatedClient({ quiet: options.silentUser });
   if (!options.silentUser) deps.addChat("user", "Run route.");
   for (let index = 0; index < 12; index += 1) {
-    await deps.refreshHackathon({ silent: true, scope: "agent" });
+    await deps.refreshCaseContext({ silent: true, scope: "agent" });
     const pending = state.currentStatus?.pendingFindings?.length ?? 0;
     const blocked = state.agentNext?.blockedReasons || [];
     if (
@@ -258,7 +258,7 @@ export async function agentAutopilot(state, options, deps) {
     }
     await agentRunNext(state, { quiet: true }, deps);
   }
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   await deps.refreshAgentPlan({ silent: true }).catch(() => {});
   await deps.syncCurrentCaseStatus();
   deps.addChat("agent", state.agentNext?.action === "request-approval"

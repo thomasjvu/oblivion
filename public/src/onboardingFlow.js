@@ -1,5 +1,4 @@
 import { PANELS } from "./renderScheduler.js";
-import { isHackathonMode as isHackathonModeForState } from "./refresh.js";
 import { setButtonLabel } from "./icons.js";
 import { setAnimatedStatus } from "./uiHelpers.js";
 
@@ -60,10 +59,6 @@ export function bindOnboardingFlow(deps) {
     syncCurrentCaseStatus,
     refreshIntegrationsStatus
   } = deps;
-
-  function isHackathonMode() {
-    return isHackathonModeForState(state);
-  }
 
   function setupLocationCombobox({ input, menu, toggle, field, options = LANDING_LOCATION_OPTIONS, onEnter }) {
     if (!input || !menu) return;
@@ -463,8 +458,8 @@ export function bindOnboardingFlow(deps) {
   }
 
   async function runOnboardingPreview() {
-    const name = $("#simple-name")?.value?.trim();
-    const region = $("#simple-region")?.value?.trim();
+    const name = fieldValue("#simple-name");
+    const region = fieldValue("#simple-region");
     if (!name) {
       pulseFocusField($("#simple-name"));
       return;
@@ -499,19 +494,18 @@ export function bindOnboardingFlow(deps) {
       deps.render(PANELS.agentChat);
       const quotaNote =
         result.dailyLimit > 0 ? ` ${result.remainingPreviews ?? 0} free preview(s) left today.` : "";
-      const candidates = (result.candidates || []).filter((item) => item.matchScore !== "unlikely");
+      const candidates = (result.candidates || []).filter((item) => item.matchScore === "likely");
       const statsNote = deps.previewStatsMessage(result.stats, candidates.length, region);
       const message = candidates.length
-        ? `Preview found ${candidates.length} possible listing(s).${quotaNote}${statsNote ? ` ${statsNote}` : ""}`
-        : `No broker hits in preview.${quotaNote || " Continue to start full cleanup."}${statsNote ? ` ${statsNote}` : ""}`;
+        ? `Preview found ${candidates.length} strong match${candidates.length === 1 ? "" : "es"}.${quotaNote}${statsNote ? ` ${statsNote}` : ""}`
+        : `No strong matches in preview.${quotaNote || " Continue to start full cleanup."}${statsNote ? ` ${statsNote}` : ""}`;
       if (candidates.length) {
-        deps.addChat("agent", `Found ${candidates.length} possible listing(s). Streaming matches below…`);
-        if (statsNote) deps.addChat("agent", statsNote);
+        deps.addChat("agent", `Found ${candidates.length} strong match${candidates.length === 1 ? "" : "es"}. Review the listings below before continuing.`);
         deps.render(PANELS.agentChat);
         await deps.streamBrokerPreviewResults(candidates, message);
       } else {
         deps.renderBrokerPreviewResults(candidates, message);
-        deps.addChat("agent", statsNote || "No broker hits in this preview. You can still start full cleanup below.");
+        deps.addChat("agent", statsNote || "No strong matches in this preview. You can still start full cleanup below.");
         deps.render(PANELS.agentChat);
       }
       state.onboardingPreviewReady = true;
@@ -667,7 +661,7 @@ export function bindOnboardingFlow(deps) {
     state.currentStatus = result.status;
     state.tab = "overview";
     await deps.refreshAgentPlan({ silent: true });
-    await deps.refreshHackathon({ silent: true, scope: "agent" }).catch(() => {});
+    await deps.refreshCaseContext({ silent: true, scope: "agent" }).catch(() => {});
     if (!options.quiet) deps.addChat("agent", `${presentPreset(result.preset).title} is staged. I can run the route now.`);
     deps.render();
     deps.write(result);
@@ -694,7 +688,6 @@ export function bindOnboardingFlow(deps) {
   }
 
   return {
-    isHackathonMode,
     setupLocationCombobox,
     setupLandingLocationCombobox,
     setupOnboardingRegionCombobox,

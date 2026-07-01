@@ -1,7 +1,3 @@
-export function isHackathonMode(state) {
-  return Boolean(state.integrationsStatus?.hackathonMode);
-}
-
 export async function refreshCreditsBalance(state, request) {
   if (!state.walletAddress) {
     state.creditsBalance = null;
@@ -38,7 +34,7 @@ export async function refreshProducts(state, request) {
 
 export async function refreshAgentContext(state, request) {
   if (!state.currentCaseId) {
-    state.hackathon = null;
+    state.agentContext = null;
     state.agentNext = null;
     return { timeline: null, next: null };
   }
@@ -46,28 +42,18 @@ export async function refreshAgentContext(state, request) {
     request(`/api/agents/timeline?caseId=${state.currentCaseId}`),
     request(`/api/agent/next?caseId=${state.currentCaseId}`)
   ]);
-  state.hackathon = timeline;
+  state.agentContext = timeline;
   state.agentNext = next;
   return { timeline, next };
 }
 
-export async function refreshHackathonChecklist(state, request) {
-  if (!isHackathonMode(state) || !state.currentCaseId) {
-    state.hackathonStatus = null;
-    state.hackathonPending = [];
-    return null;
-  }
-  const checklist = await request(`/api/hackathon/status?caseId=${state.currentCaseId}`);
-  state.hackathonStatus = checklist.status;
-  state.hackathonPending = checklist.pending || [];
-  return checklist;
-}
+/** @deprecated use refreshCaseContext */
+export const refreshHackathon = refreshCaseContext;
 
-export async function refreshHackathon(state, request, options = {}) {
+export async function refreshCaseContext(state, request, options = {}) {
   const scope = options.scope || "all";
   let products = null;
   let timeline = null;
-  let checklist = null;
 
   if (scope === "all" || scope === "products") {
     products = await refreshProducts(state, request);
@@ -75,28 +61,14 @@ export async function refreshHackathon(state, request, options = {}) {
 
   if (scope === "all" || scope === "agent") {
     if (!state.currentCaseId) {
-      state.hackathon = null;
-      state.hackathonStatus = null;
-      if (!options.silent && options.onWrite) options.onWrite(scope === "products" ? { products } : { products, timeline: null });
+      state.agentContext = null;
+      if (!options.silent && options.onWrite) {
+        options.onWrite(scope === "products" ? { products } : { products, timeline: null });
+      }
       return;
     }
     const ctx = await refreshAgentContext(state, request);
     timeline = ctx.timeline;
-  }
-
-  if (scope === "all" || scope === "checklist") {
-    if (!state.currentCaseId) return;
-    if (isHackathonMode(state)) {
-      checklist = await refreshHackathonChecklist(state, request);
-      if (!options.silent && options.onWrite) {
-        options.onWrite(
-          scope === "all" ? { products, timeline, checklist } : { checklist }
-        );
-      }
-      return;
-    }
-    state.hackathonStatus = null;
-    state.hackathonPending = [];
   }
 
   if (!options.silent && options.onWrite) {

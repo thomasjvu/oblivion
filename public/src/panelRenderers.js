@@ -8,7 +8,7 @@ import {
   hasSubscriptionEntitlement as hasSubscriptionEntitlementForState,
   caseIsActivated as caseIsActivatedForState
 } from './paymentsFlow.js';
-import { isHackathonMode as isHackathonModeForState } from './refresh.js';
+
 
 export function bindPanelRenderers(deps) {
   const {
@@ -553,66 +553,6 @@ export function bindPanelRenderers(deps) {
     };
   }
   
-  function hackathonPendingTracks() {
-    const status = state.hackathonStatus;
-    if (!status) return [];
-    const pending = [];
-    if (!status.x402OneOffReady) pending.push("x402");
-    if (!status.erc7710SubscriptionReady) pending.push("ERC-7710");
-    if (!status.veniceOutputReady) pending.push("Venice");
-    if (!status.a2aRedelegationVisible) pending.push("A2A");
-    if (!status.oneShotRelayerVisible) pending.push("1Shot");
-    return pending;
-  }
-  
-  function renderHackathonChecklist() {
-    const target = $("#hackathon-checklist");
-    if (!target) return;
-    if (!isHackathonModeForState(state)) {
-      target.innerHTML = "";
-      target.hidden = true;
-      return;
-    }
-    target.hidden = false;
-    const pending = hackathonPendingTracks();
-    const status = state.hackathonStatus;
-    const rows = [
-      ["MetaMask", status?.smartAccountVisible],
-      ["ERC-7715 permission", status?.erc7715PermissionGranted],
-      ["x402", status?.x402OneOffReady],
-      ["ERC-7710", status?.erc7710SubscriptionReady],
-      ["Venice", status?.veniceOutputReady],
-      ["A2A", status?.a2aRedelegationVisible],
-      ["1Shot", status?.oneShotRelayerVisible]
-    ];
-    const actionNote = pending.length
-      ? `<p class="muted small warn">Pending: ${pending.join(", ")}. Use Payment rails, Venice classify, Delegate sub-agents, and Relay paid session below — each runs a live integration.</p>`
-      : '<p class="muted small">All sponsor tracks ready.</p>';
-    const oneShotNote =
-      status?.oneShotRelayerVisible
-        ? ""
-        : state.integrationsStatus?.liveReady?.oneShot
-          ? '<p class="muted small warn">1Shot stays pending until you relay a paid session (Relay paid session below).</p>'
-          : "";
-    target.innerHTML =
-      rows
-        .map(([label, value]) => {
-          const hint =
-            label === "1Shot" && value
-              ? " (live relay)"
-              : label === "x402" && value && !(state.hackathon?.payments || []).some((session) => session.status === "paid")
-                ? " (session only)"
-                : "";
-          return `
-      <div class="status-row">
-        <span>${label}</span>
-        <strong class="${pillClass(value)}">${value ? `ready${hint}` : "pending"}</strong>
-      </div>
-    `;
-        })
-        .join("") + actionNote + oneShotNote;
-  }
-  
   function renderAgentPresetStarters() {
     const panel = $("#agent-template-panel");
     const container = $("#agent-preset-starters");
@@ -1029,7 +969,7 @@ export function bindPanelRenderers(deps) {
           : "";
       grid.innerHTML = state.products.length
         ? state.products.map((product) => {
-            const activeSession = (state.hackathon?.payments || []).find(
+            const activeSession = (state.agentContext?.payments || []).find(
               (session) => session.productId === product.id
             );
             const status = activeSession?.status || "not-started";
@@ -1080,7 +1020,7 @@ export function bindPanelRenderers(deps) {
         `;
       }
     }
-    const payments = state.hackathon?.payments || [];
+    const payments = state.agentContext?.payments || [];
     $("#payments-table").innerHTML = payments.length
       ? payments.map((session) => `
           <div class="row">
@@ -1095,9 +1035,9 @@ export function bindPanelRenderers(deps) {
   }
   
   function renderAgentNetwork() {
-    const timeline = state.hackathon?.timeline || [];
-    const delegations = state.hackathon?.delegations || [];
-    const venice = state.hackathon?.veniceAnalyses || [];
+    const timeline = state.agentContext?.timeline || [];
+    const delegations = state.agentContext?.delegations || [];
+    const venice = state.agentContext?.veniceAnalyses || [];
     const items = [
       ...venice.map((analysis) => ({
         actor: "Venice",
@@ -1126,7 +1066,7 @@ export function bindPanelRenderers(deps) {
   }
   
   function renderRelayer() {
-    const events = state.hackathon?.relayerEvents || [];
+    const events = state.agentContext?.relayerEvents || [];
     $("#relayer-table").innerHTML = events.length
       ? events.map((event) => `
           <div class="row">
@@ -1173,11 +1113,27 @@ export function bindPanelRenderers(deps) {
       : `<div class="empty">No actions yet. Approved tasks will appear here.</div>`;
   }
   
+  const CASE_GATED_TABS = new Set(["approvals", "vault", "history", "trust", "settings"]);
+
   function renderTabs() {
     syncRouteTabVisibility();
+    const hasCase = Boolean(state.currentCaseId);
+    if (!hasCase && CASE_GATED_TABS.has(state.tab)) {
+      state.tab = "overview";
+    }
     document.querySelectorAll(".tab").forEach((button) => {
       if (button.hidden) return;
-      const active = button.dataset.tab === state.tab;
+      const tabId = button.dataset.tab;
+      const locked = CASE_GATED_TABS.has(tabId) && !hasCase;
+      button.disabled = locked;
+      button.setAttribute("aria-disabled", locked ? "true" : "false");
+      button.classList.toggle("tab-disabled", locked);
+      if (locked) {
+        button.title = "Connect your wallet and create a case to unlock.";
+      } else {
+        button.removeAttribute("title");
+      }
+      const active = tabId === state.tab;
       button.classList.toggle("active", active);
       button.setAttribute("aria-selected", active ? "true" : "false");
     });
@@ -1235,7 +1191,7 @@ export function bindPanelRenderers(deps) {
       [PANELS.findings]: renderFindings,
       [PANELS.presets]: renderPresets,
       [PANELS.agentChat]: renderAgentChat,
-      [PANELS.hackathonChecklist]: renderHackathonChecklist,
+
       [PANELS.appearanceSettings]: renderAppearanceSettings,
       [PANELS.privacyFilterSettings]: renderPrivacyFilterSettings,
       [PANELS.agentVoiceSettings]: renderAgentVoiceSettings,
@@ -1268,7 +1224,7 @@ export function bindPanelRenderers(deps) {
     renderFindings,
     renderPresets,
     renderAgentChat,
-    renderHackathonChecklist,
+
     renderAppearanceSettings,
     renderPrivacyFilterSettings,
     renderAgentVoiceSettings,
@@ -1285,7 +1241,7 @@ export function bindPanelRenderers(deps) {
     renderChatBubble,
     agentPromptForState,
     shortStepTitle,
-    hackathonPendingTracks,
+
     walletButtonLabel,
     walletButtonTitle,
     toggleWalletModal,

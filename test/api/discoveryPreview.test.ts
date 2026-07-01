@@ -24,10 +24,14 @@ test("discovery preview is public, unlimited by default, and does not create cas
     assert.equal(typeof first.stats.brokersChecked, "number");
     for (const candidate of first.candidates) {
       assert.ok(candidate.sourceUrl);
-      assert.ok(["likely", "uncertain"].includes(candidate.matchScore));
+      assert.equal(candidate.matchScore, "likely");
       assert.equal(typeof candidate.matchReason, "string");
+      assert.ok(typeof candidate.confidencePercent === "number" && candidate.confidencePercent >= 75);
       assert.equal(candidate.accessToken, undefined);
     }
+    assert.equal(typeof first.stats.candidatesShown, "number");
+    assert.equal(typeof first.stats.rawHits, "number");
+    assert.ok(Array.isArray(first.stats.brokersQueried));
 
     const second = await post(base, "/api/discovery/preview", { personLabel: "Jane Preview" }, 200);
     assert.equal(second.dailyLimit, 0);
@@ -62,6 +66,20 @@ test("discovery preview can enforce a daily limit when configured", async () => 
   } finally {
     if (originalLimit === undefined) delete process.env.OBLIVION_PREVIEW_DAILY_LIMIT;
     else process.env.OBLIVION_PREVIEW_DAILY_LIMIT = originalLimit;
+    server.close();
+  }
+});
+
+test("broker catalog list is public", async () => {
+  const { server, base } = await startTestServer();
+  try {
+    const response = await fetch(`${base}/api/brokers`);
+    assert.equal(response.status, 200);
+    const json = await response.json();
+    assert.ok(Array.isArray(json.brokers));
+    assert.ok(json.count >= 50);
+    assert.ok(json.brokers.some((item: { brokerId: string }) => item.brokerId === "fastbackgroundcheck"));
+  } finally {
     server.close();
   }
 });

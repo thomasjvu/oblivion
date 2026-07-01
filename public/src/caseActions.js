@@ -228,7 +228,7 @@ export function bindCaseActions(deps) {
     });
     state.currentStatus = result.status;
     await refreshAgentPlan({ silent: true }).catch(() => {});
-    await deps.refreshHackathon({ silent: true, scope: "agent" });
+    await deps.refreshCaseContext({ silent: true, scope: "agent" });
     deps.addChat(
       "agent",
       isLiveExecutorMode()
@@ -269,7 +269,7 @@ export function bindCaseActions(deps) {
     });
     state.currentStatus = result.status;
     await refreshAgentPlan({ silent: true }).catch(() => {});
-    await deps.refreshHackathon({ silent: true, scope: "agent" });
+    await deps.refreshCaseContext({ silent: true, scope: "agent" });
     const live = result.executorMode === "live";
     const mailto = result.connectorResult?.mailtoUrl;
     const handoffNote = mailto

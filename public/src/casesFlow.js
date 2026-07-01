@@ -38,7 +38,7 @@ export async function refreshCases(state, deps) {
     await loadCase(state, state.currentCaseId, { silent: true, openApp: false }, deps);
   } else {
     await deps.refreshAgentPlan({ silent: true }).catch(() => {});
-    await deps.refreshHackathon({ silent: true }).catch(() => {});
+    await deps.refreshCaseContext({ silent: true }).catch(() => {});
     deps.render();
   }
 }
@@ -62,7 +62,7 @@ export async function loadCase(state, caseId, options, deps) {
     saveLocalCases(state, deps.tokenDeps);
     if (!options.silent) deps.write(loaded);
     await deps.refreshAgentPlan({ silent: true }).catch(() => {});
-    await deps.refreshHackathon({ silent: true }).catch(() => {});
+    await deps.refreshCaseContext({ silent: true }).catch(() => {});
     state.onboardingPreviewReady = false;
     if (state.currentStatus && !caseIsActivated(state)) {
       state.preSearchReady = false;

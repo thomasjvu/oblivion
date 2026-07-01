@@ -11,7 +11,7 @@ import type { CaseRecord, PaymentSession } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
 
 export function activationBypassEnabled(): boolean {
-  return creditsBypassEnabled() || process.env.HACKATHON_MODE === "true";
+  return creditsBypassEnabled();
 }
 
 export function isCaseActivated(store: MemoryStore, caseId: string): boolean {

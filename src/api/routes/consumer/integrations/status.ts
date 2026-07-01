@@ -34,7 +34,6 @@ export async function handleIntegrationStatusRoutes(
       deploymentEnvironment: deploymentEnvironment(),
       deploymentLabel: deployProfile.label,
       x402Network: deployProfile.x402Network,
-      hackathonMode: process.env.HACKATHON_MODE === "true",
       mode: isVeniceConfigured() ? "live-agent" : "wallet-and-policy",
       executorMode: isLiveExecutorEnabled() ? "live" : "record-only",
       liveReady: {

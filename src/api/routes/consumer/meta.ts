@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { CLEANUP_PRESETS } from "../../../domain/cleanup.js";
+import { listBrokerCatalogSummary } from "../../../domain/brokerCatalog.js";
 import { oblivionPublicApiUrl } from "../../../domain/integrations.js";
 import {
   assertPreviewQuota,
@@ -44,6 +45,12 @@ export async function handleConsumerMetaRoutes(
 
   if (method === "GET" && url.pathname === "/api/presets") {
     sendJson(response, 200, { presets: CLEANUP_PRESETS });
+    return true;
+  }
+
+  if (method === "GET" && url.pathname === "/api/brokers") {
+    const brokers = listBrokerCatalogSummary();
+    sendJson(response, 200, { brokers, count: brokers.length });
     return true;
   }
 

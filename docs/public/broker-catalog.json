@@ -1,0 +1,684 @@
+{
+  "generatedAt": "2026-07-01T23:29:58.445Z",
+  "count": 70,
+  "priority": [
+    "spokeo",
+    "beenverified",
+    "truepeoplesearch",
+    "fastpeoplesearch",
+    "fastbackgroundcheck",
+    "smartbackgroundchecks",
+    "advancedbackgroundchecks",
+    "checkpeople",
+    "whitepages",
+    "intelius",
+    "truthfinder",
+    "instantcheckmate",
+    "radaris",
+    "peekyou",
+    "zabasearch",
+    "peoplefinders",
+    "nuwber",
+    "thatsthem",
+    "usphonebook",
+    "familytreenow",
+    "cyberbackgroundchecks",
+    "neighborwho",
+    "ussearch",
+    "veripages"
+  ],
+  "previewSweepBrokerIds": [
+    "spokeo",
+    "beenverified",
+    "truepeoplesearch",
+    "fastpeoplesearch",
+    "fastbackgroundcheck",
+    "smartbackgroundchecks",
+    "advancedbackgroundchecks",
+    "checkpeople",
+    "whitepages",
+    "intelius",
+    "truthfinder",
+    "instantcheckmate",
+    "radaris",
+    "peekyou",
+    "zabasearch",
+    "peoplefinders",
+    "nuwber",
+    "thatsthem",
+    "usphonebook",
+    "familytreenow"
+  ],
+  "brokers": [
+    {
+      "brokerId": "spokeo",
+      "brokerLabel": "Spokeo",
+      "primaryHost": "spokeo.com",
+      "officialOptOutUrl": "https://www.spokeo.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "beenverified",
+      "brokerLabel": "BeenVerified",
+      "primaryHost": "beenverified.com",
+      "officialOptOutUrl": "https://www.beenverified.com/app/optout/search",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "whitepages",
+      "brokerLabel": "Whitepages",
+      "primaryHost": "whitepages.com",
+      "officialOptOutUrl": "https://www.whitepages.com/suppression-requests",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "intelius",
+      "brokerLabel": "Intelius",
+      "primaryHost": "intelius.com",
+      "officialOptOutUrl": "https://www.intelius.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "truthfinder",
+      "brokerLabel": "TruthFinder",
+      "primaryHost": "truthfinder.com",
+      "officialOptOutUrl": "https://www.truthfinder.com/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "instantcheckmate",
+      "brokerLabel": "Instant Checkmate",
+      "primaryHost": "instantcheckmate.com",
+      "officialOptOutUrl": "https://www.instantcheckmate.com/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "mylife",
+      "brokerLabel": "MyLife",
+      "primaryHost": "mylife.com",
+      "officialOptOutUrl": "https://www.mylife.com/ccpa/index.pubview",
+      "tier": 2,
+      "teeAutomatable": false,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "radaris",
+      "brokerLabel": "Radaris",
+      "primaryHost": "radaris.com",
+      "officialOptOutUrl": "https://radaris.com/control/privacy",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "fastbackgroundcheck",
+      "brokerLabel": "FastBackgroundCheck",
+      "primaryHost": "fastbackgroundcheck.com",
+      "officialOptOutUrl": "https://www.fastbackgroundcheck.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "thatsthem",
+      "brokerLabel": "ThatsThem",
+      "primaryHost": "thatsthem.com",
+      "officialOptOutUrl": "https://thatsthem.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "anywho",
+      "brokerLabel": "AnyWho",
+      "primaryHost": "anywho.com",
+      "officialOptOutUrl": "https://www.anywho.com/contact",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "rocketreach",
+      "brokerLabel": "RocketReach",
+      "primaryHost": "rocketreach.co",
+      "officialOptOutUrl": "https://rocketreach.co/privacy",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "nuwber",
+      "brokerLabel": "Nuwber",
+      "primaryHost": "nuwber.com",
+      "officialOptOutUrl": "https://nuwber.com/removal/link",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "truepeoplesearch",
+      "brokerLabel": "TruePeopleSearch",
+      "primaryHost": "truepeoplesearch.com",
+      "officialOptOutUrl": "https://www.truepeoplesearch.com/removal",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "fastpeoplesearch",
+      "brokerLabel": "FastPeopleSearch",
+      "primaryHost": "fastpeoplesearch.com",
+      "officialOptOutUrl": "https://www.fastpeoplesearch.com/removal",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "usphonebook",
+      "brokerLabel": "USPhonebook",
+      "primaryHost": "usphonebook.com",
+      "officialOptOutUrl": "https://www.usphonebook.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "clustrmaps",
+      "brokerLabel": "ClustrMaps",
+      "primaryHost": "clustrmaps.com",
+      "officialOptOutUrl": "https://clustrmaps.com/bl/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "peekyou",
+      "brokerLabel": "PeekYou",
+      "primaryHost": "peekyou.com",
+      "officialOptOutUrl": "https://www.peekyou.com/about/contact/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "zabasearch",
+      "brokerLabel": "ZabaSearch",
+      "primaryHost": "zabasearch.com",
+      "officialOptOutUrl": "https://www.zabasearch.com/block_records/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "addresses",
+      "brokerLabel": "Addresses.com",
+      "primaryHost": "addresses.com",
+      "officialOptOutUrl": "https://www.addresses.com/optout.php",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "peoplefinders",
+      "brokerLabel": "PeopleFinders",
+      "primaryHost": "peoplefinders.com",
+      "officialOptOutUrl": "https://www.peoplefinders.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "peoplelooker",
+      "brokerLabel": "PeopleLooker",
+      "primaryHost": "peoplelooker.com",
+      "officialOptOutUrl": "https://www.peoplelooker.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "checkpeople",
+      "brokerLabel": "CheckPeople",
+      "primaryHost": "checkpeople.com",
+      "officialOptOutUrl": "https://www.checkpeople.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "searchpeoplefree",
+      "brokerLabel": "SearchPeopleFree",
+      "primaryHost": "searchpeoplefree.com",
+      "officialOptOutUrl": "https://www.searchpeoplefree.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "familytreenow",
+      "brokerLabel": "FamilyTreeNow",
+      "primaryHost": "familytreenow.com",
+      "officialOptOutUrl": "https://www.familytreenow.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "cyberbackgroundchecks",
+      "brokerLabel": "CyberBackgroundChecks",
+      "primaryHost": "cyberbackgroundchecks.com",
+      "officialOptOutUrl": "https://www.cyberbackgroundchecks.com/removal",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "verecor",
+      "brokerLabel": "Verecor",
+      "primaryHost": "verecor.com",
+      "officialOptOutUrl": "https://verecor.com/ng/control/privacy",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "neighborwho",
+      "brokerLabel": "NeighborWho",
+      "primaryHost": "neighborwho.com",
+      "officialOptOutUrl": "https://www.neighborwho.com/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "infotracer",
+      "brokerLabel": "InfoTracer",
+      "primaryHost": "infotracer.com",
+      "officialOptOutUrl": "https://infotracer.com/optout/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "golookup",
+      "brokerLabel": "GoLookup",
+      "primaryHost": "golookup.com",
+      "officialOptOutUrl": "https://golookup.com/support/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "idtrue",
+      "brokerLabel": "IDTrue",
+      "primaryHost": "idtrue.com",
+      "officialOptOutUrl": "https://www.idtrue.com/optout/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "persopo",
+      "brokerLabel": "Persopo",
+      "primaryHost": "persopo.com",
+      "officialOptOutUrl": "https://persopo.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "publicrecordsnow",
+      "brokerLabel": "PublicRecordsNow",
+      "primaryHost": "publicrecordsnow.com",
+      "officialOptOutUrl": "https://www.publicrecordsnow.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "smartbackgroundchecks",
+      "brokerLabel": "SmartBackgroundChecks",
+      "primaryHost": "smartbackgroundchecks.com",
+      "officialOptOutUrl": "https://www.smartbackgroundchecks.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "spyfly",
+      "brokerLabel": "SpyFly",
+      "primaryHost": "spyfly.com",
+      "officialOptOutUrl": "https://www.spyfly.com/help-center/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "ussearch",
+      "brokerLabel": "US Search",
+      "primaryHost": "ussearch.com",
+      "officialOptOutUrl": "https://www.ussearch.com/opt-out/submit/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "veripages",
+      "brokerLabel": "VeriPages",
+      "primaryHost": "veripages.com",
+      "officialOptOutUrl": "https://veripages.com/remove",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "centeda",
+      "brokerLabel": "Centeda",
+      "primaryHost": "centeda.com",
+      "officialOptOutUrl": "https://centeda.com/remove",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "unitedstatesphonebook",
+      "brokerLabel": "United States Phonebook",
+      "primaryHost": "unitedstatesphonebook.com",
+      "officialOptOutUrl": "https://www.unitedstatesphonebook.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "publicdatacheck",
+      "brokerLabel": "PublicDataCheck",
+      "primaryHost": "publicdatacheck.com",
+      "officialOptOutUrl": "https://www.publicdatacheck.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "recordsfinderusa",
+      "brokerLabel": "RecordsFinderUSA",
+      "primaryHost": "recordsfinderusa.com",
+      "officialOptOutUrl": "https://recordsfinderusa.com/optout/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "searchquarry",
+      "brokerLabel": "SearchQuarry",
+      "primaryHost": "searchquarry.com",
+      "officialOptOutUrl": "https://www.searchquarry.com/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "backgroundchecks",
+      "brokerLabel": "BackgroundChecks.org",
+      "primaryHost": "backgroundchecks.org",
+      "officialOptOutUrl": "https://www.backgroundchecks.org/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "officialusa",
+      "brokerLabel": "OfficialUSA",
+      "primaryHost": "officialusa.com",
+      "officialOptOutUrl": "https://www.officialusa.com/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "peoplebyname",
+      "brokerLabel": "PeopleByName",
+      "primaryHost": "peoplebyname.com",
+      "officialOptOutUrl": "https://www.peoplebyname.com/remove/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "privateeye",
+      "brokerLabel": "PrivateEye",
+      "primaryHost": "privateeye.com",
+      "officialOptOutUrl": "https://www.privateeye.com/static/view/optout/",
+      "tier": 2,
+      "teeAutomatable": false,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "zoominfo",
+      "brokerLabel": "ZoomInfo",
+      "primaryHost": "zoominfo.com",
+      "officialOptOutUrl": "https://www.zoominfo.com/privacy-center",
+      "tier": 2,
+      "teeAutomatable": false,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "acxiom",
+      "brokerLabel": "Acxiom",
+      "primaryHost": "acxiom.com",
+      "officialOptOutUrl": "https://isapps.acxiom.com/optout/optout.aspx",
+      "tier": 2,
+      "teeAutomatable": false,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "lexisnexis",
+      "brokerLabel": "LexisNexis",
+      "primaryHost": "lexisnexis.com",
+      "officialOptOutUrl": "https://optout.lexisnexis.com/",
+      "tier": 2,
+      "teeAutomatable": false,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "contactout",
+      "brokerLabel": "ContactOut",
+      "primaryHost": "contactout.com",
+      "officialOptOutUrl": "https://contactout.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "numlookup",
+      "brokerLabel": "NumLookup",
+      "primaryHost": "numlookup.com",
+      "officialOptOutUrl": "https://www.numlookup.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "yasni",
+      "brokerLabel": "Yasni",
+      "primaryHost": "yasni.com",
+      "officialOptOutUrl": "https://www.yasni.com/optout.php",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "publicsearcher",
+      "brokerLabel": "PublicSearcher",
+      "primaryHost": "publicsearcher.com",
+      "officialOptOutUrl": "https://www.publicsearcher.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "findpeoplesearch",
+      "brokerLabel": "FindPeopleSearch",
+      "primaryHost": "findpeoplesearch.com",
+      "officialOptOutUrl": "https://www.findpeoplesearch.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "courtrecords",
+      "brokerLabel": "CourtRecords.org",
+      "primaryHost": "courtrecords.org",
+      "officialOptOutUrl": "https://www.courtrecords.org/opt-out/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "reversephonelookup",
+      "brokerLabel": "ReversePhoneLookup",
+      "primaryHost": "reversephonelookup.com",
+      "officialOptOutUrl": "https://www.reversephonelookup.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "advancedbackgroundchecks",
+      "brokerLabel": "AdvancedBackgroundChecks",
+      "primaryHost": "advancedbackgroundchecks.com",
+      "officialOptOutUrl": "https://www.advancedbackgroundchecks.com/removal",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": true
+    },
+    {
+      "brokerId": "gladiknow",
+      "brokerLabel": "GladIKnow",
+      "primaryHost": "gladiknow.com",
+      "officialOptOutUrl": "https://gladiknow.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "peoplewhiz",
+      "brokerLabel": "PeopleWhiz",
+      "primaryHost": "peoplewhiz.com",
+      "officialOptOutUrl": "https://www.peoplewhiz.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "usa-people-search",
+      "brokerLabel": "USA People Search",
+      "primaryHost": "usa-people-search.com",
+      "officialOptOutUrl": "https://www.usa-people-search.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "freepeopledirectory",
+      "brokerLabel": "FreePeopleDirectory",
+      "primaryHost": "freepeopledirectory.com",
+      "officialOptOutUrl": "https://www.freepeopledirectory.com/optout.php",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "telephonedirectories",
+      "brokerLabel": "TelephoneDirectories.us",
+      "primaryHost": "telephonedirectories.us",
+      "officialOptOutUrl": "https://www.telephonedirectories.us/OptOut.aspx",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "staterecords",
+      "brokerLabel": "StateRecords.org",
+      "primaryHost": "staterecords.org",
+      "officialOptOutUrl": "https://staterecords.org/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "publicrecords",
+      "brokerLabel": "PublicRecords.com",
+      "primaryHost": "publicrecords.com",
+      "officialOptOutUrl": "https://www.publicrecords.com/optout/",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "profileengine",
+      "brokerLabel": "ProfileEngine",
+      "primaryHost": "profileengine.com",
+      "officialOptOutUrl": "https://profileengine.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "reunion",
+      "brokerLabel": "Reunion.com",
+      "primaryHost": "reunion.com",
+      "officialOptOutUrl": "https://www.reunion.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "peoplebyphone",
+      "brokerLabel": "PeopleByPhone",
+      "primaryHost": "peoplebyphone.com",
+      "officialOptOutUrl": "https://www.peoplebyphone.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "phoneowner",
+      "brokerLabel": "PhoneOwner",
+      "primaryHost": "phoneowner.com",
+      "officialOptOutUrl": "https://www.phoneowner.com/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "reversephonecheck",
+      "brokerLabel": "ReversePhoneCheck",
+      "primaryHost": "reversephonecheck.com",
+      "officialOptOutUrl": "https://www.reversephonecheck.com/opt-out",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    },
+    {
+      "brokerId": "governmentregistry",
+      "brokerLabel": "GovernmentRegistry.org",
+      "primaryHost": "governmentregistry.org",
+      "officialOptOutUrl": "https://www.governmentregistry.org/optout",
+      "tier": 1,
+      "teeAutomatable": true,
+      "sweepPriority": false
+    }
+  ]
+}

@@ -210,15 +210,9 @@ export async function createSmartAccount(state, options, deps) {
   });
   state.smartAccountAddress = result.smartAccountAddress;
   state.walletMode = result.mode || "live";
-  await deps.refreshHackathon({ silent: true, scope: deps.isHackathonMode(state) ? "checklist" : "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   if (!options.quiet) {
-    const remaining = deps.hackathonPendingTracks(state);
-    deps.addChat(
-      "agent",
-      remaining.length
-        ? `Smart Account ready. Still pending: ${remaining.join(", ")} — use Developer details buttons below.`
-        : "Smart Account ready. All sponsor tracks are complete."
-    );
+    deps.addChat("agent", "Smart Account ready.");
   }
   if (options.openHub !== false) deps.openWalletHub();
   else deps.render();

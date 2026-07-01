@@ -15,7 +15,7 @@ export function bindDiscoveryUi(deps) {
     write,
     render,
     refreshAgentPlan,
-    refreshHackathon,
+    refreshCaseContext,
     refreshIntegrationsStatus,
     assertCaseActivatedClient,
     syncCurrentCaseStatus
@@ -221,7 +221,7 @@ export function bindDiscoveryUi(deps) {
         localStorage.setItem(`oblivion.discoveryUrls.${state.currentCaseId}`, JSON.stringify(pastedUrls));
       }
       await refreshAgentPlan({ silent: true }).catch(() => {});
-      await refreshHackathon({ silent: true, scope: "agent" }).catch(() => {});
+      await refreshCaseContext({ silent: true, scope: "agent" }).catch(() => {});
       if (!options.quiet) {
         addChat(
           "agent",
@@ -271,29 +271,70 @@ export function bindDiscoveryUi(deps) {
     addChat("agent", decision === "confirm" ? "Marked as your listing." : "Marked as not you.");
   }
   
+  function truncatePreviewText(text, max = 140) {
+    const stripped = String(text || "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity) => {
+        const map = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", "#39": "'" };
+        const lower = entity.slice(1, -1).toLowerCase();
+        if (map[lower]) return map[lower];
+        if (lower.startsWith("#x")) return String.fromCharCode(Number.parseInt(lower.slice(2), 16));
+        if (lower.startsWith("#")) return String.fromCharCode(Number.parseInt(lower.slice(1), 10));
+        return " ";
+      })
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!stripped) return "";
+    return stripped.length > max ? `${stripped.slice(0, max - 1)}…` : stripped;
+  }
+
   function brokerPreviewResultMarkup(item) {
-    const score = item.matchScore ? ` · ${item.matchScore}` : "";
-    const broker = item.brokerLabel ? `${escapeHtml(item.brokerLabel)}` : shortenUrl(item.sourceUrl);
-    const reason = item.matchReason
-      ? `<span class="muted small pre-search-reason">${escapeHtml(item.matchReason)}</span>`
+    const broker = item.brokerLabel ? escapeHtml(item.brokerLabel) : "";
+    const linkText = escapeHtml(broker || shortenUrl(item.sourceUrl));
+    const urlHint = broker
+      ? `<span class="muted small pre-search-url">${escapeHtml(shortenUrl(item.sourceUrl))}</span>`
       : "";
-    return `<a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${broker}</a>${score}${reason ? `<br />${reason}` : ""}`;
+    const confidence =
+      typeof item.confidencePercent === "number"
+        ? `<span class="pill small pass pre-search-confidence" title="${escapeHtml(item.matchReason || "")}">${item.confidencePercent}%</span>`
+        : item.matchScore
+          ? `<span class="pill small ${matchScorePill(item.matchScore)}">${escapeHtml(item.matchScore)}</span>`
+          : "";
+    const brokerChip = broker ? `<span class="pill small pre-search-broker">${broker}</span>` : "";
+    const meta = [brokerChip, confidence].filter(Boolean).join(" ");
+    return `<div class="pre-search-row">
+      <div class="pre-search-row-main">
+        <a href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">${linkText}</a>
+        ${urlHint}
+      </div>
+      ${meta ? `<div class="pre-search-meta">${meta}</div>` : ""}
+    </div>`;
   }
   
   function previewStatsMessage(stats, candidateCount, region) {
     if (!stats) return "";
-    const parts = [
-      `Checked ${stats.brokersChecked ?? 0} brokers`,
-      `${stats.sweepHits ?? 0} sweep hit(s)`,
-      `${stats.broadSearchHits ?? 0} broad-search hit(s)`
-    ];
-    let message = parts.join(" · ");
-    if (stats.searchErrors) message += ` · ${stats.searchErrors} search error(s)`;
-    if (candidateCount < 5) {
-      message += region
-        ? ". Few strong matches — full cleanup searches more sources after you start a case."
-        : ". Add city/state for better preview matches, or continue to full cleanup.";
+    const shown = stats.candidatesShown ?? candidateCount ?? 0;
+    const brokers = stats.brokersChecked ?? 0;
+    const queried = Array.isArray(stats.brokersQueried) ? stats.brokersQueried.filter(Boolean) : [];
+    const brokersNote = queried.length
+      ? ` Checked ${queried.slice(0, 8).join(", ")}${queried.length > 8 ? ` +${queried.length - 8} more` : ""}.`
+      : "";
+    if (!shown) {
+      const base =
+        "No strong matches in this preview. Add city and state (e.g. San Francisco, CA) for better results, or paste a profile URL below.";
+      return `${base}${brokersNote} Full cleanup searches more sources with deeper scoring.`;
     }
+    const brokerLabel = brokers === 1 ? "broker" : "brokers";
+    const matchLabel = shown === 1 ? "strong match" : "strong matches";
+    let message = `${shown} ${matchLabel} across ${brokers} ${brokerLabel}.${brokersNote}`;
+    if (shown < 3) {
+      message += " Paste any known profile URLs below — we include them in cleanup.";
+    } else if (shown < 5) {
+      message += region
+        ? " Full cleanup searches more sources after you start a case."
+        : " Add city/state for better preview matches, or continue to full cleanup.";
+    }
+    if (stats.searchErrors) message += ` (${stats.searchErrors} search error${stats.searchErrors === 1 ? "" : "s"})`;
     return message;
   }
   
@@ -306,7 +347,7 @@ export function bindDiscoveryUi(deps) {
     preStatus.textContent = message;
     const rows = candidates || [];
     if (!rows.length) {
-      list.innerHTML = `<li class="muted">No broker listings matched yet. Continue to start full cleanup with Venice-scored discovery.</li>`;
+      list.innerHTML = `<li class="muted">No strong matches in this preview. Add city/state for better results, or continue — full cleanup searches more sources with deeper scoring.</li>`;
       return;
     }
     list.innerHTML = rows
@@ -324,7 +365,7 @@ export function bindDiscoveryUi(deps) {
     list.innerHTML = "";
     const rows = candidates || [];
     if (!rows.length) {
-      list.innerHTML = `<li class="muted">No broker listings matched yet. Continue to start full cleanup with Venice-scored discovery.</li>`;
+      list.innerHTML = `<li class="muted">No strong matches in this preview. Add city/state for better results, or continue — full cleanup searches more sources with deeper scoring.</li>`;
       return;
     }
     for (const item of rows) {

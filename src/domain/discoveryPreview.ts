@@ -12,7 +12,6 @@ import {
   scoreDiscoveryCandidate,
   type DiscoveryMatchScore
 } from "./discoveryHeuristics.js";
-import { buildBrokerProfileUrlCandidates } from "./brokerProfileUrls.js";
 import {
   buildBraveSearchQuery,
   fetchBrokerSweepCandidates,
@@ -94,8 +93,8 @@ export function recordPreviewUsage(
 }
 
 export function previewResultLimit(): number {
-  const raw = Number(process.env.OBLIVION_PREVIEW_RESULT_LIMIT ?? "48");
-  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 100) : 48;
+  const raw = Number(process.env.OBLIVION_PREVIEW_RESULT_LIMIT ?? "12");
+  return Number.isFinite(raw) && raw > 0 ? Math.min(Math.floor(raw), 100) : 12;
 }
 
 export function previewSearchConcurrency(): number {
@@ -111,14 +110,18 @@ export interface DiscoveryPreviewCandidate {
   snippet?: string;
   matchScore: DiscoveryMatchScore;
   matchReason: string;
+  confidencePercent: number;
 }
 
 export interface DiscoveryPreviewStats {
   brokersChecked: number;
+  brokersQueried: string[];
   queriesRun: number;
   sweepHits: number;
   broadSearchHits: number;
   searchErrors: number;
+  rawHits: number;
+  candidatesShown: number;
 }
 
 function uniqueBrokerIds(queries: Array<{ brokerId: string }>): number {
@@ -135,6 +138,20 @@ function addCandidate(
   seen.add(item.sourceUrl);
   candidates.push(item);
   return true;
+}
+
+export function dedupePreviewCandidatesByBroker(
+  candidates: DiscoveryPreviewCandidate[]
+): DiscoveryPreviewCandidate[] {
+  const seenBrokers = new Set<string>();
+  const deduped: DiscoveryPreviewCandidate[] = [];
+  for (const candidate of candidates) {
+    const brokerKey = candidate.brokerId || candidate.brokerLabel || candidate.sourceUrl;
+    if (seenBrokers.has(brokerKey)) continue;
+    seenBrokers.add(brokerKey);
+    deduped.push(candidate);
+  }
+  return deduped;
 }
 
 export async function runDiscoveryPreview(input: {
@@ -172,14 +189,6 @@ export async function runDiscoveryPreview(input: {
   let sweepHits = 0;
   let searchErrors = 0;
 
-  for (const item of buildBrokerProfileUrlCandidates(personLabel, sweepScope.regionLabel, { limit: 24 })) {
-    addCandidate(seen, candidates, {
-      sourceUrl: item.sourceUrl,
-      origin: "profile-slug",
-      brokerId: item.brokerId
-    });
-  }
-
   const sweep = await fetchBrokerSweepCandidates(sweepScope, {
     limit: input.sweepLimit ?? previewBrokerSweepLimit(),
     preview: true,
@@ -209,34 +218,53 @@ export async function runDiscoveryPreview(input: {
     searchErrors += 1;
   }
 
-  const scored = candidates
-    .map((candidate) => {
-      const broker = candidate.brokerId
-        ? brokerCatalogEntryById(candidate.brokerId)
-        : brokerForUrl(candidate.sourceUrl);
-      const scoredCandidate = scoreDiscoveryCandidate(candidate, scope);
-      return {
-        sourceUrl: candidate.sourceUrl,
-        brokerId: broker?.brokerId ?? candidate.brokerId,
-        brokerLabel: broker?.brokerLabel,
-        title: candidate.title,
-        snippet: candidate.snippet,
-        matchScore: scoredCandidate.matchScore,
-        matchReason: scoredCandidate.matchReason
-      } satisfies DiscoveryPreviewCandidate;
-    })
-    .filter((item) => item.matchScore !== "unlikely")
-    .sort((left, right) => compareMatchScores(left.matchScore, right.matchScore))
-    .slice(0, previewResultLimit());
+  const rawHits = sweepHits + broadSearchHits;
+  const scored = dedupePreviewCandidatesByBroker(
+    candidates
+      .map((candidate) => {
+        const broker = candidate.brokerId
+          ? brokerCatalogEntryById(candidate.brokerId)
+          : brokerForUrl(candidate.sourceUrl);
+        const scoredCandidate = scoreDiscoveryCandidate(candidate, scope);
+        return {
+          sourceUrl: candidate.sourceUrl,
+          brokerId: broker?.brokerId ?? candidate.brokerId,
+          brokerLabel: broker?.brokerLabel,
+          title: candidate.title,
+          snippet: candidate.snippet,
+          matchScore: scoredCandidate.matchScore,
+          matchReason: scoredCandidate.matchReason,
+          confidencePercent: scoredCandidate.confidencePercent
+        } satisfies DiscoveryPreviewCandidate;
+      })
+      .filter((item) => item.matchScore === "likely")
+      .sort(
+        (left, right) =>
+          right.confidencePercent - left.confidencePercent ||
+          compareMatchScores(left.matchScore, right.matchScore)
+      )
+      .slice(0, previewResultLimit())
+  );
+
+  const brokersQueried = [
+    ...new Set(
+      queries
+        .map((item) => brokerCatalogEntryById(item.brokerId)?.brokerLabel ?? item.brokerId)
+        .filter(Boolean)
+    )
+  ];
 
   return {
     candidates: scored,
     stats: {
       brokersChecked: uniqueBrokerIds(queries),
+      brokersQueried,
       queriesRun: queries.length + 1,
       sweepHits,
       broadSearchHits,
-      searchErrors
+      searchErrors,
+      rawHits,
+      candidatesShown: scored.length
     }
   };
 }

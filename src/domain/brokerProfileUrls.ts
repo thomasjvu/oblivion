@@ -173,7 +173,10 @@ const PROFILE_URL_BUILDERS: Record<string, ProfileUrlBuilder> = {
     if (parts.length < 2) return [];
     return [`https://radaris.com/p/${titleSlug(parts[0])}/${titleSlug(parts[parts.length - 1])}/`];
   },
-  fastbackgroundcheck: ({ nameSlug }) => [`https://www.fastbackgroundcheck.com/people/${nameSlug}`],
+  fastbackgroundcheck: ({ nameSlug }) => [
+    `https://www.fastbackgroundcheck.com/people/${nameSlug}`,
+    `https://www.fastbackgroundcheck.com/people/${nameSlug}/id`
+  ],
   anywho: ({ nameSlug, region }) => {
     const city = region?.city ? slugPart(region.city).replace(/-/g, "+") : "unknown";
     return [`https://www.anywho.com/people/${nameSlug.replace(/-/g, "+")}/${city}`];

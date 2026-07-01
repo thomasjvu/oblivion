@@ -19,11 +19,21 @@ test.describe("onboarding preview handoff", () => {
             {
               sourceUrl: PREVIEW_URL,
               brokerLabel: "FastBackgroundCheck",
-              matchScore: "uncertain",
-              matchReason: "E2E preview fixture"
+              matchScore: "likely",
+              matchReason: "E2E preview fixture",
+              confidencePercent: 92
             }
           ],
-          stats: { brokersChecked: 3, queriesRun: 3, sweepHits: 1, broadSearchHits: 0, searchErrors: 0 },
+          stats: {
+            brokersChecked: 3,
+            queriesRun: 3,
+            sweepHits: 1,
+            broadSearchHits: 0,
+            searchErrors: 0,
+            rawHits: 1,
+            candidatesShown: 1,
+            brokersQueried: ["FastBackgroundCheck"]
+          },
           dailyLimit: 0,
           remainingPreviews: null
         })

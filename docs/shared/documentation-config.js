@@ -148,6 +148,12 @@ export const documentationTree = [
         path: 'user-guide/templates',
         tags: ['presets', 'workflow', 'guide'],
       },
+      {
+        type: 'file',
+        name: 'Broker catalog.md',
+        path: 'user-guide/broker-catalog',
+        tags: ['brokers', 'discovery', 'guide'],
+      },
     ],
   },
   {

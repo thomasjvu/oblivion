@@ -63,11 +63,15 @@ function seedToEntry(seed: BrokerCatalogSeed): BrokerCatalogEntry {
   };
 }
 
-const BROKER_SWEEP_PRIORITY: string[] = [
+export const BROKER_SWEEP_PRIORITY: string[] = [
   "spokeo",
   "beenverified",
   "truepeoplesearch",
   "fastpeoplesearch",
+  "fastbackgroundcheck",
+  "smartbackgroundchecks",
+  "advancedbackgroundchecks",
+  "checkpeople",
   "whitepages",
   "intelius",
   "truthfinder",
@@ -214,24 +218,27 @@ function orderedTier1Brokers(): BrokerCatalogEntry[] {
 
 function brokerSweepQueryVariants(name: string, host: string, region?: string): string[] {
   const slug = name.trim().replace(/\s+/g, "-");
-  const variants = [`${name} site:${host}`, `${slug} site:${host}`];
-  if (region?.trim()) {
-    const regionTrim = region.trim();
-    variants.push(`${name} ${regionTrim} site:${host}`);
-    variants.push(`"${name}" "${regionTrim}" site:${host}`);
-    const commaParts = regionTrim.split(",").map((item) => item.trim()).filter(Boolean);
-    if (commaParts.length >= 2) {
-      const city = commaParts[0];
-      const statePart = commaParts[commaParts.length - 1];
-      variants.push(`${name} ${city} ${statePart} site:${host}`);
-      if (statePart.length === 2) {
-        variants.push(`${name} ${city} ${statePart.toUpperCase()} site:${host}`);
-      }
+  const primary = `${name} site:${host}`;
+  const slugQuery = `${slug} site:${host}`;
+  if (!region?.trim()) {
+    return slug === name ? [primary] : [primary, slugQuery];
+  }
+  const regionTrim = region.trim();
+  const variants = [primary, `${name} ${regionTrim} site:${host}`];
+  if (slug !== name) variants.push(slugQuery);
+  variants.push(`"${name}" "${regionTrim}" site:${host}`);
+  const commaParts = regionTrim.split(",").map((item) => item.trim()).filter(Boolean);
+  if (commaParts.length >= 2) {
+    const city = commaParts[0];
+    const statePart = commaParts[commaParts.length - 1];
+    variants.push(`${name} ${city} ${statePart} site:${host}`);
+    if (statePart.length === 2) {
+      variants.push(`${name} ${city} ${statePart.toUpperCase()} site:${host}`);
     }
-    const stateOnly = regionTrim.split(/\s+/).pop();
-    if (stateOnly && stateOnly.length === 2) {
-      variants.push(`${name} ${stateOnly.toUpperCase()} site:${host}`);
-    }
+  }
+  const stateOnly = regionTrim.split(/\s+/).pop();
+  if (stateOnly && stateOnly.length === 2) {
+    variants.push(`${name} ${stateOnly.toUpperCase()} site:${host}`);
   }
   return [...new Set(variants.map((item) => item.trim()).filter(Boolean))];
 }
@@ -251,16 +258,59 @@ export function buildBrokerSweepQueries(
   const region = scope?.regionLabel?.trim();
   const brokerLimit = options?.limit ?? (options?.preview ? previewBrokerSweepLimit() : brokerSweepLimit());
   const maxQueries = options?.maxQueries ?? brokerSweepQueryCap({ preview: options?.preview });
-  const brokers = orderedTier1Brokers();
+  const brokers = orderedTier1Brokers().slice(0, brokerLimit);
+  const variantLists = brokers.map((entry) =>
+    brokerSweepQueryVariants(name, entry.primaryHost, region).map((query) => ({
+      brokerId: entry.brokerId,
+      host: entry.primaryHost,
+      query
+    }))
+  );
   const queries: Array<{ brokerId: string; host: string; query: string }> = [];
-
-  for (const entry of brokers.slice(0, brokerLimit)) {
-    for (const query of brokerSweepQueryVariants(name, entry.primaryHost, region)) {
-      queries.push({ brokerId: entry.brokerId, host: entry.primaryHost, query });
-      if (queries.length >= maxQueries) return queries;
+  const seen = new Set<string>();
+  let variantIndex = 0;
+  let added = true;
+  while (queries.length < maxQueries && added) {
+    added = false;
+    for (const variants of variantLists) {
+      const item = variants[variantIndex];
+      if (!item) continue;
+      const key = `${item.brokerId}:${item.query}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      queries.push(item);
+      added = true;
+      if (queries.length >= maxQueries) break;
     }
+    variantIndex += 1;
   }
   return queries;
+}
+
+export function brokerSweepPriorityRank(brokerId: string): number | null {
+  const index = BROKER_SWEEP_PRIORITY.indexOf(brokerId);
+  return index >= 0 ? index : null;
+}
+
+export function listBrokerCatalogSummary(): Array<{
+  brokerId: string;
+  brokerLabel: string;
+  primaryHost: string;
+  officialOptOutUrl: string;
+  tier: 1 | 2;
+  teeAutomatable: boolean;
+  sweepPriority: boolean;
+}> {
+  const priority = new Set(BROKER_SWEEP_PRIORITY);
+  return BROKER_CATALOG.map((entry) => ({
+    brokerId: entry.brokerId,
+    brokerLabel: entry.brokerLabel,
+    primaryHost: entry.primaryHost,
+    officialOptOutUrl: entry.officialOptOutUrl,
+    tier: entry.tier,
+    teeAutomatable: entry.teeAutomatable,
+    sweepPriority: priority.has(entry.brokerId)
+  }));
 }
 
 export function dataToDiscloseForBroker(

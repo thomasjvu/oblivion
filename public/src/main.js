@@ -1,8 +1,7 @@
 import { expandNameTerms, maskPrivacyText } from "./privacyFilter.js";
 import {
-  isHackathonMode as isHackathonModeForState,
   refreshCreditsBalance as refreshCreditsBalanceForState,
-  refreshHackathon as refreshHackathonCore
+  refreshCaseContext as refreshCaseContextCore
 } from "./refresh.js";
 import {
   refreshCases as refreshCasesFlow,
@@ -74,8 +73,7 @@ const state = {
   aiEntitlement: null,
   contactEmail: "",
   operatorEmailRelay: true,
-  hackathon: null,
-  hackathonStatus: null,
+  agentContext: null,
   integrationsStatus: null,
   pendingRelayBundle: null,
   x402Config: null,
@@ -189,7 +187,7 @@ const modDeps = {
   refreshTrust: null,
   syncCurrentCaseStatus: null,
   refreshAgentPlan: null,
-  refreshHackathon: null,
+  refreshCaseContext: null,
   personLabelFromIntake: null,
   assertCaseActivatedClient: null,
   caseDeleteLabel: null,
@@ -259,7 +257,7 @@ const caseActionsDeps = {
   renderVaultPanel: () => modDeps.renderVaultPanel?.(),
   focusIntake: () => modDeps.focusIntake?.(),
   casesDeps: null,
-  refreshHackathon: (options) => refreshHackathon(options)
+  refreshCaseContext: (options) => refreshCaseContext(options)
 };
 const actions = bindCaseActions(caseActionsDeps);
 Object.assign(modDeps, actions);
@@ -306,7 +304,7 @@ const onboardingFlowDeps = {
   casesDeps: null,
   agentDeps: null,
   refreshAgentPlan: (options) => actions.refreshAgentPlan(options),
-  refreshHackathon: (options) => refreshHackathon(options)
+  refreshCaseContext: (options) => refreshCaseContext(options)
 };
 const onboarding = bindOnboardingFlow(onboardingFlowDeps);
 Object.assign(modDeps, onboarding);
@@ -400,8 +398,7 @@ const {
   syncPaymentPlanFromForm,
   renderPayments,
   renderSubscriptionUpsell,
-  renderVaultPanel,
-  hackathonPendingTracks
+  renderVaultPanel
 } = panels;
 
 const {
@@ -532,15 +529,15 @@ modDeps.startSimpleCleanup = startSimpleCleanup;
 modDeps.refreshTrust = refreshTrust;
 modDeps.syncCurrentCaseStatus = syncCurrentCaseStatus;
 modDeps.refreshAgentPlan = refreshAgentPlan;
-modDeps.refreshHackathon = refreshHackathon;
+modDeps.refreshCaseContext = refreshCaseContext;
 modDeps.focusIntake = focusIntake;
 
 async function refreshCreditsBalance() {
   return refreshCreditsBalanceForState(state, request);
 }
 
-async function refreshHackathon(options = {}) {
-  return refreshHackathonCore(state, request, {
+async function refreshCaseContext(options = {}) {
+  return refreshCaseContextCore(state, request, {
     ...options,
     onWrite: options.silent ? undefined : write
   });
@@ -558,10 +555,8 @@ const walletDeps = {
   toggleWalletModal,
   openWalletHub,
   addChat,
-  refreshHackathon,
+  refreshCaseContext,
   refreshCreditsBalance,
-  hackathonPendingTracks,
-  isHackathonMode: isHackathonModeForState,
   paymentErrorMessage,
   hasActiveCase,
   syncWalletCases: (s) => syncWalletCasesFlow(s, casesDeps)
@@ -572,7 +567,7 @@ const paymentDeps = {
   $,
   addChat,
   write,
-  refreshHackathon,
+  refreshCaseContext,
   renderPayments,
   renderSubscriptionUpsell,
   openPaymentRails,
@@ -589,7 +584,7 @@ const casesDeps = {
   render,
   write,
   refreshAgentPlan,
-  refreshHackathon,
+  refreshCaseContext,
   resetPreSearchUi,
   updateSessionHandoffWarning,
   connectWallet: (options) => connectWalletFlow(state, options, walletDeps),
@@ -618,7 +613,7 @@ const agentDeps = {
   render,
   write,
   addChat,
-  refreshHackathon,
+  refreshCaseContext,
   refreshAgentPlan,
   syncCurrentCaseStatus,
   connectWallet: (options) => connectWalletFlow(state, options, walletDeps),
@@ -700,7 +695,7 @@ wireUi({
   syncAppRoute,
   refreshPresets,
   refreshIntegrationsStatus: modDeps.refreshIntegrationsStatus,
-  refreshHackathon,
+  refreshCaseContext,
   openPaymentRails,
   setupLandingSkillInstall,
   setupLandingLocationCombobox,
@@ -717,5 +712,5 @@ await bootstrapApp({
   refreshIntegrationsStatus: modDeps.refreshIntegrationsStatus,
   refreshCasesFlow,
   casesDeps,
-  refreshHackathon
+  refreshCaseContext
 });

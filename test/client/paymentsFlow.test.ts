@@ -10,7 +10,7 @@ test("caseIsActivated trusts server currentStatus.activated only", () => {
   assert.equal(
     caseIsActivated({
       currentStatus: { activated: false },
-      hackathon: { payments: [{ mode: "one-off", status: "paid" }] },
+      agentContext: { payments: [{ mode: "one-off", status: "paid" }] },
       selectedPaymentMode: "one-off"
     }),
     false

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { meterVeniceChat } from "../../../handlers/veniceMeter.js";
-import { createAgentDelegationSet, pendingHackathonTracks } from "../../../../domain/hackathon.js";
-import { buildAgentNextStep, buildHackathonStatusForCase } from "../../../../domain/status.js";
+import { createAgentDelegationSet } from "../../../../domain/agentDelegations.js";
+import { buildAgentNextStep } from "../../../../domain/status.js";
 import { redactText } from "../../../../domain/redaction.js";
 import { getCaseWithAccess } from "../../../auth.js";
 import { HttpError } from "../../../errors.js";
@@ -88,21 +88,6 @@ export async function handleIntegrationAgentRoutes(
       timeline: store.agentTimelineForCase(caseId)
     });
     return true;
-  }
-
-  if (process.env.HACKATHON_MODE === "true") {
-    if (method === "GET" && url.pathname === "/api/hackathon/status") {
-      const caseId = url.searchParams.get("caseId");
-      if (!caseId) throw new HttpError(422, "case-id-required");
-      getCaseWithAccess(request, store, caseId);
-      const walletAddress = url.searchParams.get("walletAddress") ?? undefined;
-      const status = buildHackathonStatusForCase(store, caseId, walletAddress);
-      sendJson(response, 200, {
-        status,
-        pending: pendingHackathonTracks(status)
-      });
-      return true;
-    }
   }
 
   return false;

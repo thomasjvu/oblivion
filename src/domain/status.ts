@@ -1,5 +1,4 @@
 import { buildAgentPlanView } from "./cleanup.js";
-import { buildHackathonStatus } from "./hackathon.js";
 import { caseActivationView } from "./caseActivation.js";
 import type { ActionRequest, AgentPlanStep, Approval, CaseRecord, CaseStatus, Exposure, FollowUp } from "./types.js";
 import type { MemoryStore } from "../storage/memoryStore.js";
@@ -40,19 +39,6 @@ export function buildStatus(store: MemoryStore, caseId: string) {
     approvals: store.approvalsForCase(caseId),
     actions: store.actionsForCase(caseId),
     followUps: store.followUpsForCase(caseId)
-  });
-}
-
-export function buildHackathonStatusForCase(store: MemoryStore, caseId: string, walletAddress?: string) {
-  return buildHackathonStatus({
-    caseId,
-    permissions: store.permissionGrantsForCase(caseId),
-    payments: store.paymentSessionsForCase(caseId),
-    veniceAnalyses: store.veniceAnalysesForCase(caseId),
-    delegations: store.agentDelegationsForCase(caseId),
-    relayerEvents: store.relayerEventsForCase(caseId),
-    walletAddress,
-    store
   });
 }
 

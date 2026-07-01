@@ -6,7 +6,7 @@ export function paymentPlanLabel(mode) {
 }
 
 export function hasEntitledPayment(state, mode) {
-  const sessions = state.hackathon?.payments || [];
+  const sessions = state.agentContext?.payments || [];
   return sessions.some((session) => session.mode === mode && session.status === "paid");
 }
 
@@ -41,7 +41,7 @@ export async function settlePaymentForMode(state, mode, options, deps) {
   }
   state.paymentRailsNotice = "";
   if (!state.currentCaseId) throw { error: "case-required", message: "Create or select a case." };
-  const sessions = state.hackathon?.payments || [];
+  const sessions = state.agentContext?.payments || [];
   const session = sessions.find((item) => item.productId === (mode === "subscription" ? "credit-monitor" : "credit-starter"));
   if (!session) throw { error: "payment-session-missing", message: "Prepare payment first." };
   if (session.status === "paid") return { settled: true, alreadyPaid: true, session };
@@ -61,7 +61,7 @@ export async function settlePaymentForMode(state, mode, options, deps) {
     },
     x402Config: state.x402Config
   });
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   return result;
 }
 
@@ -85,7 +85,7 @@ export async function preparePayment(state, mode, options, deps) {
       smartAccountAddress: state.smartAccountAddress
     }
   });
-  await deps.refreshHackathon({ silent: true, scope: "agent" });
+  await deps.refreshCaseContext({ silent: true, scope: "agent" });
   let settlement = null;
   if (!options.skipSettle && isLiveX402Ready(state.integrationsStatus)) {
     try {
@@ -134,7 +134,7 @@ export async function ensureCasePayment(state, options, deps) {
     }
     await connectWallet(state, { openHub: false }, deps.walletDeps);
   }
-  await deps.refreshHackathon({ silent: true, scope: "all" }).catch(() => {});
+  await deps.refreshCaseContext({ silent: true, scope: "all" }).catch(() => {});
   if (hasEntitledPayment(state, mode)) {
     if (statusEl) {
       deps.setInlineStatus(statusEl, `${paymentPlanLabel(mode)} is active for this case.`, {
@@ -160,7 +160,7 @@ export async function ensureCasePayment(state, options, deps) {
     );
   }
   await preparePayment(state, mode, { quiet: true, skipSettle: false, statusEl }, deps);
-  await deps.refreshHackathon({ silent: true, scope: "products" }).catch(() => {});
+  await deps.refreshCaseContext({ silent: true, scope: "products" }).catch(() => {});
   if (statusEl) {
     deps.setInlineStatus(
       statusEl,

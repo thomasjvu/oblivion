@@ -85,7 +85,7 @@ export function wireUi(deps) {
     syncAppRoute,
     refreshPresets,
     refreshIntegrationsStatus,
-    refreshHackathon
+    refreshCaseContext
   } = deps;
 
   function setupDelegates() {
@@ -396,6 +396,7 @@ export function wireUi(deps) {
   });
   document.querySelectorAll(".tab").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.disabled || button.getAttribute("aria-disabled") === "true") return;
       state.tab = button.dataset.tab;
       render();
     });
@@ -415,7 +416,7 @@ export function wireUi(deps) {
 }
 
 export async function bootstrapApp(deps) {
-  const { state, write, render, syncAppRoute, refreshPresets, refreshTrust, refreshIntegrationsStatus, refreshCasesFlow: refreshCases, casesDeps, refreshHackathon } = deps;
+  const { state, write, render, syncAppRoute, refreshPresets, refreshTrust, refreshIntegrationsStatus, refreshCasesFlow: refreshCases, casesDeps, refreshCaseContext } = deps;
 
   syncAppRoute();
   await loadApiConfig().catch(() => null);
@@ -424,7 +425,7 @@ export async function bootstrapApp(deps) {
   await refreshWalletConfigFlow().catch(write);
   await refreshIntegrationsStatus().catch(write);
   await refreshCases(state, casesDeps).catch(write);
-  await refreshHackathon({ silent: true }).catch(write);
+  await refreshCaseContext({ silent: true }).catch(write);
   applyTheme(state.themeId);
   render();
 }

@@ -209,6 +209,11 @@
                   <p class="muted small pre-search-status" id="pre-search-status"></p>
                   <ul class="pre-search-results" id="pre-search-results"></ul>
                 </section>
+                <label class="simple-field simple-field-optional" id="onboarding-paste-urls-field">
+                  <span>Profile links you already have <em class="muted">(optional)</em></span>
+                  <textarea id="simple-urls" data-testid="simple-urls" rows="2" placeholder="Paste one broker URL per line — e.g. fastbackgroundcheck.com/people/your-name/id/…"></textarea>
+                  <span class="muted small" id="onboarding-paste-urls-hint">Know a listing URL? Paste it here and we will include it in cleanup.</span>
+                </label>
               </div>
                 <div class="onboarding-intake-full" id="onboarding-intake-full" hidden>
                 <label class="simple-field">
@@ -223,10 +228,6 @@
                 <button type="button" class="preset-chip" data-preset-id="high-risk-safety" data-testid="preset-safety">Safety</button>
                 <button type="button" class="preset-chip" data-preset-id="content-takedown" data-testid="preset-takedown">Takedown</button>
               </div>
-              <label class="simple-field simple-field-optional">
-                <span>Profile links you already have <em class="muted">(optional)</em></span>
-                <textarea id="simple-urls" data-testid="simple-urls" rows="2" placeholder="Paste one broker URL per line"></textarea>
-              </label>
               <label class="simple-field simple-field-optional">
                 <span>Contact email for broker replies <em class="muted">(optional)</em></span>
                 <input id="contact-email" data-testid="contact-email" type="email" autocomplete="email" placeholder="you@example.com" />

@@ -42,6 +42,18 @@ test("preview broker sweep uses priority hosts and preview query cap", () => {
   assert.equal(queries[0].brokerId, "spokeo");
 });
 
+test("preview broker sweep round-robins across brokers and includes fastbackgroundcheck", () => {
+  const queries = buildBrokerSweepQueries(
+    { personLabel: "Thomas Vu", regionLabel: "San Francisco, CA" },
+    { preview: true }
+  );
+  const brokerIds = [...new Set(queries.map((item) => item.brokerId))];
+  assert.ok(brokerIds.includes("fastbackgroundcheck"));
+  assert.ok(brokerIds.length >= previewBrokerSweepLimit());
+  const firstPass = queries.slice(0, brokerIds.length).map((item) => item.brokerId);
+  assert.equal(new Set(firstPass).size, firstPass.length);
+});
+
 test("broker sweep query cap defaults to 24 for full discover", () => {
   const previous = process.env.BROKER_SWEEP_QUERY_CAP;
   delete process.env.BROKER_SWEEP_QUERY_CAP;

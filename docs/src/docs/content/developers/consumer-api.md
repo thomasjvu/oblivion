@@ -54,6 +54,7 @@ The Oblivion browser app attaches the header automatically when a token exists f
 
 - `POST /api/cases` — create
 - `POST /api/discovery/preview` — limited broker preview (rate-limited by IP/wallet; no case created)
+- `GET /api/brokers` — read-only people-search broker catalog (hosts, opt-out URLs, sweep priority)
 - `GET /api/presets`, `GET /api/health`, `GET /api/config`
 - `GET /api/trust/*`, `GET /api/integrations/*`
 - Wallet / x402 catalog endpoints that do not target a specific case

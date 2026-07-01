@@ -67,7 +67,7 @@ By default, connectors run in **record-only** mode: the agent logs what *would* 
 
 ### Do I need a wallet to use Oblivion?
 
-**Free preview:** The landing page can run a limited broker preview (no wallet, no case token) — a few site-scoped checks per day.
+**Free preview:** The landing page can run a limited broker preview (no wallet, no case token) — a few site-scoped checks per day. Enter **city and state** for stronger matches, paste known profile URLs, and see the [broker catalog](/docs/user-guide/broker-catalog) for all supported sites.
 
 **Full cleanup** requires a connected wallet, **per-case activation** (Starter pack or Monitor subscription), and wallet credits for metered steps:
 

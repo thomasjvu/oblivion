@@ -36,7 +36,7 @@ Your browser stores a private **case access token** when a case is created. It i
 
 Connect wallet to pay; keep the case token (or a **recovery kit** export) to reopen the case on another browser. After wallet connect, linked cases appear in the sidebar — you still need the token from your kit to access them.
 
-**Free preview:** On the landing page, enter your name for a limited broker check (no wallet). **Start full cleanup** creates a case, requires wallet + activation, and runs Venice-scored discovery.
+**Free preview:** On the landing page, enter your name and **city + state** for a limited broker check (no wallet). Paste known profile URLs if you have them. **Start full cleanup** creates a case, requires wallet + activation, and runs Venice-scored discovery. See the full [broker catalog](/docs/user-guide/broker-catalog) (70+ sites).
 
 ## Review
 

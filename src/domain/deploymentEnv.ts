@@ -68,8 +68,7 @@ export function assertProductionSafety(): void {
   if (deploymentEnvironment() !== "production") return;
   const bypassFlags = [
     process.env.OBLIVION_CREDITS_BYPASS === "true" ? "OBLIVION_CREDITS_BYPASS" : null,
-    process.env.OBLIVION_AI_BYPASS_PAYMENT === "true" ? "OBLIVION_AI_BYPASS_PAYMENT" : null,
-    process.env.HACKATHON_MODE === "true" ? "HACKATHON_MODE" : null
+    process.env.OBLIVION_AI_BYPASS_PAYMENT === "true" ? "OBLIVION_AI_BYPASS_PAYMENT" : null
   ].filter(Boolean);
   if (bypassFlags.length > 0) {
     throw new Error(
