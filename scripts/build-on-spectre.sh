@@ -60,7 +60,16 @@ IMAGE="$2"
 TAG="$3"
 PUSH="$4"
 cd ~/"$DIR"
-docker build --network=host -t "$IMAGE:$TAG" -t "$IMAGE:local" .
+DOCKERFILE=Dockerfile
+# Spectre often cannot reach registry-1.docker.io on public WiFi even when the
+# seeded node:22-bookworm-slim image is present locally. Unpin the base image
+# for the remote build so Docker uses the cached seed instead of re-resolving.
+if docker image inspect node:22-bookworm-slim >/dev/null 2>&1; then
+  sed 's|node:22-bookworm-slim@sha256:32b9e321f262db540d55ac10dc529667cf4737546e097cdd36a843c62bcbf423|node:22-bookworm-slim|g' \
+    Dockerfile > Dockerfile.spectre
+  DOCKERFILE=Dockerfile.spectre
+fi
+docker build --network=host -f "$DOCKERFILE" -t "$IMAGE:$TAG" -t "$IMAGE:local" .
 echo "Built $IMAGE:$TAG on $(hostname)"
 if [[ "$PUSH" == "1" ]]; then
   docker push "$IMAGE:$TAG"
