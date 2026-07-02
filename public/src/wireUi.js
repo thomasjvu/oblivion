@@ -38,7 +38,6 @@ export function wireUi(deps) {
     startSimpleCleanup,
     runOnboardingPreview,
     selectPresetId,
-    applyAgentIntakeTemplate,
     applyAdvancedUiVisibility,
     openNewCaseFlow,
     backToLanding,
@@ -229,12 +228,7 @@ export function wireUi(deps) {
       render(PANELS.presets);
     });
   });
-  document.addEventListener("click", (event) => {
-    const starter = event.target.closest("[data-agent-preset]");
-    if (!starter) return;
-    event.preventDefault();
-    applyAgentIntakeTemplate(starter.dataset.agentPreset);
-  });
+
   $("#show-advanced-ui")?.addEventListener("change", (event) => {
     state.showAdvancedUI = event.target.checked;
     applyAdvancedUiVisibility();

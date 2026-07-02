@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Oblivion</title>
-    <link rel="icon" type="image/webp" sizes="48x48" href="/assets/brand/oblivion-agent-icon.webp" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/webp" sizes="48x48" href="/assets/brand/oblivion-agent-icon.webp" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
     <link rel="manifest" href="/favicon/site.webmanifest" />
@@ -647,7 +647,7 @@
             </div>
 
             <footer class="agent-chat-footer">
-              <div class="agent-suggestion-strip" id="agent-suggestion-strip" data-testid="agent-suggestion-strip" aria-label="Quick phrases"></div>
+              <div class="agent-suggestion-strip agent-preset-starters" id="agent-suggestion-strip" data-testid="agent-suggestion-strip" aria-label="Quick phrases"></div>
               <div id="agent-live" aria-live="polite" class="visually-hidden"></div>
               <details class="agent-more advanced-only">
                 <summary>More controls</summary>
@@ -660,10 +660,6 @@
                 <div class="agent-suggestions" id="agent-suggestions"></div>
               </details>
               <button type="button" class="visually-hidden" id="agent-do-next" data-testid="agent-do-next" tabindex="-1" aria-hidden="true"><span class="btn-label">Next</span></button>
-              <div class="agent-template-panel" id="agent-template-panel">
-                <p class="agent-template-label muted small">Templates</p>
-                <div class="agent-preset-starters" id="agent-preset-starters" role="group" aria-label="Cleanup templates"></div>
-              </div>
               <div class="composer agent-composer">
                 <input id="agent-input" placeholder="Message the agent…" aria-label="Agent message" />
                 <button id="agent-send" class="icon-only" data-icon="arrow-right" aria-label="Send" disabled><span class="btn-label">Send</span></button>

@@ -4450,23 +4450,6 @@ a[data-icon] {
   flex-shrink: 0;
 }
 
-.agent-template-panel {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px 8px;
-  align-items: center;
-  flex-shrink: 0;
-  margin-bottom: 0;
-}
-
-.agent-template-label {
-  margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 .agent-preset-starters {
   display: flex;
   flex-wrap: nowrap;
@@ -5465,34 +5448,9 @@ pre {
 .guide-rail-hint { margin: 0; font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
 .guide-rail-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .agent-suggestion-strip {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0 0 4px;
+  flex-shrink: 0;
   margin: 0;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-}
-
-.agent-suggestion-chip {
-  flex: 0 0 auto;
-  background: transparent;
-  color: var(--gb-2);
-  border: 1px solid var(--gb-1);
-  font-size: 0.76rem;
-  padding: 3px 8px;
-  min-height: 24px;
-  box-shadow: none;
-  white-space: nowrap;
-}
-
-.agent-suggestion-chip:hover,
-.agent-suggestion-chip:focus-visible {
-  color: var(--gb-3);
-  border-color: var(--gb-2);
-  background: var(--gb-1);
+  padding-bottom: 4px;
 }
 
 .workspace-shell.simple-mode .case-command-bar {

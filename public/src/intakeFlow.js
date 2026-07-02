@@ -115,9 +115,7 @@ export function bindIntakeFlow(deps) {
     document.querySelectorAll(".preset-chip").forEach((chip) => {
       chip.classList.toggle("active", chip.dataset.presetId === state.selectedPresetId);
     });
-    document.querySelectorAll("[data-agent-preset]").forEach((starter) => {
-      starter.classList.toggle("active", starter.dataset.agentPreset === state.selectedPresetId);
-    });
+
     const defaults = SIMPLE_PRESET_DEFAULTS[state.selectedPresetId] || SIMPLE_PRESET_DEFAULTS["people-search-cleanup"];
     const jurisdiction = $("#jurisdiction");
     const risk = $("#risk-level");

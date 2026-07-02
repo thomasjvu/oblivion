@@ -42,7 +42,6 @@ export function bindPanelRenderers(deps) {
     shortenUrl,
     isOnboardingWithoutCase,
     onboardingChatTranscript,
-    AGENT_INTAKE_TEMPLATES,
     onboardingPresetId,
     selectPresetId,
     isLiveExecutorMode,
@@ -501,7 +500,7 @@ export function bindPanelRenderers(deps) {
       return { state: "Wallet", message: "Optional: connect wallet at the bottom of the sidebar.", actions: [] };
     }
     if (!plan) {
-      return { state: "Setup", message: "Tap Next to run your template.", actions: ["run"] };
+      return { state: "Setup", message: "Tap Next to continue.", actions: ["run"] };
     }
     if (approvals.length > 0) {
       return {
@@ -553,25 +552,6 @@ export function bindPanelRenderers(deps) {
     };
   }
   
-  function renderAgentPresetStarters() {
-    const panel = $("#agent-template-panel");
-    const container = $("#agent-preset-starters");
-    if (!panel || !container) return;
-    const show = state.appOpen && !(isOnboardingWithoutCase() && !state.onboardingPreviewReady);
-    panel.hidden = !show;
-    if (!show) {
-      container.innerHTML = "";
-      return;
-    }
-    container.innerHTML = Object.entries(AGENT_INTAKE_TEMPLATES)
-      .map(([presetId, template]) => {
-        const title = presentPreset({ id: presetId }).title;
-        const active = presetId === state.selectedPresetId;
-        return `<button type="button" class="agent-preset-starter${active ? " active" : ""}" data-agent-preset="${presetId}" data-testid="agent-preset-${presetId}">${escapeHtml(title)}</button>`;
-      })
-      .join("");
-  }
-  
   function renderAgentChat() {
     const next = state.agentNext;
     const prompt = agentPromptForState();
@@ -584,24 +564,17 @@ export function bindPanelRenderers(deps) {
           ? "Searching people-search brokers for your name…"
           : "Enter your name and city, then check listings."
         : state.appOpen && !currentCase()
-          ? "Pick a template below — it fills the chat and the main form."
+          ? "Enter your name and city, then tap Start cleanup."
           : prompt.message;
     }
     const live = $("#agent-live");
     if (live) live.textContent = `${prompt.state}. ${prompt.message}`;
   
-    renderAgentPresetStarters();
-  
     const log = $("#agent-chat-messages");
     const logShell = $("#agent-chat-log");
     if (log) {
       const transcript = onboardingChatTranscript();
-      if (state.appOpen && !currentCase() && state.onboardingPreviewReady && transcript.length <= 2) {
-        transcript.push({
-          role: "agent",
-          text: "Tap a template chip above to load a starter request, or type your own message below."
-        });
-      } else if (currentCase() && next) {
+      if (currentCase() && next) {
         transcript.push({
           role: "agent",
           text: `${shortStepTitle(next.title)} · ${next.message || "standing by"}`
@@ -638,10 +611,10 @@ export function bindPanelRenderers(deps) {
       phrases.push("Help me start");
     }
   
-    [...new Set(phrases)].slice(0, 5).forEach((phrase) => {
+    [...new Set(phrases)].slice(0, 5).forEach((phrase, index) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "agent-suggestion-chip";
+      btn.className = `agent-preset-starter${index === 0 ? " active" : ""}`;
       btn.textContent = phrase;
       btn.addEventListener("click", () => fillAgentInput(phrase));
       container.appendChild(btn);
