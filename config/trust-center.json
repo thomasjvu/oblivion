@@ -1,12 +1,12 @@
 {
   "deploymentVersion": "0.1.0",
-  "sourceCommit": "eab7f29",
-  "expectedComposeHash": "a4a740273669425bd2276f859df99ba1600669bfa8362a1684b4a49942da87f0",
+  "sourceCommit": "cd4ca17",
+  "expectedComposeHash": "176ec4247e6a4c40622acf89cc147971d98474ae07e7a0d10570f7c39f227bcb",
   "attestationReportUrl": null,
   "phalaVerifierEndpoint": "https://cloud-api.phala.com/api/v1/attestations/verify",
   "maxAttestationAgeSeconds": 600,
   "imageDigests": [
-    "ghcr.io/thomasjvu/oblivion@sha256:93dc30359e93fb12573797a1e21f9814f387673bdfc1c04a02d237777a8fdc82"
+    "ghcr.io/thomasjvu/oblivion@sha256:9cbd4eda2ce096e7f97477a811e64a01a9e226a80c00999a148a803d3beb38f1"
   ],
   "attestationReport": {
     "status": "not-configured",
